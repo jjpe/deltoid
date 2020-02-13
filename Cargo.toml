@@ -1,0 +1,5 @@
+[workspace]
+members = [
+    "./struct-delta-derive/",
+    "./struct-delta-trait/", 
+]
