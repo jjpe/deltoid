@@ -1,8 +1,7 @@
 //!
 #![allow(non_snake_case)]
 
-use struct_delta_trait::{Delta, DeltaError, DeltaResult};
-use serde_json::{json, Value as JsonValue};
+use struct_delta_trait::{Delta, DeltaResult};
 
 
 #[derive(Debug, PartialEq, struct_delta_derive::Delta)]
