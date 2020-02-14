@@ -106,6 +106,25 @@ macro_rules! ensure {
     };
 }
 
+#[macro_export]
+macro_rules! bug_detected {
+    ($($fmt:expr $(, $args:expr)*)?) => {
+        Err($crate::error::DeltaError::BugDetected {
+
+            msg: { #[allow(redundant_semicolon)] {
+                #[allow(unused)] let mut msg = String::new();
+                $(  msg = format!($fmt $(, $args)*);  )? ;
+                msg
+            }},
+            file: file!(),
+            line: line!(),
+            column: column!(),
+        })
+    };
+}
+
+
+
 pub type DeltaResult<T> = Result<T, DeltaError>;
 
 #[derive(Clone, Debug)]
@@ -113,6 +132,12 @@ pub enum DeltaError {
     ExpectedValue,
     FailedToEnsure {
         predicate: &'static str,
+        msg: String,
+        file: &'static str,
+        line: u32,
+        column: u32
+    },
+    BugDetected {
         msg: String,
         file: &'static str,
         line: u32,
