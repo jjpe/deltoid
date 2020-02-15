@@ -28,7 +28,7 @@ pub trait DeltaOps: Sized + PartialEq {
 
 
 #[derive(Clone, Debug, PartialEq, Hash)]
-pub enum Change<T: DeltaOps> {
+pub enum Delta<T: DeltaOps> {
     /// Edit a value
     ScalarEdit(T),
     /// Edit a value at a given `index`.
@@ -95,21 +95,21 @@ where T: Clone + PartialEq + DeltaOps {
     // TODO This impl is actually more suited to a `Stack`-like type in terms
     // of efficiency. However, in terms of soundness it should work fine.
 
-    type Delta = Vec<Change<T>>;
+    type Delta = Vec<Delta<T>>;
 
     fn apply_delta(&self, delta: &Self::Delta) -> DeltaResult<Self> {
         let mut new: Self = self.clone();
         for change in delta.iter() { match change {
-            Change::ScalarEdit(_) => return bug_detected!()?,
-            Change::IndexedEdit { index, item } => {
+            Delta::ScalarEdit(_) => return bug_detected!()?,
+            Delta::IndexedEdit { index, item } => {
                 ensure_lt![*index, self.len()]?;
                 new[*index] = item.clone();
                 // TODO: Use deltas on the items themselves, as well
             },
-            Change::Remove { count } =>  for _ in 0 .. *count {
+            Delta::Remove { count } =>  for _ in 0 .. *count {
                 new.pop().ok_or(DeltaError::ExpectedValue)?;
             },
-            Change::Add(value) =>  new.push(value.clone()),
+            Delta::Add(value) =>  new.push(value.clone()),
         }}
         Ok(new)
     }
@@ -117,17 +117,17 @@ where T: Clone + PartialEq + DeltaOps {
     fn delta(&self, rhs: &Self) -> DeltaResult<Self::Delta> {
         let (lhs_len, rhs_len) = (self.len(), rhs.len());
         let max_len = usize::max(lhs_len, rhs_len);
-        let mut changes: Vec<Change<T>> = vec![];
+        let mut changes: Vec<Delta<T>> = vec![];
         for index in 0 .. max_len { match (self.get(index), rhs.get(index)) {
-            (None, Some(rhs)) => changes.push(Change::Add(rhs.clone())),
+            (None, Some(rhs)) => changes.push(Delta::Add(rhs.clone())),
             (Some(_), None) => match changes.last_mut() {
-                Some(Change::Remove { ref mut count }) =>  *count += 1,
-                _ =>  changes.push(Change::Remove { count: 1 }),
+                Some(Delta::Remove { ref mut count }) =>  *count += 1,
+                _ =>  changes.push(Delta::Remove { count: 1 }),
             },
             (Some(lhs), Some(rhs)) if lhs == rhs => {/* only record changes */},
             (Some(_), Some(rhs)) => {
                 // TODO: Use deltas on the items themselves, as well
-                changes.push(Change::IndexedEdit { index, item: rhs.clone() });
+                changes.push(Delta::IndexedEdit { index, item: rhs.clone() });
             },
             _ => return bug_detected!(),
         }}
@@ -259,9 +259,9 @@ mod tests {
         let delta0 = v0.delta(&v1)?;
         println!("delta0: {:#?}", delta0);
         assert_eq!(delta0, vec![
-            Change::IndexedEdit { index: 3, item:  49, },
-            Change::Add(30),
-            Change::Add(500),
+            Delta::IndexedEdit { index: 3, item:  49, },
+            Delta::Add(30),
+            Delta::Add(500),
         ]);
         let v2 = v0.apply_delta(&delta0)?;
         println!("v2: {:#?}", v2);
@@ -270,8 +270,8 @@ mod tests {
         let delta1 = v1.delta(&v0)?;
         println!("delta1: {:#?}", delta1);
         assert_eq!(delta1, vec![
-            Change::IndexedEdit { index: 3, item: 30, },
-            Change::Remove  { count: 2, },
+            Delta::IndexedEdit { index: 3, item: 30, },
+            Delta::Remove  { count: 2, },
         ]);
         let v3 = v1.apply_delta(&delta1)?;
         println!("v3: {:#?}", v3);
@@ -282,9 +282,9 @@ mod tests {
         let delta0 = v0.delta(&v1)?;
         println!("delta0: {:#?}", delta0);
         assert_eq!(delta0, vec![
-            Change::IndexedEdit { index: 3, item:  30, },
-            Change::IndexedEdit { index: 4, item: 500, },
-            Change::IndexedEdit { index: 5, item:  49, },
+            Delta::IndexedEdit { index: 3, item:  30, },
+            Delta::IndexedEdit { index: 4, item: 500, },
+            Delta::IndexedEdit { index: 5, item:  49, },
         ]);
         let v2 = v0.apply_delta(&delta0)?;
         println!("v2: {:#?}", v2);
@@ -297,8 +297,8 @@ mod tests {
     fn apply_delta_to_vec() -> DeltaResult<()> {
         let v0 = vec![1,3,10,30, 30];
         let delta = vec![
-            Change::IndexedEdit { index: 3, item:  49, },
-            Change::Add(500),
+            Delta::IndexedEdit { index: 3, item:  49, },
+            Delta::Add(500),
         ];
         let v1 = v0.apply_delta(&delta)?;
         let expected = vec![1,3,10,49, 30, 500];
