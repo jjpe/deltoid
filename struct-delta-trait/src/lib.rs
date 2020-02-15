@@ -4,7 +4,9 @@ mod error;
 
 pub use crate::error::{DeltaError, DeltaResult};
 
-pub trait Delta where Self: Sized {
+
+/// Definitions for delta operations.
+pub trait DeltaOps: Sized + PartialEq {
     type Delta;
 
     /// Calculate a new instance of `Self` based on `self` and
@@ -16,16 +18,37 @@ pub trait Delta where Self: Sized {
     ///                    ^^^^^
     fn delta(&self, other: &Self) -> DeltaResult<Self::Delta>;
 
-    /// Calculate `self <--[delta]-- other`.
+    /// Calculate `other --[delta]--> self`.
+    ///                     ^^^^^
     fn inverse_delta(&self, other: &Self) -> DeltaResult<Self::Delta> {
         other.delta(self)
     }
 }
 
+
+#[derive(Clone, Debug, PartialEq, Hash)]
+pub enum Change<T: DeltaOps> {
+    /// Edit a value
+    ScalarEdit(T),
+    /// Edit a value at a given `index`.
+    IndexedEdit {
+        /// The location of the edit
+        index: usize,
+        /// The new value of the item
+        item: T,
+    },
+    /// Remove `count` elements from the end of the Vec.
+    Remove { count: usize },
+    /// Add a value.
+    Add(T),
+}
+
+
+
 macro_rules! impl_delta_trait_for_primitive_types {
     ( $($type:ty),* $(,)? ) => {
         $(
-            impl Delta for $type {
+            impl DeltaOps for $type {
                 type Delta = Self;
 
                 fn apply_delta(&self, delta: &Self::Delta) -> DeltaResult<Self> {
@@ -40,18 +63,20 @@ macro_rules! impl_delta_trait_for_primitive_types {
     };
 }
 
+
 impl_delta_trait_for_primitive_types! {
     i8, i16, i32, i64, i128, isize,
     u8, u16, u32, u64, u128, usize,
     f32, f64, bool, char, (),
-    // TODO: - array (i.e. [T, N])
-    //       - slice (i.e. &[T]) (can a Delta even be applied to
-    //                          a value of this non-owned type?)
-    //       - &str  (can a Delta even be applied to
-    //              a value of this non-owned type?)
+    // TODO:
+    // Can a delta be applied to a value of:
+    //   + an array type i.e. [T, N]?
+    //   + a slice type  i.e. &[T]  and  &str?
+    //   + a shared-ownership type e.g. Rc and Arc?
 }
 
-impl Delta for String {
+
+impl DeltaOps for String {
     type Delta = Self;
 
     fn apply_delta(&self, delta: &Self::Delta) -> DeltaResult<Self> {
@@ -63,23 +88,59 @@ impl Delta for String {
     }
 }
 
-impl<T> Delta for Vec<T>
-where T: Clone {
-    type Delta = Self;
+
+impl<T> DeltaOps for Vec<T>
+where T: Clone + PartialEq + DeltaOps {
+    // TODO This impl is actually more suited to a `Stack`-like type in terms
+    // of efficiency. However, in terms of soundness it should work fine.
+
+    type Delta = Vec<Change<T>>;
 
     fn apply_delta(&self, delta: &Self::Delta) -> DeltaResult<Self> {
-        Ok((*delta).clone()) // TODO: improve space efficiency
+        let mut new: Self = self.clone();
+        for change in delta.iter() { match change {
+            Change::ScalarEdit(_) => return bug_detected!()?,
+            Change::IndexedEdit { index, item } => {
+                ensure_lt![*index, self.len()]?;
+                new[*index] = item.clone();
+                // TODO: Use deltas on the items themselves, as well
+            },
+            Change::Remove { count } =>  for _ in 0 .. *count {
+                new.pop().ok_or(DeltaError::ExpectedValue)?;
+            },
+            Change::Add(value) =>  new.push(value.clone()),
+        }}
+        Ok(new)
     }
 
     fn delta(&self, rhs: &Self) -> DeltaResult<Self::Delta> {
-        Ok(rhs.clone()) // TODO: improve space efficiency
+        let (lhs_len, rhs_len) = (self.len(), rhs.len());
+        let max_len = usize::max(lhs_len, rhs_len);
+        let mut changes: Vec<Change<T>> = vec![];
+        for index in 0 .. max_len { match (self.get(index), rhs.get(index)) {
+            (None, Some(rhs)) => changes.push(Change::Add(rhs.clone())),
+            (Some(_), None) => match changes.last_mut() {
+                Some(Change::Remove { ref mut count }) =>  *count += 1,
+                _ =>  changes.push(Change::Remove { count: 1 }),
+            },
+            (Some(lhs), Some(rhs)) if lhs == rhs => {/* only record changes */},
+            (Some(_), Some(rhs)) => {
+                // TODO: Use deltas on the items themselves, as well
+                changes.push(Change::IndexedEdit { index, item: rhs.clone() });
+            },
+            _ => return bug_detected!(),
+        }}
+        Ok(changes)
     }
 }
 
 
-impl<T0> Delta for (T0,)
-where T0: Delta + Clone + PartialEq {
-    type Delta = (<T0 as Delta>::Delta,);
+
+
+
+impl<T0> DeltaOps for (T0,)
+where T0: DeltaOps + Clone + PartialEq {
+    type Delta = (<T0 as DeltaOps>::Delta,);
 
     fn apply_delta(&self, delta: &Self::Delta) -> DeltaResult<Self> {
         let field0: T0 = self.0.apply_delta(&delta.0)?;
@@ -87,15 +148,15 @@ where T0: Delta + Clone + PartialEq {
     }
 
     fn delta(&self, rhs: &Self) -> DeltaResult<Self::Delta> {
-        let delta0: <T0 as Delta>::Delta = Delta::delta(&self.0, &rhs.0)?;
+        let delta0: <T0 as DeltaOps>::Delta = DeltaOps::delta(&self.0, &rhs.0)?;
         Ok((delta0,))
     }
 }
 
-impl<T0, T1> Delta for (T0, T1)
-where T0: Delta + Clone + PartialEq,
-      T1: Delta + Clone + PartialEq {
-    type Delta = (<T0 as Delta>::Delta, <T1 as Delta>::Delta);
+impl<T0, T1> DeltaOps for (T0, T1)
+where T0: DeltaOps + Clone + PartialEq,
+      T1: DeltaOps + Clone + PartialEq {
+    type Delta = (<T0 as DeltaOps>::Delta, <T1 as DeltaOps>::Delta);
 
     fn apply_delta(&self, delta: &Self::Delta) -> DeltaResult<Self> {
         let field0: T0 = self.0.apply_delta(&delta.0)?;
@@ -104,20 +165,20 @@ where T0: Delta + Clone + PartialEq,
     }
 
     fn delta(&self, rhs: &Self) -> DeltaResult<Self::Delta> {
-        let delta0: <T0 as Delta>::Delta = Delta::delta(&self.0, &rhs.0)?;
-        let delta1: <T1 as Delta>::Delta = Delta::delta(&self.1, &rhs.1)?;
+        let delta0: <T0 as DeltaOps>::Delta = DeltaOps::delta(&self.0, &rhs.0)?;
+        let delta1: <T1 as DeltaOps>::Delta = DeltaOps::delta(&self.1, &rhs.1)?;
         Ok((delta0, delta1))
     }
 }
 
-impl<T0, T1, T2> Delta for (T0, T1, T2)
-where T0: Delta + Clone + PartialEq,
-      T1: Delta + Clone + PartialEq,
-      T2: Delta + Clone + PartialEq, {
+impl<T0, T1, T2> DeltaOps for (T0, T1, T2)
+where T0: DeltaOps + Clone + PartialEq,
+      T1: DeltaOps + Clone + PartialEq,
+      T2: DeltaOps + Clone + PartialEq, {
     type Delta = (
-        <T0 as Delta>::Delta,
-        <T1 as Delta>::Delta,
-        <T2 as Delta>::Delta,
+        <T0 as DeltaOps>::Delta,
+        <T1 as DeltaOps>::Delta,
+        <T2 as DeltaOps>::Delta,
     );
 
     fn apply_delta(&self, delta: &Self::Delta) -> DeltaResult<Self> {
@@ -128,23 +189,23 @@ where T0: Delta + Clone + PartialEq,
     }
 
     fn delta(&self, rhs: &Self) -> DeltaResult<Self::Delta> {
-        let delta0: <T0 as Delta>::Delta = Delta::delta(&self.0, &rhs.0)?;
-        let delta1: <T1 as Delta>::Delta = Delta::delta(&self.1, &rhs.1)?;
-        let delta2: <T2 as Delta>::Delta = Delta::delta(&self.2, &rhs.2)?;
+        let delta0: <T0 as DeltaOps>::Delta = DeltaOps::delta(&self.0, &rhs.0)?;
+        let delta1: <T1 as DeltaOps>::Delta = DeltaOps::delta(&self.1, &rhs.1)?;
+        let delta2: <T2 as DeltaOps>::Delta = DeltaOps::delta(&self.2, &rhs.2)?;
         Ok((delta0, delta1, delta2))
     }
 }
 
-impl<T0, T1, T2, T3> Delta for (T0, T1, T2, T3)
-where T0: Delta + Clone + PartialEq,
-      T1: Delta + Clone + PartialEq,
-      T2: Delta + Clone + PartialEq,
-      T3: Delta + Clone + PartialEq, {
+impl<T0, T1, T2, T3> DeltaOps for (T0, T1, T2, T3)
+where T0: DeltaOps + Clone + PartialEq,
+      T1: DeltaOps + Clone + PartialEq,
+      T2: DeltaOps + Clone + PartialEq,
+      T3: DeltaOps + Clone + PartialEq, {
     type Delta = (
-        <T0 as Delta>::Delta,
-        <T1 as Delta>::Delta,
-        <T2 as Delta>::Delta,
-        <T3 as Delta>::Delta,
+        <T0 as DeltaOps>::Delta,
+        <T1 as DeltaOps>::Delta,
+        <T2 as DeltaOps>::Delta,
+        <T3 as DeltaOps>::Delta,
     );
 
     fn apply_delta(&self, delta: &Self::Delta) -> DeltaResult<Self> {
@@ -156,10 +217,10 @@ where T0: Delta + Clone + PartialEq,
     }
 
     fn delta(&self, rhs: &Self) -> DeltaResult<Self::Delta> {
-        let delta0: <T0 as Delta>::Delta = Delta::delta(&self.0, &rhs.0)?;
-        let delta1: <T1 as Delta>::Delta = Delta::delta(&self.1, &rhs.1)?;
-        let delta2: <T2 as Delta>::Delta = Delta::delta(&self.2, &rhs.2)?;
-        let delta3: <T3 as Delta>::Delta = Delta::delta(&self.3, &rhs.3)?;
+        let delta0: <T0 as DeltaOps>::Delta = DeltaOps::delta(&self.0, &rhs.0)?;
+        let delta1: <T1 as DeltaOps>::Delta = DeltaOps::delta(&self.1, &rhs.1)?;
+        let delta2: <T2 as DeltaOps>::Delta = DeltaOps::delta(&self.2, &rhs.2)?;
+        let delta3: <T3 as DeltaOps>::Delta = DeltaOps::delta(&self.3, &rhs.3)?;
         Ok((delta0, delta1, delta2, delta3))
     }
 }

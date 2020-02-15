@@ -144,7 +144,7 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                 bounds: {
                     let mut bounds = Punctuated::new();
                     // Add `struct_delta_trait::Delta` as a type param bound:
-                    bounds.push(trait_bound(&["struct_delta_trait", "Delta"]));
+                    bounds.push(trait_bound(&["struct_delta_trait", "DeltaOps"]));
                     // Add `serde::Serialize` as a type param bound:
                     bounds.push(trait_bound(&["serde", "Serialize"]));
                     bounds.push(trait_bound(&["PartialEq"]));
@@ -190,7 +190,7 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
         #delta_struct_def
         // }
 
-        impl<#type_param_decls>  struct_delta_trait::Delta
+        impl<#type_param_decls>  struct_delta_trait::DeltaOps
             for  #struct_name<#type_params>  #where_clause
         {
             // type Delta = #module_name::#delta_type_name<#type_params>;

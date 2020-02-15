@@ -1,7 +1,7 @@
 //!
 #![allow(non_snake_case)]
 
-use struct_delta_trait::{Delta, DeltaResult};
+use struct_delta_trait::{DeltaOps, DeltaResult};
 
 
 #[derive(Debug, PartialEq, struct_delta_derive::Delta)]
