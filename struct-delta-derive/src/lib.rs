@@ -14,13 +14,12 @@ use std::iter::FromIterator;
 use syn::{
     parse_macro_input, Token/* macro that expands to a type, not a type */,
     // Attribute,
-    Data, DeriveInput,
+    Data, DataStruct, DataEnum, DeriveInput,
     // Field,
     Fields,
     // FieldsNamed, FieldsUnnamed,
     Generics, Ident, Path, PathArguments, PathSegment, PredicateType,
-    Type,
-    // TypeParam,
+    Type, TypeParam,
     TypeParamBound, TraitBound, TraitBoundModifier,
     // Visibility,
     WhereClause, WherePredicate,
@@ -72,7 +71,7 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
     match data {
         Data::Union(_) =>
             unimplemented!("Computing Deltas of 2 unions is not supported."),
-        Data::Struct(syn::DataStruct { fields, .. }) => match fields {
+        Data::Struct(DataStruct { fields, .. }) => match fields {
             Fields::Named(named_fields) => { // structs with named field(s)
                 for field in named_fields.named.iter() {
                     let field_ident: &Ident = field.ident.as_ref()
@@ -97,8 +96,9 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                 // A unit struct has no fields, so it can supports `Delta`s.
             },
         },
-        Data::Enum(syn::DataEnum { variants, .. }) => {
+        Data::Enum(DataEnum { variants, .. }) => {
             // TODO
+            todo!()
         },
     }
 
@@ -240,7 +240,7 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
 /// Return the resulting iterator.
 fn intersperse<'i>(
     token: TokenTree2,
-    iter: impl Iterator<Item = &'i syn::TypeParam>,
+    iter: impl Iterator<Item = &'i TypeParam>,
 ) -> impl Iterator<Item = TokenTree2> {
     let mut type_params: Vec<TokenTree2> = vec![];
     let params = iter
