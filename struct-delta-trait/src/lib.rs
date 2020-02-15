@@ -235,3 +235,62 @@ where T0: DeltaOps + Clone + PartialEq,
 //         assert_eq!(2 + 2, 4);
 //     }
 // }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn calculate_delta_for_vec() -> DeltaResult<()> {
+        let v0 = vec![1, 3, 10, 30];
+        let v1 = vec![1, 3, 10, 49, 30, 500];
+        let delta0 = v0.delta(&v1)?;
+        println!("delta0: {:#?}", delta0);
+        assert_eq!(delta0, vec![
+            Change::IndexedEdit { index: 3, item:  49, },
+            Change::Add(30),
+            Change::Add(500),
+        ]);
+        let v2 = v0.apply_delta(&delta0)?;
+        println!("v2: {:#?}", v2);
+        assert_eq!(v1, v2);
+
+        let delta1 = v1.delta(&v0)?;
+        println!("delta1: {:#?}", delta1);
+        assert_eq!(delta1, vec![
+            Change::IndexedEdit { index: 3, item: 30, },
+            Change::Remove  { count: 2, },
+        ]);
+        let v3 = v1.apply_delta(&delta1)?;
+        println!("v3: {:#?}", v3);
+        assert_eq!(v0, v3);
+
+        let v0 = vec![1, 3, 10, 49, 30, 500];
+        let v1 = vec![1, 3, 10, 30, 500, 49];
+        let delta0 = v0.delta(&v1)?;
+        println!("delta0: {:#?}", delta0);
+        assert_eq!(delta0, vec![
+            Change::IndexedEdit { index: 3, item:  30, },
+            Change::IndexedEdit { index: 4, item: 500, },
+            Change::IndexedEdit { index: 5, item:  49, },
+        ]);
+        let v2 = v0.apply_delta(&delta0)?;
+        println!("v2: {:#?}", v2);
+        assert_eq!(v1, v2);
+
+        Ok(())
+    }
+
+    #[test]
+    fn apply_delta_to_vec() -> DeltaResult<()> {
+        let v0 = vec![1,3,10,30, 30];
+        let delta = vec![
+            Change::IndexedEdit { index: 3, item:  49, },
+            Change::Add(500),
+        ];
+        let v1 = v0.apply_delta(&delta)?;
+        let expected = vec![1,3,10,49, 30, 500];
+        assert_eq!(expected, v1);
+        Ok(())
+    }
