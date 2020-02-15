@@ -50,20 +50,22 @@ macro_rules! impl_delta_trait_for_primitive_types {
     ( $($type:ty),* $(,)? ) => {
         $(
             impl DeltaOps for $type {
-                type Delta = Self;
+                type Delta = Delta<Self>;
 
                 fn apply_delta(&self, delta: &Self::Delta) -> DeltaResult<Self> {
-                    Ok(*delta) // use the Copy trait
+                    match delta {
+                        Delta::ScalarEdit(val) => Ok(*val),
+                        _ => bug_detected!(),
+                    }
                 }
 
                 fn delta(&self, rhs: &Self) -> DeltaResult<Self::Delta> {
-                    Ok(*rhs)// use the Copy trait
+                    Ok(Delta::ScalarEdit(*rhs))
                 }
             }
         )*
     };
 }
-
 
 impl_delta_trait_for_primitive_types! {
     i8, i16, i32, i64, i128, isize,
@@ -78,14 +80,17 @@ impl_delta_trait_for_primitive_types! {
 
 
 impl DeltaOps for String {
-    type Delta = Self;
+    type Delta = Delta<Self>;
 
     fn apply_delta(&self, delta: &Self::Delta) -> DeltaResult<Self> {
-        Ok(delta.clone()) // TODO: improve space efficiency
+        match delta { // TODO: improve space efficiency
+            Delta::ScalarEdit(val) => Ok(val.clone()),
+            _ => bug_detected!(),
+        }
     }
 
     fn delta(&self, rhs: &Self) -> DeltaResult<Self::Delta> {
-        Ok(rhs.clone()) // TODO: improve space efficiency
+        Ok(Delta::ScalarEdit(rhs.clone())) // TODO: improve space efficiency
     }
 }
 
@@ -141,7 +146,9 @@ where T: Clone + PartialEq + DeltaOps {
 
 impl<T0> DeltaOps for (T0,)
 where T0: DeltaOps + Clone + PartialEq {
-    type Delta = (<T0 as DeltaOps>::Delta,);
+    type Delta = (
+        <T0 as DeltaOps>::Delta,
+    );
 
     fn apply_delta(&self, delta: &Self::Delta) -> DeltaResult<Self> {
         let field0: T0 = self.0.apply_delta(&delta.0)?;
@@ -157,7 +164,10 @@ where T0: DeltaOps + Clone + PartialEq {
 impl<T0, T1> DeltaOps for (T0, T1)
 where T0: DeltaOps + Clone + PartialEq,
       T1: DeltaOps + Clone + PartialEq {
-    type Delta = (<T0 as DeltaOps>::Delta, <T1 as DeltaOps>::Delta);
+    type Delta = (
+        <T0 as DeltaOps>::Delta,
+        <T1 as DeltaOps>::Delta
+    );
 
     fn apply_delta(&self, delta: &Self::Delta) -> DeltaResult<Self> {
         let field0: T0 = self.0.apply_delta(&delta.0)?;
