@@ -3,6 +3,7 @@
 mod error;
 
 pub use crate::error::{DeltaError, DeltaResult};
+use std::borrow::{Borrow, Cow, ToOwned};
 
 
 /// Definitions for delta operations.
@@ -226,15 +227,25 @@ where T0: DeltaOps + Clone + PartialEq,
 }
 
 
+impl<'a, B: ?Sized + 'a> DeltaOps for Cow<'a, B>
+where B: ToOwned + PartialEq + DeltaOps {
+    type Delta = <B as DeltaOps>::Delta;
+
+    fn apply_delta(&self, delta: &Self::Delta) -> DeltaResult<Self> {
+        let (lhs, rhs): (&B, &Self::Delta) = (self.borrow(), delta.borrow());
+        lhs.apply_delta(rhs)
+            .map(|new| new.to_owned())
+            .map(Cow::Owned)
+    }
+
+    fn delta(&self, other: &Self) -> DeltaResult<Self::Delta> {
+        let (lhs, rhs): (&B, &B) = (self.borrow(), other.borrow());
+        lhs.delta(rhs)
+    }
+
+}
 
 
-// #[cfg(test)]
-// mod tests {
-//     #[test]
-//     fn it_works() {
-//         assert_eq!(2 + 2, 4);
-//     }
-// }
 
 
 #[cfg(test)]
@@ -294,3 +305,4 @@ mod tests {
         assert_eq!(expected, v1);
         Ok(())
     }
+}
