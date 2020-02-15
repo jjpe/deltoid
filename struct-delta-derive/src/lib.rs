@@ -230,8 +230,6 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
         }
     };
 
-    println!("{}", output);
-
     Ok(output)
 }
 
