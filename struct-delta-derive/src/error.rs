@@ -17,12 +17,27 @@
 // }
 
 
+macro_rules! bug_detected {
+    () => {
+        Err($crate::error::DeriveError::BugDetected {
+            file: file!(),
+            line: line!(),
+            column: column!(),
+        })
+    };
+}
+
 pub type DeriveResult<T> = Result<T, DeriveError>;
 
 
 #[derive(Clone, Copy, Debug)]
 #[derive(serde_derive::Serialize, serde_derive::Deserialize)]
 pub enum DeriveError {
+    BugDetected {
+        file: &'static str,
+        line: u32,
+        column: u32
+    },
     FailedToEnsure {
         predicate: &'static str,
         file: &'static str,
