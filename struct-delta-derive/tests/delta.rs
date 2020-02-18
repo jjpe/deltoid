@@ -2,12 +2,13 @@
 #![allow(non_snake_case)]
 
 use struct_delta_trait::{DeltaOps, DeltaResult};
+use struct_delta_derive::Delta;
 use std::convert::{TryInto};
 use std::borrow::{Cow};
 
 
-// #[derive(Debug, PartialEq, struct_delta_derive::Delta)]
-// enum Corge {
+// #[derive(Debug, PartialEq, Delta)]
+// enum Qux {
 //     Floof(u8, u64),
 //     Blah { one: u8, two: () },
 //     Flah { one: u16, two: String, three: u32 },
@@ -15,7 +16,7 @@ use std::borrow::{Cow};
 // }
 
 #[derive(Debug, PartialEq)]
-#[derive(struct_delta_derive::Delta)]
+#[derive(Delta)]
 enum Corge<Tx, U: Copy> {
     Quux,
     Grault(u8, Tx),
@@ -24,7 +25,7 @@ enum Corge<Tx, U: Copy> {
 
 
 #[derive(Debug, PartialEq)]
-#[derive(struct_delta_derive::Delta)]
+#[derive(Delta)]
 pub struct Foo<F: Copy> where F: Copy {
     f0: (),
     f1: F,
@@ -32,16 +33,20 @@ pub struct Foo<F: Copy> where F: Copy {
 }
 
 #[derive(Debug, PartialEq)]
-#[derive(struct_delta_derive::Delta)]
+#[derive(Delta)]
 pub struct Bar<S: Copy>(u8, S) where S: std::fmt::Debug;
 
 #[derive(Debug, PartialEq)]
-#[derive(struct_delta_derive::Delta)]
+#[derive(Delta)]
 pub struct Baz;
 
 #[derive(Debug, PartialEq)]
-#[derive(struct_delta_derive::Delta)]
+#[derive(Delta)]
 pub struct Plow(Cow<'static, String>);
+
+
+
+
 
 
 

@@ -368,7 +368,6 @@ where B: Clone + std::fmt::Debug + DeltaOps {
 }
 
 
-
 #[derive(Clone, Debug, PartialEq)]
 pub struct CowDelta<'a, B: DeltaOps + Clone> {
     inner: Option<<B as DeltaOps>::Delta>,
