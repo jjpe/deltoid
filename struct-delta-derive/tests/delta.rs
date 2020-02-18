@@ -1,8 +1,9 @@
 //!
 #![allow(non_snake_case)]
 
-use struct_delta_trait::{Delta, DeltaOps, DeltaResult};
-use std::convert::{TryFrom, TryInto};
+use struct_delta_trait::{DeltaOps, DeltaResult};
+use std::convert::{TryInto};
+use std::borrow::{Cow};
 
 
 // #[derive(Debug, PartialEq, struct_delta_derive::Delta)]
@@ -18,7 +19,7 @@ use std::convert::{TryFrom, TryInto};
 enum Corge<Tx, U: Copy> {
     Quux,
     Grault(u8, Tx),
-    Floof { one: u8, two: Tx, three: U },
+    #[allow(unused)] Floof { one: u8, two: Tx, three: U },
 }
 
 
@@ -37,6 +38,16 @@ pub struct Bar<S: Copy>(u8, S) where S: std::fmt::Debug;
 #[derive(Debug, PartialEq)]
 #[derive(struct_delta_derive::Delta)]
 pub struct Baz;
+
+#[derive(Debug, PartialEq)]
+#[derive(struct_delta_derive::Delta)]
+pub struct Plow(Cow<'static, String>);
+
+
+
+
+
+
 
 
 
