@@ -1,14 +1,17 @@
 //!
 
-mod error;
+pub mod error;
 
 pub use crate::error::{DeltaError, DeltaResult};
 use std::borrow::{Borrow, Cow, ToOwned};
+use std::convert::{TryFrom, TryInto};
 
 
 /// Definitions for delta operations.
 pub trait DeltaOps: Sized + PartialEq {
-    type Delta;
+    type Delta: PartialEq + Clone + std::fmt::Debug
+        + TryFrom<Self, Error = DeltaError>
+        + TryInto<Self, Error = DeltaError>;
 
     /// Calculate a new instance of `Self` based on `self` and
     /// `delta` i.e. calculate `self --[delta]--> other`.
@@ -28,7 +31,7 @@ pub trait DeltaOps: Sized + PartialEq {
 
 
 #[derive(Clone, Debug, PartialEq, Hash)]
-pub enum Delta<T: DeltaOps> {
+pub enum Delta<T: DeltaOps + std::fmt::Debug> {
     /// Edit a value
     ScalarEdit(T),
     /// Edit a value at a given `index`.
@@ -63,6 +66,26 @@ macro_rules! impl_delta_trait_for_primitive_types {
                     Ok(Delta::ScalarEdit(*rhs))
                 }
             }
+
+            impl TryFrom<$type> for Delta<$type>
+            where $type: Clone + PartialEq + DeltaOps + std::fmt::Debug {
+                type Error = DeltaError;
+                fn try_from(thing: $type) -> Result<Self, Self::Error> {
+                    Ok(Delta::ScalarEdit(thing))
+                }
+            }
+
+            impl TryFrom<Delta<$type>> for $type
+            where $type: Clone + PartialEq + DeltaOps + std::fmt::Debug {
+                type Error = DeltaError;
+                fn try_from(delta: Delta<$type>) -> Result<Self, Self::Error> {
+                    match delta {
+                        Delta::ScalarEdit(item) => Ok(item),
+                        _ => bug_detected!()
+                    }
+                }
+            }
+
         )*
     };
 }
@@ -83,24 +106,53 @@ impl DeltaOps for String {
     type Delta = Delta<Self>;
 
     fn apply_delta(&self, delta: &Self::Delta) -> DeltaResult<Self> {
-        match delta { // TODO: improve space efficiency
-            Delta::ScalarEdit(val) => Ok(val.clone()),
-            _ => bug_detected!(),
+        match delta {  // TODO: Improve space efficiency
+            Delta::ScalarEdit(item) => Ok(item.clone()),
+            _ => bug_detected!()
         }
     }
 
     fn delta(&self, rhs: &Self) -> DeltaResult<Self::Delta> {
-        Ok(Delta::ScalarEdit(rhs.clone())) // TODO: improve space efficiency
+        Delta::try_from(rhs.clone())
+    }
+}
+
+impl TryFrom<String> for Delta<String>
+where String: Clone + PartialEq + DeltaOps + std::fmt::Debug {
+    type Error = DeltaError;
+    fn try_from(thing: String) -> Result<Self, Self::Error> {
+        Ok(Delta::ScalarEdit(thing)) // TODO: improve space efficiency
+    }
+}
+
+impl TryFrom<&str> for Delta<String>
+where String: Clone + PartialEq + DeltaOps + std::fmt::Debug {
+    type Error = DeltaError;
+    fn try_from(thing: &str) -> Result<Self, Self::Error> {
+        thing.to_string().try_into()
+    }
+}
+
+impl TryFrom<Delta<String>> for String
+where String: Clone + PartialEq + DeltaOps + std::fmt::Debug {
+    type Error = DeltaError;
+    fn try_from(delta: Delta<String>) -> Result<Self, Self::Error> {
+        match delta {  // TODO: Improve space efficiency
+            Delta::ScalarEdit(item) => Ok(item),
+            _ => bug_detected!()
+        }
     }
 }
 
 
+
+
 impl<T> DeltaOps for Vec<T>
-where T: Clone + PartialEq + DeltaOps {
+where T: Clone + PartialEq + DeltaOps + std::fmt::Debug {
     // TODO This impl is actually more suited to a `Stack`-like type in terms
     // of efficiency. However, in terms of soundness it should work fine.
 
-    type Delta = Vec<Delta<T>>;
+    type Delta = VecDelta<T>;
 
     fn apply_delta(&self, delta: &Self::Delta) -> DeltaResult<Self> {
         let mut new: Self = self.clone();
@@ -136,7 +188,48 @@ where T: Clone + PartialEq + DeltaOps {
             },
             _ => return bug_detected!(),
         }}
-        Ok(changes)
+        Ok(VecDelta(changes))
+    }
+}
+
+impl<T> TryFrom<VecDelta<T>> for Vec<T>
+where T: Clone + PartialEq + DeltaOps + std::fmt::Debug {
+    type Error = DeltaError;
+    fn try_from(deltas: VecDelta<T>) -> Result<Self, Self::Error> {
+        let mut vec: Vec<T> = vec![];
+        let mut index = 0;
+        for delta in deltas.into_iter() {
+            match delta {
+                Delta::Add(item) => vec.push(item),
+                _ => return Err(DeltaError::IllegalDelta { index })?,
+            }
+            index += 1;
+        }
+        Ok(vec)
+    }
+}
+
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct VecDelta<T>(Vec<Delta<T>>)
+where T: Clone + PartialEq + DeltaOps + std::fmt::Debug;
+
+impl<T> VecDelta<T>
+where T: Clone + PartialEq + DeltaOps + std::fmt::Debug {
+    pub fn iter(&self) -> impl Iterator<Item = &Delta<T>> {
+        self.0.iter()
+    }
+
+    pub fn into_iter(self) -> impl IntoIterator<Item = Delta<T>> {
+        self.0.into_iter()
+    }
+}
+
+impl<T> TryFrom<Vec<T>> for VecDelta<T>
+where T: Clone + PartialEq + DeltaOps + std::fmt::Debug {
+    type Error = DeltaError;
+    fn try_from(thing: Vec<T>) -> Result<Self, Self::Error> {
+        Ok(VecDelta(thing.into_iter().map(Delta::Add).collect()))
     }
 }
 
@@ -144,116 +237,116 @@ where T: Clone + PartialEq + DeltaOps {
 
 
 
-impl<T0> DeltaOps for (T0,)
-where T0: DeltaOps + Clone + PartialEq {
-    type Delta = (
-        <T0 as DeltaOps>::Delta,
-    );
+// impl<T0> DeltaOps for (T0,)
+// where T0: DeltaOps + Clone + PartialEq {
+//     type Delta = (
+//         <T0 as DeltaOps>::Delta,
+//     );
 
-    fn apply_delta(&self, delta: &Self::Delta) -> DeltaResult<Self> {
-        let field0: T0 = self.0.apply_delta(&delta.0)?;
-        Ok((field0,))
-    }
+//     fn apply_delta(&self, delta: &Self::Delta) -> DeltaResult<Self> {
+//         let field0: T0 = self.0.apply_delta(&delta.0)?;
+//         Ok((field0,))
+//     }
 
-    fn delta(&self, rhs: &Self) -> DeltaResult<Self::Delta> {
-        let delta0: <T0 as DeltaOps>::Delta = DeltaOps::delta(&self.0, &rhs.0)?;
-        Ok((delta0,))
-    }
-}
+//     fn delta(&self, rhs: &Self) -> DeltaResult<Self::Delta> {
+//         let delta0: <T0 as DeltaOps>::Delta = DeltaOps::delta(&self.0, &rhs.0)?;
+//         Ok((delta0,))
+//     }
+// }
 
-impl<T0, T1> DeltaOps for (T0, T1)
-where T0: DeltaOps + Clone + PartialEq,
-      T1: DeltaOps + Clone + PartialEq {
-    type Delta = (
-        <T0 as DeltaOps>::Delta,
-        <T1 as DeltaOps>::Delta
-    );
+// impl<T0, T1> DeltaOps for (T0, T1)
+// where T0: DeltaOps + Clone + PartialEq,
+//       T1: DeltaOps + Clone + PartialEq {
+//     type Delta = (
+//         <T0 as DeltaOps>::Delta,
+//         <T1 as DeltaOps>::Delta
+//     );
 
-    fn apply_delta(&self, delta: &Self::Delta) -> DeltaResult<Self> {
-        let field0: T0 = self.0.apply_delta(&delta.0)?;
-        let field1: T1 = self.1.apply_delta(&delta.1)?;
-        Ok((field0, field1))
-    }
+//     fn apply_delta(&self, delta: &Self::Delta) -> DeltaResult<Self> {
+//         let field0: T0 = self.0.apply_delta(&delta.0)?;
+//         let field1: T1 = self.1.apply_delta(&delta.1)?;
+//         Ok((field0, field1))
+//     }
 
-    fn delta(&self, rhs: &Self) -> DeltaResult<Self::Delta> {
-        let delta0: <T0 as DeltaOps>::Delta = DeltaOps::delta(&self.0, &rhs.0)?;
-        let delta1: <T1 as DeltaOps>::Delta = DeltaOps::delta(&self.1, &rhs.1)?;
-        Ok((delta0, delta1))
-    }
-}
+//     fn delta(&self, rhs: &Self) -> DeltaResult<Self::Delta> {
+//         let delta0: <T0 as DeltaOps>::Delta = DeltaOps::delta(&self.0, &rhs.0)?;
+//         let delta1: <T1 as DeltaOps>::Delta = DeltaOps::delta(&self.1, &rhs.1)?;
+//         Ok((delta0, delta1))
+//     }
+// }
 
-impl<T0, T1, T2> DeltaOps for (T0, T1, T2)
-where T0: DeltaOps + Clone + PartialEq,
-      T1: DeltaOps + Clone + PartialEq,
-      T2: DeltaOps + Clone + PartialEq, {
-    type Delta = (
-        <T0 as DeltaOps>::Delta,
-        <T1 as DeltaOps>::Delta,
-        <T2 as DeltaOps>::Delta,
-    );
+// impl<T0, T1, T2> DeltaOps for (T0, T1, T2)
+// where T0: DeltaOps + Clone + PartialEq,
+//       T1: DeltaOps + Clone + PartialEq,
+//       T2: DeltaOps + Clone + PartialEq, {
+//     type Delta = (
+//         <T0 as DeltaOps>::Delta,
+//         <T1 as DeltaOps>::Delta,
+//         <T2 as DeltaOps>::Delta,
+//     );
 
-    fn apply_delta(&self, delta: &Self::Delta) -> DeltaResult<Self> {
-        let field0: T0 = self.0.apply_delta(&delta.0)?;
-        let field1: T1 = self.1.apply_delta(&delta.1)?;
-        let field2: T2 = self.2.apply_delta(&delta.2)?;
-        Ok((field0, field1, field2))
-    }
+//     fn apply_delta(&self, delta: &Self::Delta) -> DeltaResult<Self> {
+//         let field0: T0 = self.0.apply_delta(&delta.0)?;
+//         let field1: T1 = self.1.apply_delta(&delta.1)?;
+//         let field2: T2 = self.2.apply_delta(&delta.2)?;
+//         Ok((field0, field1, field2))
+//     }
 
-    fn delta(&self, rhs: &Self) -> DeltaResult<Self::Delta> {
-        let delta0: <T0 as DeltaOps>::Delta = DeltaOps::delta(&self.0, &rhs.0)?;
-        let delta1: <T1 as DeltaOps>::Delta = DeltaOps::delta(&self.1, &rhs.1)?;
-        let delta2: <T2 as DeltaOps>::Delta = DeltaOps::delta(&self.2, &rhs.2)?;
-        Ok((delta0, delta1, delta2))
-    }
-}
+//     fn delta(&self, rhs: &Self) -> DeltaResult<Self::Delta> {
+//         let delta0: <T0 as DeltaOps>::Delta = DeltaOps::delta(&self.0, &rhs.0)?;
+//         let delta1: <T1 as DeltaOps>::Delta = DeltaOps::delta(&self.1, &rhs.1)?;
+//         let delta2: <T2 as DeltaOps>::Delta = DeltaOps::delta(&self.2, &rhs.2)?;
+//         Ok((delta0, delta1, delta2))
+//     }
+// }
 
-impl<T0, T1, T2, T3> DeltaOps for (T0, T1, T2, T3)
-where T0: DeltaOps + Clone + PartialEq,
-      T1: DeltaOps + Clone + PartialEq,
-      T2: DeltaOps + Clone + PartialEq,
-      T3: DeltaOps + Clone + PartialEq, {
-    type Delta = (
-        <T0 as DeltaOps>::Delta,
-        <T1 as DeltaOps>::Delta,
-        <T2 as DeltaOps>::Delta,
-        <T3 as DeltaOps>::Delta,
-    );
+// impl<T0, T1, T2, T3> DeltaOps for (T0, T1, T2, T3)
+// where T0: DeltaOps + Clone + PartialEq,
+//       T1: DeltaOps + Clone + PartialEq,
+//       T2: DeltaOps + Clone + PartialEq,
+//       T3: DeltaOps + Clone + PartialEq, {
+//     type Delta = (
+//         <T0 as DeltaOps>::Delta,
+//         <T1 as DeltaOps>::Delta,
+//         <T2 as DeltaOps>::Delta,
+//         <T3 as DeltaOps>::Delta,
+//     );
 
-    fn apply_delta(&self, delta: &Self::Delta) -> DeltaResult<Self> {
-        let field0: T0 = self.0.apply_delta(&delta.0)?;
-        let field1: T1 = self.1.apply_delta(&delta.1)?;
-        let field2: T2 = self.2.apply_delta(&delta.2)?;
-        let field3: T3 = self.3.apply_delta(&delta.3)?;
-        Ok((field0, field1, field2, field3))
-    }
+//     fn apply_delta(&self, delta: &Self::Delta) -> DeltaResult<Self> {
+//         let field0: T0 = self.0.apply_delta(&delta.0)?;
+//         let field1: T1 = self.1.apply_delta(&delta.1)?;
+//         let field2: T2 = self.2.apply_delta(&delta.2)?;
+//         let field3: T3 = self.3.apply_delta(&delta.3)?;
+//         Ok((field0, field1, field2, field3))
+//     }
 
-    fn delta(&self, rhs: &Self) -> DeltaResult<Self::Delta> {
-        let delta0: <T0 as DeltaOps>::Delta = DeltaOps::delta(&self.0, &rhs.0)?;
-        let delta1: <T1 as DeltaOps>::Delta = DeltaOps::delta(&self.1, &rhs.1)?;
-        let delta2: <T2 as DeltaOps>::Delta = DeltaOps::delta(&self.2, &rhs.2)?;
-        let delta3: <T3 as DeltaOps>::Delta = DeltaOps::delta(&self.3, &rhs.3)?;
-        Ok((delta0, delta1, delta2, delta3))
-    }
-}
+//     fn delta(&self, rhs: &Self) -> DeltaResult<Self::Delta> {
+//         let delta0: <T0 as DeltaOps>::Delta = DeltaOps::delta(&self.0, &rhs.0)?;
+//         let delta1: <T1 as DeltaOps>::Delta = DeltaOps::delta(&self.1, &rhs.1)?;
+//         let delta2: <T2 as DeltaOps>::Delta = DeltaOps::delta(&self.2, &rhs.2)?;
+//         let delta3: <T3 as DeltaOps>::Delta = DeltaOps::delta(&self.3, &rhs.3)?;
+//         Ok((delta0, delta1, delta2, delta3))
+//     }
+// }
 
 
-impl<'a, B: ?Sized + 'a> DeltaOps for Cow<'a, B>
-where B: ToOwned + PartialEq + DeltaOps {
-    type Delta = <B as DeltaOps>::Delta;
 
-    fn apply_delta(&self, delta: &Self::Delta) -> DeltaResult<Self> {
-        let (lhs, rhs): (&B, &Self::Delta) = (self.borrow(), delta.borrow());
-        lhs.apply_delta(rhs)
-            .map(|new| new.to_owned())
-            .map(Cow::Owned)
-    }
+// impl<'a, B: ?Sized + 'a> DeltaOps for Cow<'a, B>
+// where B: ToOwned + PartialEq + DeltaOps {
+//     type Delta = <B as DeltaOps>::Delta;
 
-    fn delta(&self, other: &Self) -> DeltaResult<Self::Delta> {
-        let (lhs, rhs): (&B, &B) = (self.borrow(), other.borrow());
-        lhs.delta(rhs)
-    }
+//     fn apply_delta(&self, delta: &Self::Delta) -> DeltaResult<Self> {
+//         let (lhs, rhs): (&B, &Self::Delta) = (self.borrow(), delta.borrow());
+//         lhs.apply_delta(rhs)
+//             .map(|new| new.to_owned())
+//             .map(Cow::Owned)
+//     }
 
-}
+//     fn delta(&self, other: &Self) -> DeltaResult<Self::Delta> {
+//         let (lhs, rhs): (&B, &B) = (self.borrow(), other.borrow());
+//         lhs.delta(rhs)
+//     }
+// }
 
 
 
@@ -268,21 +361,21 @@ mod tests {
         let v1 = vec![1, 3, 10, 49, 30, 500];
         let delta0 = v0.delta(&v1)?;
         println!("delta0: {:#?}", delta0);
-        assert_eq!(delta0, vec![
+        assert_eq!(delta0, VecDelta(vec![
             Delta::IndexedEdit { index: 3, item:  49, },
             Delta::Add(30),
             Delta::Add(500),
-        ]);
+        ]));
         let v2 = v0.apply_delta(&delta0)?;
         println!("v2: {:#?}", v2);
         assert_eq!(v1, v2);
 
         let delta1 = v1.delta(&v0)?;
         println!("delta1: {:#?}", delta1);
-        assert_eq!(delta1, vec![
+        assert_eq!(delta1, VecDelta(vec![
             Delta::IndexedEdit { index: 3, item: 30, },
             Delta::Remove  { count: 2, },
-        ]);
+        ]));
         let v3 = v1.apply_delta(&delta1)?;
         println!("v3: {:#?}", v3);
         assert_eq!(v0, v3);
@@ -291,11 +384,11 @@ mod tests {
         let v1 = vec![1, 3, 10, 30, 500, 49];
         let delta0 = v0.delta(&v1)?;
         println!("delta0: {:#?}", delta0);
-        assert_eq!(delta0, vec![
+        assert_eq!(delta0, VecDelta(vec![
             Delta::IndexedEdit { index: 3, item:  30, },
             Delta::IndexedEdit { index: 4, item: 500, },
             Delta::IndexedEdit { index: 5, item:  49, },
-        ]);
+        ]));
         let v2 = v0.apply_delta(&delta0)?;
         println!("v2: {:#?}", v2);
         assert_eq!(v1, v2);
@@ -306,10 +399,10 @@ mod tests {
     #[test]
     fn apply_delta_to_vec() -> DeltaResult<()> {
         let v0 = vec![1,3,10,30, 30];
-        let delta = vec![
+        let delta = VecDelta(vec![
             Delta::IndexedEdit { index: 3, item:  49, },
             Delta::Add(500),
-        ];
+        ]);
         let v1 = v0.apply_delta(&delta)?;
         let expected = vec![1,3,10,49, 30, 500];
         assert_eq!(expected, v1);
