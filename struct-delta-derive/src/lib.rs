@@ -120,9 +120,9 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                 // let variant_discriminant: Option<&(Eq, Expr)> =
                 //     variant.discriminant.as_ref();
                 if let Some((_eq, expr)) = variant.discriminant.as_ref() {
-                    let expr: &Expr = expr;
+                    let _expr: &Expr = expr;
+                    todo!("No support for enum variant discriminants yet");
                     // TODO
-                    todo!("No support for enum discriminants yet");
                 } else {
                     // TODO
                 }
@@ -293,15 +293,8 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
             for (struct_variant, variant_ident, field_idents, field_types)
                 in enum_variants.iter()
             {
-                // NOTE: `impl_DeltaOps_for_input_type`, enum args
                 apply_delta_tokens.extend(match struct_variant {
                     StructVariant::NamedStruct => {
-                        // let lfield_idents: Vec<Ident> = field_idents.iter()
-                        //     .map(|ident| format_ident!("lhs_{}", ident))
-                        //     .collect();
-                        // let rfield_idents: Vec<Ident> = field_idents.iter()
-                        //     .map(|ident| format_ident!("delta_{}", ident))
-                        //     .collect();
                         quote! {
                             if let Self::Delta::#variant_ident {
                                 #(#field_idents),*
@@ -313,9 +306,7 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                                         #field_idents:
                                         match #field_idents.as_ref() {
                                             Some(d) => d.clone().try_into()?,
-                                            None => return Err(
-                                                DeltaError::ExpectedValue
-                                            )?,
+                                            None => return Err(DeltaError::ExpectedValue)?,
                                         },
                                     )*
                                 })
@@ -351,7 +342,6 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                             return Ok(Self::#variant_ident)
                         }
                     },
-
                 });
             }
 
@@ -430,9 +420,7 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                                         > = if #lfield_idents == #rfield_idents {
                                             None
                                         } else {
-                                            Some(
-                                                #lfield_idents.delta(&#rfield_idents)?
-                                            )
+                                            Some(#lfield_idents.delta(&#rfield_idents)?)
                                         };
                                     )*
                                     return Ok(Self::Delta::#lhs_variant_ident(
@@ -466,9 +454,6 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                                 #(
                                     #field_idents: Some(
                                         #field_idents.clone().try_into()?
-                                        // <#field_types as DeltaOps>::Delta::try_from(
-                                        //     #field_idents.clone()
-                                        // )?
                                     ),
                                 )*
                             });
@@ -486,12 +471,7 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                                 use std::convert::TryInto;
                                 return Ok(Self::Delta::#variant_ident(
                                     #(
-                                        Some(
-                                            #field_idents.clone().try_into()?
-                                            // <#field_types as DeltaOps>::Delta::try_from(
-                                            //     #field_idents.clone()
-                                            // )?
-                                        ),
+                                        Some(#field_idents.clone().try_into()?),
                                     )*
                                 ));
                             }
@@ -548,12 +528,7 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                         use std::convert::TryInto;
                         Self {
                             #(
-                                #field_idents: Some(
-                                    #field_idents.try_into()?
-                                    // <#field_types as DeltaOps>::Delta::try_from(
-                                    //     #field_idents
-                                    // )?
-                                ),
+                                #field_idents: Some(#field_idents.try_into()?),
                             )*
                         }
                     },
@@ -570,12 +545,7 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                             use std::convert::TryInto;
                             Self(
                                 #(
-                                    Some(
-                                        #field_idents.try_into()?
-                                        // <#field_types as DeltaOps>::Delta::try_from(
-                                        //     #field_idents
-                                        // )?
-                                    ),
+                                    Some(#field_idents.try_into()?),
                                 )*
                             )
                         },
@@ -586,18 +556,6 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                 },
             });
             quote! {
-                // impl<#input_type_param_decls>
-                //     From<#input_type_name<#input_type_params>>
-                //     for #delta_type_name<#input_type_params>
-                //     #where_clause
-                // {
-                //     fn from(thing: #input_type_name<#input_type_params>) -> Self {
-                //         match thing {
-                //             #match_body
-                //         }
-                //     }
-                // }
-
                 impl<#input_type_param_decls>
                     std::convert::TryFrom<#input_type_name<#input_type_params>>
                     for #delta_type_name<#input_type_params>
@@ -627,12 +585,7 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                             use std::convert::TryInto;
                             Self::#variant_ident {
                                 #(
-                                    #field_idents: Some(
-                                        #field_idents.try_into()?
-                                        // <#field_types as DeltaOps>::Delta::try_from(
-                                        //     #field_idents
-                                        // )?
-                                    ),
+                                    #field_idents: Some(#field_idents.try_into()?),
                                 )*
                             }
                         },
@@ -649,12 +602,7 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                                 use std::convert::TryInto;
                                 Self::#variant_ident(
                                     #(
-                                        Some(
-                                            #field_idents.try_into()?
-                                            // <#field_types as DeltaOps>::Delta::try_from(
-                                            //     #field_idents
-                                            // )?
-                                        ),
+                                        Some(#field_idents.try_into()?),
                                     )*
                                 )
                             },
@@ -668,18 +616,6 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                 });
             }
             quote! {
-                // impl<#input_type_param_decls>
-                //     From<#input_type_name<#input_type_params>>
-                //     for #delta_type_name<#input_type_params>
-                //     #enum_where_clause
-                // {
-                //     fn from(thing: #input_type_name<#input_type_params>) -> Self {
-                //         match thing {
-                //             #match_body
-                //         }
-                //     }
-                // }
-
                 impl<#input_type_param_decls>
                     std::convert::TryFrom<#input_type_name<#input_type_params>>
                     for #delta_type_name<#input_type_params>
@@ -822,9 +758,6 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
     };
 
     let output: TokenStream2 = quote! {
-        // use struct_delta_trait::DeltaError;
-        // use std::convert::TryInto;
-
         #delta_type_definition
 
         #impl_DeltaOps_for_input_type
