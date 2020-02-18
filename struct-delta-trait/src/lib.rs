@@ -5,6 +5,7 @@ pub mod error;
 pub use crate::error::{DeltaError, DeltaResult};
 use std::borrow::{Borrow, Cow, ToOwned};
 use std::convert::{TryFrom, TryInto};
+use std::marker::PhantomData;
 
 
 /// Definitions for delta operations.
@@ -331,22 +332,61 @@ where T: Clone + PartialEq + DeltaOps + std::fmt::Debug {
 
 
 
-// impl<'a, B: ?Sized + 'a> DeltaOps for Cow<'a, B>
-// where B: ToOwned + PartialEq + DeltaOps {
-//     type Delta = <B as DeltaOps>::Delta;
+impl<'a, B> DeltaOps for Cow<'a, B>
+where B: ToOwned + PartialEq + DeltaOps + Clone + std::fmt::Debug {
+    type Delta = CowDelta<'a, B>;
+    fn apply_delta(&self, delta: &Self::Delta) -> DeltaResult<Self> {
+        let lhs: &B = self.borrow();
+        if let Some(delta) = delta.inner.as_ref() {
+            let rhs: &<B as DeltaOps>::Delta = delta;
+            lhs.apply_delta(rhs)
+                .map(|new| new.to_owned())
+                .map(Cow::Owned)
+        } else {
+            Ok(self.clone())
+        }
+    }
 
-//     fn apply_delta(&self, delta: &Self::Delta) -> DeltaResult<Self> {
-//         let (lhs, rhs): (&B, &Self::Delta) = (self.borrow(), delta.borrow());
-//         lhs.apply_delta(rhs)
-//             .map(|new| new.to_owned())
-//             .map(Cow::Owned)
-//     }
+    fn delta(&self, other: &Self) -> DeltaResult<Self::Delta> {
+        let (lhs, rhs): (&B, &B) = (self.borrow(), other.borrow());
+        Ok(CowDelta {
+            inner: Some(lhs.delta(rhs)?),
+            _phantom: PhantomData,
+        })
+    }
+}
 
-//     fn delta(&self, other: &Self) -> DeltaResult<Self::Delta> {
-//         let (lhs, rhs): (&B, &B) = (self.borrow(), other.borrow());
-//         lhs.delta(rhs)
-//     }
-// }
+impl<'a, B> TryFrom<CowDelta<'a, B>> for Cow<'a, B>
+where B: Clone + std::fmt::Debug + DeltaOps {
+    type Error = DeltaError;
+    fn try_from(delta: CowDelta<'a, B>) -> Result<Self, Self::Error> {
+        delta.inner
+            .ok_or(DeltaError::ExpectedValue)?
+            .try_into()
+            .map(Cow::Owned)
+    }
+}
+
+
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct CowDelta<'a, B: DeltaOps + Clone> {
+    inner: Option<<B as DeltaOps>::Delta>,
+    _phantom: PhantomData<&'a B>
+}
+
+impl<'a, B> TryFrom<Cow<'a, B>> for CowDelta<'a, B>
+where B: Clone + std::fmt::Debug + DeltaOps {
+    type Error = DeltaError;
+    fn try_from(thing: Cow<'a, B>) -> Result<Self, Self::Error> {
+        let borrowed: &B = thing.borrow();
+        Ok(CowDelta {
+            inner: Some(borrowed.to_owned().try_into()?),
+            _phantom: PhantomData
+        })
+    }
+}
+
 
 
 
