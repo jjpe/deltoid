@@ -703,13 +703,13 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                         #delta_type_name::#variant_ident { #( #field_idents ),* } => {
                             use std::convert::{TryFrom, TryInto};
                             use struct_delta_trait::DeltaError;
-                            return Ok(Self::#variant_ident {
+                            Self::#variant_ident {
                                 #(
                                     #field_idents: #field_idents
                                         .ok_or(DeltaError::ExpectedValue)
                                         .map(|val| val.try_into())??,
                                 )*
-                            })
+                            }
                         },
                     },
                     StructVariant::TupleStruct => {
@@ -721,19 +721,19 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                             #delta_type_name::#variant_ident( #( #field_idents ),* ) => {
                                 use std::convert::{TryFrom, TryInto};
                                 use struct_delta_trait::DeltaError;
-                                return Ok(Self::#variant_ident(
+                                Self::#variant_ident(
                                     #(
                                         #field_idents
                                             .ok_or(DeltaError::ExpectedValue)
                                             .map(|val| val.try_into())??,
                                     )*
-                                ))
+                                )
                             },
                         }
                     },
                     StructVariant::UnitStruct => quote! {
                         #delta_type_name::#variant_ident => {
-                            return Ok(Self::#variant_ident)
+                            Self::#variant_ident
                         },
                     },
                 });
