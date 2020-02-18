@@ -6,6 +6,7 @@ pub use crate::error::{DeltaError, DeltaResult};
 use std::borrow::{Borrow, Cow, ToOwned};
 use std::convert::{TryFrom, TryInto};
 use std::marker::PhantomData;
+use std::ops::Range;
 
 
 /// Definitions for delta operations.
@@ -385,6 +386,46 @@ where B: Clone + std::fmt::Debug + DeltaOps {
         })
     }
 }
+
+
+
+impl<T> DeltaOps for Range<T>
+where T: Clone + PartialEq + DeltaOps + std::fmt::Debug {
+    type Delta = Delta<Self>;
+
+    fn apply_delta(&self, delta: &Self::Delta) -> DeltaResult<Self> {
+        match delta {
+            Delta::ScalarEdit(val) => Ok(val.clone()),
+            _ => bug_detected!(),
+        }
+    }
+
+    fn delta(&self, rhs: &Self) -> DeltaResult<Self::Delta> {
+        Ok(Delta::ScalarEdit(rhs.clone()))
+    }
+}
+
+impl<T> TryFrom<Range<T>> for Delta<Range<T>>
+where T: Clone + PartialEq + DeltaOps + std::fmt::Debug {
+    type Error = DeltaError;
+    fn try_from(thing: Range<T>) -> Result<Self, Self::Error> {
+        Ok(Delta::ScalarEdit(thing))
+    }
+}
+
+impl<T> TryFrom<Delta<Range<T>>> for Range<T>
+where T: Clone + PartialEq + DeltaOps + std::fmt::Debug {
+    type Error = DeltaError;
+    fn try_from(delta: Delta<Range<T>>) -> Result<Self, Self::Error> {
+        match delta {
+            Delta::ScalarEdit(item) => Ok(item),
+            _ => bug_detected!()
+        }
+    }
+}
+
+
+
 
 
 
