@@ -15,12 +15,14 @@ use quote::{format_ident, quote};
 // use std::iter::FromIterator;
 use syn::{
     parse_macro_input, Token/* macro that expands to a type, not a type */,
+    AngleBracketedGenericArguments,
     // Attribute,
+    BoundLifetimes,
     Data, DataStruct, DataEnum, DeriveInput,
     // Field,
     Expr,
     // Fields, FieldsNamed, FieldsUnnamed,
-    GenericParam, Generics, Ident,
+    GenericArgument, GenericParam, Generics, Ident, Lifetime, LifetimeDef,
     Path, PathArguments, PathSegment, PredicateType,
     // TypeParam,
     Type, TypeParamBound, TraitBound, TraitBoundModifier,
@@ -133,7 +135,8 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
     let input_type_name: Ident = input.ident;
     let mut generics: Generics = input.generics;
     let where_clause: &mut Option<WhereClause> = &mut generics.where_clause;
-    add_type_paramn_bounds_to_where_clause(where_clause, &field_types);
+    add_type_param_bounds_to_where_clause(where_clause, &field_types);
+    // enhance_where_clause_for_trait_impl(where_clause, &field_types);
     let where_clause: Option<&WhereClause> = generics.where_clause.as_ref();
     let input_type_param_decls: &Punctuated<GenericParam, Comma> =
         &generics.params;
@@ -141,6 +144,7 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
         .map(|type_param| type_param.ident.clone())
         .map(TokenTree2::from)
         .collect();
+
     let delta_type_name: Ident = format_ident!("{}Delta", input_type_name);
     let mut enum_where_clause: Option<WhereClause> = generics.where_clause.clone();
     let delta_type_definition = match data_type {
@@ -832,9 +836,10 @@ fn define_delta_enum(
     where_clause: &mut Option<WhereClause>,
     enum_variants: &[(StructVariant, Ident, Vec<Ident>, Vec<Type>)]
 ) -> TokenStream2 {
-    let mut enum_body = TokenStream2::new();
+     let mut enum_body = TokenStream2::new();
     for (variant, name, field_idents, field_types) in enum_variants {
-        add_type_paramn_bounds_to_where_clause(where_clause, field_types);
+        // add_type_param_bounds_to_where_clause(where_clause, field_types);
+        enhance_where_clause_for_type_def(where_clause, field_types);
         enum_body.extend(generate_enum_variant(
             *variant,
             name,
@@ -878,7 +883,10 @@ fn generate_enum_variant(
 
 
 
-fn add_type_paramn_bounds_to_where_clause(
+
+#[deprecated]
+// fn enhance_where_clause_for_trait_impl(
+fn add_type_param_bounds_to_where_clause(
     where_clause: &mut Option<WhereClause>,
     field_types: &[Type],
 ) {
@@ -889,7 +897,125 @@ fn add_type_paramn_bounds_to_where_clause(
             predicates: Punctuated::new(),
         });
     }
-    let trait_bound = |path_segments: &[&str]| TypeParamBound::Trait(TraitBound {
+    if let Some(ref mut clause) = where_clause {
+        // NOTE: Add a clause for each field `f: F` of the form
+        //    `F: struct_delta_trait::Delta + serde::Serialize`
+        for field_type in field_types.iter() {
+            clause.predicates.push(WherePredicate::Type(PredicateType {
+                lifetimes: None,
+                bounded_ty: field_type.clone(),
+                colon_token: Token![:](Span2::call_site()),
+                bounds: vec![ // Add type param bounds
+                    trait_bound(&["struct_delta_trait", "DeltaOps"]),
+                    trait_bound(&["serde", "Serialize"]),
+                    lifetimed_trait_bound(&["serde", "Deserialize"], "de"), // TODO
+                    trait_bound(&["PartialEq"]),
+                    trait_bound(&["Clone"]),
+                    trait_bound(&["std", "fmt", "Debug"])
+                ].into_iter().collect(),
+            }));
+        }
+    }
+    // println!("where_clause: {}", quote! {
+    //     #where_clause
+    // });
+}
+
+fn enhance_where_clause_for_type_def(
+    where_clause: &mut Option<WhereClause>,
+    field_types: &[Type],
+) {
+    if where_clause.is_none() {
+        // NOTE: initialize the `WhereClause` if there isn't one yet
+        *where_clause = Some(WhereClause {
+            where_token: Token![where](Span2::call_site()),
+            predicates: Punctuated::new(),
+        });
+    }
+
+    if let Some(ref mut clause) = where_clause {
+        // NOTE: Add a clause for each field `f: F` of the form
+        //    `F: struct_delta_trait::Delta + serde::Serialize`
+        for field_type in field_types.iter() {
+            clause.predicates.push(WherePredicate::Type(PredicateType {
+                lifetimes: None,
+                bounded_ty: field_type.clone(),
+                colon_token: Token![:](Span2::call_site()),
+                bounds: vec![ // Add type param bounds
+                    trait_bound(&["struct_delta_trait", "DeltaOps"]),
+                    trait_bound(&["PartialEq"]),
+                    trait_bound(&["Clone"]),
+                    trait_bound(&["std", "fmt", "Debug"])
+                ].into_iter().collect(),
+            }));
+        }
+    }
+}
+
+
+fn lifetimed_trait_bound(
+    path_segments: &[&str],
+    lifetime: &str
+) -> TypeParamBound {
+    fn generic_lifetime_arg(lifetime: &str) -> PathArguments {
+        PathArguments::AngleBracketed(
+            AngleBracketedGenericArguments {
+                colon2_token: None,
+                lt_token: Token![<](Span2::call_site()),
+                args: {
+                    let mut p: Punctuated<GenericArgument, Comma> =
+                        Punctuated::new();
+                    p.push(GenericArgument::Lifetime(Lifetime {
+                        apostrophe: Span2::call_site(),
+                        ident: format_ident!("{}", lifetime),
+                    }));
+                    p
+                },
+                gt_token: Token![>](Span2::call_site()),
+            }
+        )
+    }
+
+    TypeParamBound::Trait(TraitBound {
+        paren_token: None,
+        modifier: TraitBoundModifier::None,
+        lifetimes: Some(BoundLifetimes {
+            for_token: Token![for](Span2::call_site()),
+            lt_token: Token![<](Span2::call_site()),
+            lifetimes: {
+                let mut punctuated: Punctuated<LifetimeDef, Comma> =
+                    Punctuated::new();
+                punctuated.push(LifetimeDef::new(Lifetime {
+                    apostrophe: Span2::call_site(),
+                    ident: format_ident!("{}", lifetime),
+                }));
+                punctuated
+            },
+            gt_token: Token![>](Span2::call_site()),
+        }),
+        path: Path {
+            leading_colon: None,
+            segments: {
+                let segment_count = path_segments.len();
+                path_segments.iter()
+                    .enumerate()
+                    .map(|(idx, segment)| PathSegment {
+                        ident: Ident::new(segment, Span2::call_site()),
+                        arguments: if idx < segment_count - 1 {
+                            PathArguments::None
+                        } else { // Add the lifetime arg to the last segment
+                            generic_lifetime_arg(lifetime)
+                        },
+                    })
+                    .collect()
+            },
+        },
+    })
+}
+
+
+fn trait_bound(path_segments: &[&str]) -> TypeParamBound {
+    TypeParamBound::Trait(TraitBound {
         paren_token: None,
         modifier: TraitBoundModifier::None,
         lifetimes: None,
@@ -902,24 +1028,5 @@ fn add_type_paramn_bounds_to_where_clause(
                 })
                 .collect(),
         },
-    });
-    if let Some(ref mut clause) = where_clause {
-        // NOTE: Add a clause for each field `f: F` of the form
-        //    `F: struct_delta_trait::Delta + serde::Serialize`
-        for field_type in field_types.iter() {
-            clause.predicates.push(WherePredicate::Type(PredicateType {
-                lifetimes: None,
-                bounded_ty: field_type.clone(),
-                colon_token: Token![:](Span2::call_site()),
-                bounds: vec![ // Add type param bounds
-                    trait_bound(&["struct_delta_trait", "DeltaOps"]),
-                    trait_bound(&["serde", "Serialize"]),
-                    trait_bound(&["serde", "Deserialize"]), // TODO
-                    trait_bound(&["PartialEq"]),
-                    trait_bound(&["Clone"]),
-                    trait_bound(&["std", "fmt", "Debug"])
-                ].into_iter().collect(),
-            }));
-        }
-    }
+    })
 }
