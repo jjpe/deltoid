@@ -800,6 +800,7 @@ fn define_delta_struct(
     match struct_variant {
         StructVariant::NamedStruct => quote! {
             #[derive(Debug, PartialEq, Clone)]
+            #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
             pub struct #delta_struct_name<#type_param_decls> #where_clause {
                 #(
                     pub(self) #field_idents: Option<<#field_types as DeltaOps>::Delta>,
@@ -808,6 +809,7 @@ fn define_delta_struct(
         },
         StructVariant::TupleStruct => quote! {
             #[derive(Debug, PartialEq, Clone)]
+            #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
             pub struct #delta_struct_name<#type_param_decls> (
                 #(
                     pub(self) Option<<#field_types as DeltaOps>::Delta>,
@@ -816,6 +818,7 @@ fn define_delta_struct(
         },
         StructVariant::UnitStruct => quote! {
             #[derive(Debug, PartialEq, Clone)]
+            #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
             pub struct #delta_struct_name<#type_param_decls>
                 #where_clause ;
         },
@@ -841,6 +844,7 @@ fn define_delta_enum(
     }
     quote! {
         #[derive(Debug, PartialEq, Clone)]
+        #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
         pub enum #delta_enum_name<#type_param_decls> #where_clause {
             #enum_body
         }
@@ -910,6 +914,7 @@ fn add_type_paramn_bounds_to_where_clause(
                 bounds: vec![ // Add type param bounds
                     trait_bound(&["struct_delta_trait", "DeltaOps"]),
                     trait_bound(&["serde", "Serialize"]),
+                    trait_bound(&["serde", "Deserialize"]), // TODO
                     trait_bound(&["PartialEq"]),
                     trait_bound(&["Clone"]),
                     trait_bound(&["std", "fmt", "Debug"])
