@@ -7,11 +7,14 @@ use std::borrow::{Borrow, Cow, ToOwned};
 use std::convert::{TryFrom, TryInto};
 use std::marker::PhantomData;
 use std::ops::Range;
+use serde::{Deserialize, Serialize};
 
 
 /// Definitions for delta operations.
 pub trait DeltaOps: Sized + PartialEq {
     type Delta: PartialEq + Clone + std::fmt::Debug
+        + Serialize
+        + for<'de> Deserialize<'de>
         + TryFrom<Self, Error = DeltaError>
         + TryInto<Self, Error = DeltaError>;
 
@@ -33,6 +36,7 @@ pub trait DeltaOps: Sized + PartialEq {
 
 
 #[derive(Clone, Debug, PartialEq, Hash)]
+#[derive(serde_derive::Deserialize, serde_derive::Serialize)]
 pub enum Delta<T: DeltaOps + std::fmt::Debug> {
     /// Edit a value
     ScalarEdit(T),
@@ -150,7 +154,10 @@ where String: Clone + PartialEq + DeltaOps + std::fmt::Debug {
 
 
 impl<T> DeltaOps for Vec<T>
-where T: Clone + PartialEq + DeltaOps + std::fmt::Debug {
+where T: Clone + PartialEq + DeltaOps + std::fmt::Debug
+    + Serialize
+    + for<'de> Deserialize<'de>
+{
     // TODO This impl is actually more suited to a `Stack`-like type in terms
     // of efficiency. However, in terms of soundness it should work fine.
 
@@ -213,6 +220,7 @@ where T: Clone + PartialEq + DeltaOps + std::fmt::Debug {
 
 
 #[derive(Clone, Debug, PartialEq)]
+#[derive(serde_derive::Deserialize, serde_derive::Serialize)]
 pub struct VecDelta<T>(Vec<Delta<T>>)
 where T: Clone + PartialEq + DeltaOps + std::fmt::Debug;
 
@@ -334,8 +342,12 @@ where T: Clone + PartialEq + DeltaOps + std::fmt::Debug {
 
 
 impl<'a, B> DeltaOps for Cow<'a, B>
-where B: ToOwned + PartialEq + DeltaOps + Clone + std::fmt::Debug {
+where B: ToOwned + PartialEq + DeltaOps + Clone + std::fmt::Debug
+    + Serialize
+    + for<'de> Deserialize<'de>
+{
     type Delta = CowDelta<'a, B>;
+
     fn apply_delta(&self, delta: &Self::Delta) -> DeltaResult<Self> {
         let lhs: &B = self.borrow();
         if let Some(delta) = delta.inner.as_ref() {
@@ -370,6 +382,7 @@ where B: Clone + std::fmt::Debug + DeltaOps {
 
 
 #[derive(Clone, Debug, PartialEq)]
+#[derive(serde_derive::Deserialize, serde_derive::Serialize)]
 pub struct CowDelta<'a, B: DeltaOps + Clone> {
     inner: Option<<B as DeltaOps>::Delta>,
     _phantom: PhantomData<&'a B>
@@ -390,7 +403,10 @@ where B: Clone + std::fmt::Debug + DeltaOps {
 
 
 impl<T> DeltaOps for Range<T>
-where T: Clone + PartialEq + DeltaOps + std::fmt::Debug {
+where T: Clone + PartialEq + DeltaOps + std::fmt::Debug
+    + Serialize
+    + for<'de> Deserialize<'de>
+{
     type Delta = Delta<Self>;
 
     fn apply_delta(&self, delta: &Self::Delta) -> DeltaResult<Self> {
@@ -406,16 +422,24 @@ where T: Clone + PartialEq + DeltaOps + std::fmt::Debug {
 }
 
 impl<T> TryFrom<Range<T>> for Delta<Range<T>>
-where T: Clone + PartialEq + DeltaOps + std::fmt::Debug {
+where T: Clone + PartialEq + DeltaOps + std::fmt::Debug
+    + Serialize
+    + for<'de> Deserialize<'de>
+{
     type Error = DeltaError;
+
     fn try_from(thing: Range<T>) -> Result<Self, Self::Error> {
         Ok(Delta::ScalarEdit(thing))
     }
 }
 
 impl<T> TryFrom<Delta<Range<T>>> for Range<T>
-where T: Clone + PartialEq + DeltaOps + std::fmt::Debug {
+where T: Clone + PartialEq + DeltaOps + std::fmt::Debug
+    + Serialize
+    + for<'de> Deserialize<'de>
+{
     type Error = DeltaError;
+
     fn try_from(delta: Delta<Range<T>>) -> Result<Self, Self::Error> {
         match delta {
             Delta::ScalarEdit(item) => Ok(item),
