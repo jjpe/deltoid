@@ -9,7 +9,8 @@ use proc_macro2::{
     Literal as Literal2,
     // Punct as Punct2, Spacing as Spacing2,
     Span as Span2,
-    TokenTree as TokenTree2, TokenStream as TokenStream2
+    // TokenTree as TokenTree2,
+    TokenStream as TokenStream2
 };
 use quote::{format_ident, quote};
 // use std::iter::FromIterator;
@@ -22,7 +23,9 @@ use syn::{
     // Field,
     Expr,
     // Fields, FieldsNamed, FieldsUnnamed,
-    GenericArgument, GenericParam, Generics, Ident, Lifetime, LifetimeDef,
+    GenericArgument, GenericParam,
+    // Generics,
+    Ident, Lifetime, LifetimeDef,
     Path, PathArguments, PathSegment, PredicateType,
     // TypeParam,
     Type, TypeParamBound, TraitBound, TraitBoundModifier,
@@ -36,6 +39,34 @@ use syn::token::{
     Comma
 };
 
+
+#[derive(Debug)]
+struct EnumVariant {
+    struct_variant: StructVariant,
+    name: Ident,
+    field_names: Vec<Ident>,
+    field_types: Vec<Type>,
+}
+
+#[derive(Debug)]
+struct Info {
+    input_data_type: DataType,
+    input_struct_variant: StructVariant,
+    input_type_name: Ident,
+    input_field_names: Vec<Ident>,
+    input_field_types: Vec<Type>,
+    input_type_param_decls: Punctuated<GenericParam, Comma>,
+    input_type_params: Punctuated<Ident, Comma>,
+    enum_variants: Vec<EnumVariant>,
+    /// WhereClause for generated type definitions
+    type_def_where_clause: WhereClause,
+    /// WhereClause for the generated `DeltaOps` impl
+    deltaops_trait_impl_where_clause: WhereClause,
+    /// The name of the Delta type generated as a dual for the input type
+    delta_type_name: Ident,
+}
+
+
 #[proc_macro_derive(Delta)]
 pub fn derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -47,77 +78,65 @@ pub fn derive(input: TokenStream) -> TokenStream {
 }
 
 fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
-    let mut field_idents: Vec<TokenTree2> = vec![];
-    let mut field_types: Vec<Type> = vec![];
-    let mut struct_variant: Option<StructVariant> = None;
-    let mut set_struct_variant = |variant| match struct_variant {
-        None => Ok({ struct_variant = Some(variant); }),
-        Some(v) if v == variant => Ok((/* NOP */)),
-        _ => bug_detected!(),
+    let mut info = Info {
+        input_data_type: DataType::Struct,
+        input_struct_variant: StructVariant::UnitStruct,
+        input_type_name: input.ident.clone(),
+        input_field_names: vec![],
+        input_field_types: vec![],
+        input_type_param_decls: input.generics.params.clone(),
+        input_type_params: input.generics.type_params()
+            .map(|type_param| type_param.ident.clone())
+            // .map(TokenTree2::from)
+            .collect(),
+        enum_variants: vec![],
+        type_def_where_clause: input.generics.where_clause.as_ref().cloned()
+            .unwrap_or_else(empty_where_clause),
+        deltaops_trait_impl_where_clause: input.generics.where_clause
+            .unwrap_or_else(empty_where_clause),
+        delta_type_name: format_ident!("{}Delta", input.ident),
     };
-    #[allow(unused_assignments)] let data_type;
-
-    type EnumVariantInfo = (StructVariant, Ident, Vec<Ident>, Vec<Type>);
-    let mut enum_variants: Vec<EnumVariantInfo> = vec![];
 
     match input.data {
-        Data::Union(_) => {
-            #[allow(unused_assignments)] { data_type = DataType::Union };
-            unimplemented!("Delta computation for unions is not supported.")
-        },
-        Data::Struct(DataStruct { fields, .. }) if fields.len() == 0 => {
-            data_type = DataType::Struct;
-            set_struct_variant(StructVariant::UnitStruct)?;
-        },
-        Data::Struct(DataStruct { fields, .. }) => {
-            data_type = DataType::Struct;
-            for (fidx, field) in fields.iter().enumerate() {
+        Data::Struct(DataStruct { fields, .. }) if !fields.is_empty() => {
+            info.input_data_type = DataType::Struct;
+            for field in fields.iter() {
+                info.input_field_types.push(field.ty.clone());
                 if let Some(ident) = field.ident.as_ref() {
-                    // A "named struct" i.e. a struct with named fields
-                    field_idents.push(TokenTree2::Ident(ident.clone()));
-                    field_types.push(field.ty.clone());
-                    set_struct_variant(StructVariant::NamedStruct)?;
-                } else { // A tuple struct i.e. unnamed/positional fields
-                    field_idents.push(TokenTree2::Literal(
-                        Literal2::usize_unsuffixed(fidx)
-                    ));
-                    field_types.push(field.ty.clone());
-                    set_struct_variant(StructVariant::TupleStruct)?;
+                    info.input_struct_variant = StructVariant::NamedStruct;
+                    info.input_field_names.push(ident.clone());
+                } else {
+                    info.input_struct_variant = StructVariant::TupleStruct;
+                    // let lit = Literal2::usize_unsuffixed(fidx);
+                    // info.input_field_names.push(TokenTree2::Literal(lit));
                 }
             }
         },
+        Data::Struct(DataStruct { .. }) => {
+            info.input_data_type = DataType::Struct;
+            info.input_struct_variant = StructVariant::UnitStruct;
+        },
         Data::Enum(DataEnum { variants, .. }) => {
-            data_type = DataType::Enum;
+            info.input_data_type = DataType::Enum;
             for variant in variants {
-                let mut struct_variant: Option<StructVariant> =
-                    if variant.fields.is_empty() {
-                        Some(StructVariant::UnitStruct)
-                    } else {
-                        None
-                    };
-                let mut set_struct_variant = |variant| match struct_variant {
-                    None => Ok({ struct_variant = Some(variant); }),
-                    Some(v) if v == variant => Ok((/* NOP */)),
-                    _ => bug_detected!(),
+                let mut enum_variant = EnumVariant {
+                    struct_variant: StructVariant::UnitStruct,
+                    name: variant.ident.clone(),
+                    field_names: vec![],
+                    field_types: vec![],
                 };
-                let variant_ident: &Ident = &variant.ident;
-                let mut field_idents: Vec<Ident> = vec![];
-                let mut field_types: Vec<Type> = vec![];
                 for field in variant.fields.iter() {
-                    field_types.push(field.ty.clone());
+                    enum_variant.field_types.push(field.ty.clone());
                     if let Some(field_ident) = field.ident.as_ref() {
-                        field_idents.push(field_ident.clone());
-                        set_struct_variant(StructVariant::NamedStruct)?;
+                        enum_variant.struct_variant = StructVariant::NamedStruct;
+                        enum_variant.field_names.push(field_ident.clone());
                     } else {
-                        set_struct_variant(StructVariant::TupleStruct)?;
+                        enum_variant.struct_variant = StructVariant::TupleStruct;
+                        // let lit = Literal2::usize_unsuffixed(fidx);
+                        // enum_variant.field_names.push(TokenTree2::Literal(lit));
                     }
                 }
-                enum_variants.push((
-                    struct_variant.unwrap(/* TODO */),
-                    variant_ident.clone(),
-                    field_idents,
-                    field_types
-                ));
+                info.enum_variants.push(enum_variant);
 
                 // let variant_discriminant: Option<&(Eq, Expr)> =
                 //     variant.discriminant.as_ref();
@@ -130,121 +149,227 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                 }
             }
         },
+        Data::Union(_) => { info.input_data_type = DataType::Union; },
     }
 
-    let input_type_name: Ident = input.ident;
-    let mut generics: Generics = input.generics;
-    let where_clause: &mut Option<WhereClause> = &mut generics.where_clause;
-    add_type_param_bounds_to_where_clause(where_clause, &field_types);
-    // enhance_where_clause_for_trait_impl(where_clause, &field_types);
-    let where_clause: Option<&WhereClause> = generics.where_clause.as_ref();
-    let input_type_param_decls: &Punctuated<GenericParam, Comma> =
-        &generics.params;
-    let input_type_params: Punctuated<TokenTree2, Comma> = generics.type_params()
-        .map(|type_param| type_param.ident.clone())
-        .map(TokenTree2::from)
-        .collect();
+    // Enhance the struct/enum definition where clause
+    match info.input_data_type {
+        DataType::Struct => enhance_where_clause_for_type_def(
+            &info.input_field_types,
+            &mut info.type_def_where_clause
+        ),
+        DataType::Enum => for enum_variant in info.enum_variants.iter() {
+            enhance_where_clause_for_type_def(
+                &enum_variant.field_types,
+                &mut info.type_def_where_clause
+            );
+        },
+        DataType::Union =>
+            unimplemented!("Delta computation for unions is not supported."),
+    }
 
-    let delta_type_name: Ident = format_ident!("{}Delta", input_type_name);
-    let mut enum_where_clause: Option<WhereClause> = generics.where_clause.clone();
-    let delta_type_definition = match data_type {
+    // Enhance the `impl DeltaOps for <<SOME_TYPE>>` where clause
+    match info.input_data_type {
+        DataType::Struct => enhance_where_clause_for_deltaops_trait_impl(
+            &info.input_field_types,
+            &mut info.deltaops_trait_impl_where_clause
+        ),
+        DataType::Enum => for enum_variant in info.enum_variants.iter() {
+            enhance_where_clause_for_deltaops_trait_impl(
+                &enum_variant.field_types,
+                &mut info.deltaops_trait_impl_where_clause
+            );
+        },
+        DataType::Union =>
+            unimplemented!("Delta computation for unions is not supported."),
+    }
+
+    let delta_type_definition = match info.input_data_type {
         DataType::Union =>
             unimplemented!("Delta computation for unions is not supported."),
         DataType::Struct => define_delta_struct(
-            struct_variant.unwrap(/*TODO Option*/),
-            &delta_type_name,
-            input_type_param_decls,
-            where_clause,
-            &field_idents,
-            &field_types
+            info.input_struct_variant,
+            &info.delta_type_name,
+            &info.input_type_param_decls,
+            &info.type_def_where_clause,
+            &info.input_field_names,
+            &info.input_field_types
         ),
-        DataType::Enum => {
-            define_delta_enum(
-                &delta_type_name,
-                input_type_param_decls,
-                &mut enum_where_clause,
-                &enum_variants
-            )
-        },
+        DataType::Enum => define_delta_enum(
+            &info.delta_type_name,
+            &info.input_type_param_decls,
+            &info.type_def_where_clause,
+            &info.enum_variants
+        ),
     };
 
     #[allow(non_snake_case)]
-    let impl_DeltaOps_for_input_type = match data_type {
-        DataType::Union =>
-            unimplemented!("Delta computation for unions is not supported."),
-        DataType::Struct => quote! {
-            impl<#input_type_param_decls>  struct_delta_trait::DeltaOps
-                for  #input_type_name<#input_type_params>  #where_clause
-            {
-                type Delta = #delta_type_name<#input_type_params>;
+    let impl_DeltaOps_for_input_type = match info.input_data_type {
+        DataType::Struct => {
+            let input_type_name = &info.input_type_name;
+            let input_type_params = &info.input_type_params;
+            let input_type_param_decls = &info.input_type_param_decls;
+            let input_field_names = &info.input_field_names;
+            // let input_field_types = &info.input_field_types;
+            let where_clause = &info.deltaops_trait_impl_where_clause;
+            let delta_type_name = &info.delta_type_name;
+            match info.input_struct_variant {
+                StructVariant::NamedStruct => quote! {
+                    impl<#input_type_param_decls>  struct_delta_trait::DeltaOps
+                        for  #input_type_name<#input_type_params>  #where_clause
+                    {
+                        type Delta = #delta_type_name<#input_type_params>;
 
-                fn apply_delta(
-                    &self,
-                    delta: &Self::Delta
-                ) -> struct_delta_trait::DeltaResult<Self> {
-                    Ok(Self {
-                        #(
-                            #field_idents:
-                            if let Some(field_delta) = &delta.#field_idents {
-                                self.#field_idents.apply_delta(&field_delta)?
-                            } else {
-                                self.#field_idents.clone()
-                            }
-                        ),*
-                    })
-                }
+                        fn apply_delta(
+                            &self,
+                            delta: &Self::Delta
+                        ) -> struct_delta_trait::DeltaResult<Self> {
+                            Ok(Self {
+                                #(
+                                    #input_field_names:
+                                    if let Some(field_delta) =
+                                        &delta.#input_field_names
+                                    {
+                                        self.#input_field_names.apply_delta(
+                                            &field_delta
+                                        )?
+                                    } else {
+                                        self.#input_field_names.clone()
+                                    }
+                                ),*
+                            })
+                        }
 
-                fn delta(
-                    &self,
-                    rhs: &Self
-                ) -> struct_delta_trait::DeltaResult<Self::Delta> {
-                    Ok(Self::Delta {
-                        #(
-                            #field_idents:
-                            if self.#field_idents != rhs.#field_idents {
-                                Some(self.#field_idents.delta(&rhs.#field_idents)?)
-                            } else {
-                                None
+                        fn delta(
+                            &self,
+                            rhs: &Self
+                        ) -> struct_delta_trait::DeltaResult<Self::Delta> {
+                            Ok(Self::Delta {
+                                #(
+                                    #input_field_names:
+                                    if self.#input_field_names
+                                        != rhs.#input_field_names
+                                    {
+                                        Some(self.#input_field_names.delta(
+                                            &rhs.#input_field_names
+                                        )?)
+                                    } else {
+                                        None
+                                    }
+                                ),*
+                            })
+                        }
+                    }
+                },
+                StructVariant::TupleStruct => {
+                    let fields: Vec<_> = (0 .. info.input_field_types.len())
+                        .map(|n| Literal2::usize_unsuffixed(n))
+                        .collect();
+                    let delta_type_name = &info.delta_type_name;
+                    quote! {
+                        impl<#input_type_param_decls>  struct_delta_trait::DeltaOps
+                            for  #input_type_name<#input_type_params>
+                            #where_clause
+                        {
+                            type Delta = #delta_type_name<#input_type_params>;
+
+                            fn apply_delta(
+                                &self,
+                                delta: &Self::Delta
+                            ) -> struct_delta_trait::DeltaResult<Self> {
+                                Ok(Self(
+                                    #(
+                                        if let Some(d) = &delta.#fields {
+                                            self.#fields.apply_delta(&d)?
+                                        } else {
+                                            self.#fields.clone()
+                                        }
+                                    ),*
+                                ))
                             }
-                        ),*
-                    })
-                }
+
+                            fn delta(
+                                &self,
+                                rhs: &Self
+                            ) -> struct_delta_trait::DeltaResult<Self::Delta> {
+                                Ok(#delta_type_name(
+                                    #(
+                                        if self.#fields != rhs.#fields {
+                                            Some(self.#fields.delta(&rhs.#fields)?)
+                                        } else {
+                                            None
+                                        }
+                                    ),*
+                                ))
+                            }
+                        }
+                    }
+                },
+                StructVariant::UnitStruct => {
+                    let delta_type_name = &info.delta_type_name;
+                    quote! {
+                        impl<#input_type_param_decls>  struct_delta_trait::DeltaOps
+                            for  #input_type_name<#input_type_params>  #where_clause
+                        {
+                            type Delta = #delta_type_name<#input_type_params>;
+
+                            fn apply_delta(
+                                &self,
+                                delta: &Self::Delta
+                            ) -> struct_delta_trait::DeltaResult<Self> {
+                                Ok(Self)
+                            }
+
+                            fn delta(
+                                &self,
+                                rhs: &Self
+                            ) -> struct_delta_trait::DeltaResult<Self::Delta> {
+                                Ok(#delta_type_name)
+                            }
+                        }
+                    }
+                },
             }
         },
         DataType::Enum => {
             let mut apply_delta_tokens = TokenStream2::new();
-            for ((lhs_struct_variant,   lhs_variant_ident,
-                  lhs_field_idents,     lhs_field_types),
-                 (rhs_struct_variant,   rhs_variant_ident,
-                  rhs_field_idents,    _rhs_field_types))
-                in iproduct!(enum_variants.iter(), enum_variants.iter())
+            for (lhs_enum_variant, rhs_enum_variant)
+                in iproduct!(info.enum_variants.iter(), info.enum_variants.iter())
             {
+                let lhs_struct_variant = lhs_enum_variant.struct_variant;
+                let rhs_struct_variant = rhs_enum_variant.struct_variant;
+                let lhs_variant_name = &lhs_enum_variant.name;
+                let rhs_variant_name = &rhs_enum_variant.name;
+                let lhs_field_names = &lhs_enum_variant.field_names;
+                let rhs_field_names = &rhs_enum_variant.field_names;
+                let lhs_field_types = &lhs_enum_variant.field_types;
+                let _rhs_field_types = &rhs_enum_variant.field_types;
                 apply_delta_tokens.extend(match (lhs_struct_variant, rhs_struct_variant) {
                     (StructVariant::NamedStruct, StructVariant::NamedStruct)
-                        if lhs_variant_ident == rhs_variant_ident =>
+                        if lhs_variant_name == rhs_variant_name =>
                     {
-                        let lfield_idents: Vec<Ident> = lhs_field_idents.iter()
+                        let lfield_names: Vec<Ident> = lhs_field_names.iter()
                             .map(|ident| format_ident!("lhs{}", ident))
                             .collect();
-                        let rfield_idents: Vec<Ident> = lhs_field_idents.iter()
+                        let rfield_names: Vec<Ident> = lhs_field_names.iter()
                             .map(|ident| format_ident!("delta{}", ident))
                             .collect();
                         quote! {
-                            if let Self::#lhs_variant_ident {
-                                #(#lhs_field_idents),*
+                            if let Self::#lhs_variant_name {
+                                #(#lhs_field_names),*
                             } = self {
-                                #( let #lfield_idents = #lhs_field_idents; )*
-                                if let Self::Delta::#rhs_variant_ident {
-                                    #(#rhs_field_idents),*
+                                #( let #lfield_names = #lhs_field_names; )*
+                                if let Self::Delta::#rhs_variant_name {
+                                    #(#rhs_field_names),*
                                 } = delta {
-                                    #( let #rfield_idents = #lhs_field_idents; )*
-                                    return Ok(Self::#lhs_variant_ident {
+                                    #( let #rfield_names = #lhs_field_names; )*
+                                    return Ok(Self::#lhs_variant_name {
                                         #(
-                                            #lhs_field_idents:
-                                            match #rfield_idents.as_ref() {
-                                                None => { #lfield_idents.clone() }
+                                            #lhs_field_names:
+                                            match #rfield_names.as_ref() {
+                                                None => { #lfield_names.clone() }
                                                 Some(d) => {
-                                                    #lfield_idents.apply_delta(d)?
+                                                    #lfield_names.apply_delta(d)?
                                                 },
                                             },
                                         )*
@@ -254,28 +379,28 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                         }
                     },
                     (StructVariant::TupleStruct, StructVariant::TupleStruct)
-                        if lhs_variant_ident == rhs_variant_ident =>
+                        if lhs_variant_name == rhs_variant_name =>
                     {
                         let field_count = lhs_field_types.len();
-                        let lfield_idents: Vec<Ident> = (0 .. field_count)
+                        let lfield_names: Vec<Ident> = (0 .. field_count)
                             .map(|ident| format_ident!("lhs{}", ident))
                             .collect();
-                        let rfield_idents: Vec<Ident> = (0 .. field_count)
+                        let rfield_names: Vec<Ident> = (0 .. field_count)
                             .map(|ident| format_ident!("delta{}", ident))
                             .collect();
                         quote! {
-                            if let Self::#lhs_variant_ident(
-                                #(#lfield_idents),*
+                            if let Self::#lhs_variant_name(
+                                #(#lfield_names),*
                             ) = self {
-                                if let Self::Delta::#rhs_variant_ident(
-                                    #(#rfield_idents),*
+                                if let Self::Delta::#rhs_variant_name(
+                                    #(#rfield_names),*
                                 ) = delta {
-                                    return Ok(Self::#lhs_variant_ident(
+                                    return Ok(Self::#lhs_variant_name(
                                         #(
-                                            match #rfield_idents.as_ref() {
-                                                None => #lfield_idents.clone(),
+                                            match #rfield_names.as_ref() {
+                                                None => #lfield_names.clone(),
                                                 Some(d) =>
-                                                    #lfield_idents.apply_delta(d)?,
+                                                    #lfield_names.apply_delta(d)?,
                                             },
                                         )*
                                     ));
@@ -284,53 +409,55 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                         }
                     },
                     (_, StructVariant::UnitStruct)
-                        if lhs_variant_ident == rhs_variant_ident => quote! {
-                            if let Self::#lhs_variant_ident = self {
-                                if let Self::Delta::#rhs_variant_ident = delta {
-                                    return Ok(Self::#lhs_variant_ident);
+                        if lhs_variant_name == rhs_variant_name => quote! {
+                            if let Self::#lhs_variant_name = self {
+                                if let Self::Delta::#rhs_variant_name = delta {
+                                    return Ok(Self::#lhs_variant_name);
                                 }
                             }
                         },
                     _ => quote! { },
                 });
             }
-            for (struct_variant, variant_ident, field_idents, field_types)
-                in enum_variants.iter()
-            {
+            for enum_variant in info.enum_variants.iter() {
+                let struct_variant = enum_variant.struct_variant;
+                let variant_name = &enum_variant.name;
+                let field_names = &enum_variant.field_names;
+                let field_types = &enum_variant.field_types;
                 apply_delta_tokens.extend(match struct_variant {
-                    StructVariant::NamedStruct => {
-                        quote! {
-                            if let Self::Delta::#variant_ident {
-                                #(#field_idents),*
-                            } = delta {
-                                use struct_delta_trait::DeltaError;
-                                use std::convert::TryInto;
-                                return Ok(Self::#variant_ident {
-                                    #(
-                                        #field_idents:
-                                        match #field_idents.as_ref() {
-                                            Some(d) => d.clone().try_into()?,
-                                            None => return Err(DeltaError::ExpectedValue)?,
-                                        },
-                                    )*
-                                })
-                            }
+                    StructVariant::NamedStruct => quote! {
+                        if let Self::Delta::#variant_name {
+                            #(#field_names),*
+                        } = delta {
+                            use struct_delta_trait::DeltaError;
+                            use std::convert::TryInto;
+                            return Ok(Self::#variant_name {
+                                #(
+                                    #field_names:
+                                    match #field_names.as_ref() {
+                                        Some(d) => d.clone().try_into()?,
+                                        None => return Err(
+                                            DeltaError::ExpectedValue
+                                        )?,
+                                    },
+                                )*
+                            })
                         }
                     },
                     StructVariant::TupleStruct => {
                         let field_count = field_types.len();
-                        let field_idents: Vec<Ident> = (0 .. field_count)
+                        let field_names: Vec<Ident> = (0 .. field_count)
                             .map(|token| format_ident!("field{}", token))
                             .collect();
                         quote! {
-                            if let Self::Delta::#variant_ident(
-                                #(#field_idents),*
+                            if let Self::Delta::#variant_name(
+                                #(#field_names),*
                             ) = delta {
                                 use struct_delta_trait::DeltaError;
                                 use std::convert::TryInto;
-                                return Ok(Self::#variant_ident(
+                                return Ok(Self::#variant_name(
                                     #(
-                                        match #field_idents.as_ref() {
+                                        match #field_names.as_ref() {
                                             Some(d) => d.clone().try_into()?,
                                             None => return Err(
                                                 DeltaError::ExpectedValue
@@ -342,56 +469,61 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                         }
                     },
                     StructVariant::UnitStruct => quote! {
-                        if let Self::Delta::#variant_ident = delta {
-                            return Ok(Self::#variant_ident)
+                        if let Self::Delta::#variant_name = delta {
+                            return Ok(Self::#variant_name)
                         }
                     },
                 });
             }
 
             let mut delta_tokens = TokenStream2::new();
-            for ((lhs_struct_variant,   lhs_variant_ident,
-                  lhs_field_idents,     lhs_field_types),
-                 (rhs_struct_variant,   rhs_variant_ident,
-                  rhs_field_idents,    _rhs_field_types))
-                in iproduct!(enum_variants.iter(), enum_variants.iter())
+            for (lhs_enum_variant, rhs_enum_variant)
+                in iproduct!(info.enum_variants.iter(), info.enum_variants.iter())
             {
+                let lhs_struct_variant = lhs_enum_variant.struct_variant;
+                let rhs_struct_variant = rhs_enum_variant.struct_variant;
+                let lhs_variant_name = &lhs_enum_variant.name;
+                let rhs_variant_name = &rhs_enum_variant.name;
+                let lhs_field_names = &lhs_enum_variant.field_names;
+                let rhs_field_names = &rhs_enum_variant.field_names;
+                let lhs_field_types = &lhs_enum_variant.field_types;
+                let _rhs_field_types = &rhs_enum_variant.field_types;
                 delta_tokens.extend(match (lhs_struct_variant, rhs_struct_variant) {
                     (StructVariant::NamedStruct, StructVariant::NamedStruct)
-                        if lhs_variant_ident == rhs_variant_ident =>
+                        if lhs_variant_name == rhs_variant_name =>
                     {
-                        let lfield_idents: Vec<Ident> = lhs_field_idents.iter()
+                        let lfield_names: Vec<Ident> = lhs_field_names.iter()
                             .map(|ident| format_ident!("lhs_{}", ident))
                             .collect();
-                        let rfield_idents: Vec<Ident> = lhs_field_idents.iter()
+                        let rfield_names: Vec<Ident> = lhs_field_names.iter()
                             .map(|ident| format_ident!("rhs_{}", ident))
                             .collect();
-                        let delta_idents: Vec<Ident> = lhs_field_idents.iter()
+                        let delta_names: Vec<Ident> = lhs_field_names.iter()
                             .map(|ident| format_ident!("{}_delta", ident))
                             .collect();
                         quote! {
-                            if let Self::#lhs_variant_ident {
-                                #(#lhs_field_idents),*
+                            if let Self::#lhs_variant_name {
+                                #(#lhs_field_names),*
                             } = self {
-                                #( let #lfield_idents = #lhs_field_idents; )*
-                                if let Self::#rhs_variant_ident {
-                                    #(#rhs_field_idents),*
+                                #( let #lfield_names = #lhs_field_names; )*
+                                if let Self::#rhs_variant_name {
+                                    #(#rhs_field_names),*
                                 } = rhs {
-                                    #( let #rfield_idents = #lhs_field_idents; )*
+                                    #( let #rfield_names = #lhs_field_names; )*
                                     #(
-                                        let #delta_idents: Option<
+                                        let #delta_names: Option<
                                             <#lhs_field_types as DeltaOps>::Delta
-                                        > = if #lfield_idents == #rfield_idents {
+                                        > = if #lfield_names == #rfield_names {
                                             None
                                         } else {
                                             Some(
-                                                #lfield_idents.delta(&#rfield_idents)?
+                                                #lfield_names.delta(&#rfield_names)?
                                             )
                                         };
                                     )*
-                                    return Ok(Self::Delta::#lhs_variant_ident {
+                                    return Ok(Self::Delta::#lhs_variant_name {
                                         #(
-                                            #lhs_field_idents: #delta_idents,
+                                            #lhs_field_names: #delta_names,
                                         )*
                                     });
                                 }
@@ -399,37 +531,37 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                         }
                     },
                     (StructVariant::TupleStruct, StructVariant::TupleStruct)
-                        if lhs_variant_ident == rhs_variant_ident =>
+                        if lhs_variant_name == rhs_variant_name =>
                     {
                         let field_count = lhs_field_types.len();
-                        let lfield_idents: Vec<Ident> = (0 .. field_count)
+                        let lfield_names: Vec<Ident> = (0 .. field_count)
                             .map(|token| format_ident!("lhs_{}", token))
                             .collect();
-                        let rfield_idents: Vec<Ident> = (0 .. field_count)
+                        let rfield_names: Vec<Ident> = (0 .. field_count)
                             .map(|token| format_ident!("rhs_{}", token))
                             .collect();
-                        let delta_idents: Vec<Ident> = (0 .. field_count)
+                        let delta_names: Vec<Ident> = (0 .. field_count)
                             .map(|token| format_ident!("delta_{}", token))
                             .collect();
                         quote! {
-                            if let Self::#lhs_variant_ident(
-                                #(#lfield_idents),*
+                            if let Self::#lhs_variant_name(
+                                #(#lfield_names),*
                             ) = self {
-                                if let Self::#rhs_variant_ident(
-                                    #(#rfield_idents),*
+                                if let Self::#rhs_variant_name(
+                                    #(#rfield_names),*
                                 ) = rhs {
                                     #(
-                                        let #delta_idents: Option<
+                                        let #delta_names: Option<
                                             <#lhs_field_types as DeltaOps>::Delta
-                                        > = if #lfield_idents == #rfield_idents {
+                                        > = if #lfield_names == #rfield_names {
                                             None
                                         } else {
-                                            Some(#lfield_idents.delta(&#rfield_idents)?)
+                                            Some(#lfield_names.delta(&#rfield_names)?)
                                         };
                                     )*
-                                    return Ok(Self::Delta::#lhs_variant_ident(
+                                    return Ok(Self::Delta::#lhs_variant_name(
                                         #(
-                                            #delta_idents,
+                                            #delta_names,
                                         )*
                                     ));
                                 }
@@ -437,27 +569,29 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                         }
                     },
                     (_, StructVariant::UnitStruct)
-                        if lhs_variant_ident == rhs_variant_ident => quote! {
-                            if let Self::#lhs_variant_ident = self {
-                                if let Self::#rhs_variant_ident = rhs {
-                                    return Ok(Self::Delta::#rhs_variant_ident);
+                        if lhs_variant_name == rhs_variant_name => quote! {
+                            if let Self::#lhs_variant_name = self {
+                                if let Self::#rhs_variant_name = rhs {
+                                    return Ok(Self::Delta::#rhs_variant_name);
                                 }
                             }
                         },
                     _ => quote! { },
                 });
             }
-            for (struct_variant, variant_ident, field_idents, field_types)
-                in enum_variants.iter()
-            {
+            for enum_variant in info.enum_variants.iter() {
+                let struct_variant = enum_variant.struct_variant;
+                let variant_name = &enum_variant.name;
+                let field_names = &enum_variant.field_names;
+                let field_types = &enum_variant.field_types;
                 delta_tokens.extend(match struct_variant {
                     StructVariant::NamedStruct => quote! {
-                        if let Self::#variant_ident { #(#field_idents),* } = rhs {
+                        if let Self::#variant_name { #(#field_names),* } = rhs {
                             use std::convert::TryInto;
-                            return Ok(Self::Delta::#variant_ident {
+                            return Ok(Self::Delta::#variant_name {
                                 #(
-                                    #field_idents: Some(
-                                        #field_idents.clone().try_into()?
+                                    #field_names: Some(
+                                        #field_names.clone().try_into()?
                                     ),
                                 )*
                             });
@@ -465,35 +599,42 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                     },
                     StructVariant::TupleStruct => {
                         let field_count = field_types.len();
-                        let field_idents: Vec<Ident> = (0 .. field_count)
+                        let field_names: Vec<Ident> = (0 .. field_count)
                             .map(|token| format_ident!("field{}", token))
                             .collect();
                         quote! {
-                            if let Self::#variant_ident(
-                                #(#field_idents),*
+                            if let Self::#variant_name(
+                                #(#field_names),*
                             ) = rhs {
                                 use std::convert::TryInto;
-                                return Ok(Self::Delta::#variant_ident(
+                                return Ok(Self::Delta::#variant_name(
                                     #(
-                                        Some(#field_idents.clone().try_into()?),
+                                        Some(#field_names.clone().try_into()?),
                                     )*
                                 ));
                             }
                         }
                     },
                     StructVariant::UnitStruct => quote! {
-                        if let Self::#variant_ident = rhs {
-                            return Ok(Self::Delta::#variant_ident);
+                        if let Self::#variant_name = rhs {
+                            return Ok(Self::Delta::#variant_name);
                         }
                     },
 
                 });
             }
 
+            let input_type_name = &info.input_type_name;
+            let input_type_params = &info.input_type_params;
+            let input_type_param_decls = &info.input_type_param_decls;
+            // let input_field_names = &info.input_field_names;
+            // let input_field_types = &info.input_field_types;
+            let where_clause = &info.deltaops_trait_impl_where_clause;
+            let delta_type_name = &info.delta_type_name;
             quote! {
                 impl<#input_type_param_decls> struct_delta_trait::DeltaOps
                     for #input_type_name<#input_type_params>
-                    #enum_where_clause
+                    #where_clause
                 {
                     type Delta = #delta_type_name<#input_type_params>;
 
@@ -502,7 +643,6 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                         delta: &Self::Delta
                     ) -> struct_delta_trait::DeltaResult<Self> {
                         #apply_delta_tokens
-
                         struct_delta_trait::bug_detected!()
                     }
 
@@ -511,45 +651,49 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                         rhs: &Self
                     ) -> struct_delta_trait::DeltaResult<Self::Delta> {
                         #delta_tokens
-
                         struct_delta_trait::bug_detected!()
                     }
                 }
             }
-         },
-    };
-    #[allow(non_snake_case)]
-    let impl_TryFrom_input_type_for_delta_type = match data_type {
+        },
         DataType::Union =>
             unimplemented!("Delta computation for unions is not supported."),
+    };
+
+    #[allow(non_snake_case)]
+    let impl_TryFrom_input_type_for_delta_type = match info.input_data_type {
         DataType::Struct => {
+            let input_type_name = &info.input_type_name;
+            let input_type_params = &info.input_type_params;
+            let input_type_param_decls = &info.input_type_param_decls;
+            let input_field_names = &info.input_field_names;
+            let input_field_types = &info.input_field_types;
+            let where_clause = &info.deltaops_trait_impl_where_clause;
+            let delta_type_name = &info.delta_type_name;
             let mut match_body = TokenStream2::new();
-            match_body.extend(match struct_variant.unwrap(/* TODO */) {
+            match_body.extend(match info.input_struct_variant {
                 StructVariant::NamedStruct => quote! {
-                    #input_type_name {
-                        #( #field_idents ),*
-                    } => {
+                    #input_type_name { #( #input_field_names ),* } => {
                         use std::convert::TryInto;
                         Self {
                             #(
-                                #field_idents: Some(#field_idents.try_into()?),
+                                #input_field_names:
+                                Some(#input_field_names.try_into()?),
                             )*
                         }
                     },
                 },
                 StructVariant::TupleStruct => {
-                    let field_count = field_types.len();
-                    let field_idents: Vec<Ident> = (0 .. field_count)
+                    let field_count = input_field_types.len();
+                    let field_names: Vec<Ident> = (0 .. field_count)
                         .map(|token| format_ident!("field{}", token))
                         .collect();
                     quote! {
-                        #input_type_name(
-                            #( #field_idents ),*
-                        ) => {
+                        #input_type_name( #( #field_names ),* ) => {
                             use std::convert::TryInto;
                             Self(
                                 #(
-                                    Some(#field_idents.try_into()?),
+                                    Some(#field_names.try_into()?),
                                 )*
                             )
                         },
@@ -577,44 +721,53 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
             }
         },
         DataType::Enum => {
+            let input_type_name = &info.input_type_name;
+            let input_type_params = &info.input_type_params;
+            let input_type_param_decls = &info.input_type_param_decls;
+            // let input_field_names = &info.input_field_names;
+            // let input_field_types = &info.input_field_types;
+            let where_clause = &info.deltaops_trait_impl_where_clause;
+            let delta_type_name = &info.delta_type_name;
             let mut match_body = TokenStream2::new();
-            for (struct_variant, variant_ident, field_idents, field_types)
-                in enum_variants.iter()
-            {
+            for enum_variant in info.enum_variants.iter() {
+                let struct_variant = enum_variant.struct_variant;
+                let variant_name = &enum_variant.name;
+                let field_names = &enum_variant.field_names;
+                let field_types = &enum_variant.field_types;
                 match_body.extend(match struct_variant {
                     StructVariant::NamedStruct => quote! {
-                        #input_type_name::#variant_ident {
-                            #( #field_idents ),*
+                        #input_type_name::#variant_name {
+                            #( #field_names ),*
                         } => {
                             use std::convert::TryInto;
-                            Self::#variant_ident {
+                            Self::#variant_name {
                                 #(
-                                    #field_idents: Some(#field_idents.try_into()?),
+                                    #field_names: Some(#field_names.try_into()?),
                                 )*
                             }
                         },
                     },
                     StructVariant::TupleStruct => {
                         let field_count = field_types.len();
-                        let field_idents: Vec<Ident> = (0 .. field_count)
+                        let field_names: Vec<Ident> = (0 .. field_count)
                             .map(|token| format_ident!("field{}", token))
                             .collect();
                         quote! {
-                            #input_type_name::#variant_ident(
-                                #( #field_idents ),*
+                            #input_type_name::#variant_name(
+                                #( #field_names ),*
                             ) => {
                                 use std::convert::TryInto;
-                                Self::#variant_ident(
+                                Self::#variant_name(
                                     #(
-                                        Some(#field_idents.try_into()?),
+                                        Some(#field_names.try_into()?),
                                     )*
                                 )
                             },
                         }
                     },
                     StructVariant::UnitStruct => quote! {
-                        #input_type_name::#variant_ident => {
-                            Self::#variant_ident
+                        #input_type_name::#variant_name => {
+                            Self::#variant_name
                         },
                     },
                 });
@@ -623,7 +776,7 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                 impl<#input_type_param_decls>
                     std::convert::TryFrom<#input_type_name<#input_type_params>>
                     for #delta_type_name<#input_type_params>
-                    #enum_where_clause
+                    #where_clause
                 {
                     type Error = struct_delta_trait::DeltaError;
                     fn try_from(
@@ -636,21 +789,29 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                 }
             }
         },
-    };
-    #[allow(non_snake_case)]
-    let impl_TryFrom_delta_type_for_input_type = match data_type {
         DataType::Union =>
             unimplemented!("Delta computation for unions is not supported."),
+    };
+
+    #[allow(non_snake_case)]
+    let impl_TryFrom_delta_type_for_input_type = match info.input_data_type {
         DataType::Struct => {
+            let input_type_name = &info.input_type_name;
+            let input_type_params = &info.input_type_params;
+            let input_type_param_decls = &info.input_type_param_decls;
+            let input_field_names = &info.input_field_names;
+            let input_field_types = &info.input_field_types;
+            let where_clause = &info.deltaops_trait_impl_where_clause;
+            let delta_type_name = &info.delta_type_name;
             let mut match_body = TokenStream2::new();
-            match_body.extend(match struct_variant.unwrap(/* TODO */) {
+            match_body.extend(match info.input_struct_variant {
                 StructVariant::NamedStruct => quote! {
-                    #delta_type_name { #( #field_idents ),* } => {
+                    #delta_type_name { #( #input_field_names ),* } => {
                         use std::convert::TryInto;
                         use struct_delta_trait::DeltaError;
                         Self {
                             #(
-                                #field_idents: #field_idents
+                                #input_field_names: #input_field_names
                                     .ok_or(DeltaError::ExpectedValue)
                                     .map(|val| val.try_into())??,
                             )*
@@ -658,17 +819,17 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                     },
                 },
                 StructVariant::TupleStruct => {
-                    let field_count = field_types.len();
-                    let field_idents: Vec<Ident> = (0 .. field_count)
+                    let field_count = input_field_types.len();
+                    let field_names: Vec<Ident> = (0 .. field_count)
                         .map(|token| format_ident!("field{}", token))
                         .collect();
                     quote! {
-                        #delta_type_name( #( #field_idents ),* ) => {
+                        #delta_type_name( #( #field_names ),* ) => {
                             use std::convert::TryInto;
                             use struct_delta_trait::DeltaError;
                             Self(
                                 #(
-                                    #field_idents
+                                    #field_names
                                         .ok_or(DeltaError::ExpectedValue)
                                         .map(|val| val.try_into())??,
                                 )*
@@ -698,18 +859,27 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
             }
         },
         DataType::Enum => {
+            let input_type_name = &info.input_type_name;
+            let input_type_params = &info.input_type_params;
+            let input_type_param_decls = &info.input_type_param_decls;
+            // let input_field_names = &info.input_field_names;
+            // let input_field_types = &info.input_field_types;
+            let where_clause = &info.deltaops_trait_impl_where_clause;
+            let delta_type_name = &info.delta_type_name;
             let mut match_body = TokenStream2::new();
-            for (struct_variant, variant_ident, field_idents, field_types)
-                in enum_variants.iter()
-            {
+            for enum_variant in info.enum_variants.iter() {
+                let struct_variant = enum_variant.struct_variant;
+                let variant_name = &enum_variant.name;
+                let field_names = &enum_variant.field_names;
+                let field_types = &enum_variant.field_types;
                 match_body.extend(match struct_variant {
                     StructVariant::NamedStruct => quote! {
-                        #delta_type_name::#variant_ident { #( #field_idents ),* } => {
+                        #delta_type_name::#variant_name { #( #field_names ),* } => {
                             use std::convert::{TryFrom, TryInto};
                             use struct_delta_trait::DeltaError;
-                            Self::#variant_ident {
+                            Self::#variant_name {
                                 #(
-                                    #field_idents: #field_idents
+                                    #field_names: #field_names
                                         .ok_or(DeltaError::ExpectedValue)
                                         .map(|val| val.try_into())??,
                                 )*
@@ -718,16 +888,16 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                     },
                     StructVariant::TupleStruct => {
                         let field_count = field_types.len();
-                        let field_idents: Vec<Ident> = (0 .. field_count)
+                        let field_names: Vec<Ident> = (0 .. field_count)
                             .map(|token| format_ident!("field{}", token))
                             .collect();
                         quote! {
-                            #delta_type_name::#variant_ident( #( #field_idents ),* ) => {
+                            #delta_type_name::#variant_name( #( #field_names ),* ) => {
                                 use std::convert::{TryFrom, TryInto};
                                 use struct_delta_trait::DeltaError;
-                                Self::#variant_ident(
+                                Self::#variant_name(
                                     #(
-                                        #field_idents
+                                        #field_names
                                             .ok_or(DeltaError::ExpectedValue)
                                             .map(|val| val.try_into())??,
                                     )*
@@ -736,8 +906,8 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                         }
                     },
                     StructVariant::UnitStruct => quote! {
-                        #delta_type_name::#variant_ident => {
-                            Self::#variant_ident
+                        #delta_type_name::#variant_name => {
+                            Self::#variant_name
                         },
                     },
                 });
@@ -746,7 +916,7 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                 impl<#input_type_param_decls>
                     std::convert::TryFrom<#delta_type_name<#input_type_params>>
                     for #input_type_name<#input_type_params>
-                    #enum_where_clause
+                    #where_clause
                 {
                     type Error = struct_delta_trait::DeltaError;
                     fn try_from(
@@ -759,6 +929,8 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                 }
             }
         },
+        DataType::Union =>
+            unimplemented!("Delta computation for unions is not supported."),
     };
 
     let output: TokenStream2 = quote! {
@@ -788,17 +960,20 @@ enum DataType {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum StructVariant {
-    UnitStruct,
+    /// A "named struct" i.e. a struct with named fields
+    NamedStruct,
+    /// A tuple struct i.e. unnamed/positional fields
     TupleStruct,
-    NamedStruct
+    /// A unit struct i.e. no fields at all
+    UnitStruct,
 }
 
 fn define_delta_struct(
     struct_variant: StructVariant,
     delta_struct_name: &Ident,
     type_param_decls: &Punctuated<GenericParam, Comma>,
-    where_clause: Option<&WhereClause>,
-    field_idents: &[TokenTree2],
+    where_clause: &WhereClause,
+    field_names: &[Ident],
     field_types: &[Type],
 ) -> TokenStream2 {
     match struct_variant {
@@ -807,7 +982,8 @@ fn define_delta_struct(
             #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
             pub struct #delta_struct_name<#type_param_decls> #where_clause {
                 #(
-                    pub(self) #field_idents: Option<<#field_types as DeltaOps>::Delta>,
+                    pub(self) #field_names:
+                    Option<<#field_types as DeltaOps>::Delta>,
                 )*
             }
         },
@@ -833,20 +1009,37 @@ fn define_delta_struct(
 fn define_delta_enum(
     delta_enum_name: &Ident,
     type_param_decls: &Punctuated<GenericParam, Comma>,
-    where_clause: &mut Option<WhereClause>,
-    enum_variants: &[(StructVariant, Ident, Vec<Ident>, Vec<Type>)]
+    where_clause: &WhereClause,
+    enum_variants: &[EnumVariant]
 ) -> TokenStream2 {
-     let mut enum_body = TokenStream2::new();
-    for (variant, name, field_idents, field_types) in enum_variants {
-        // add_type_param_bounds_to_where_clause(where_clause, field_types);
-        enhance_where_clause_for_type_def(where_clause, field_types);
-        enum_body.extend(generate_enum_variant(
-            *variant,
-            name,
-            &field_idents,
-            &field_types
-        ));
-    }
+    let enum_body: TokenStream2 = enum_variants.iter()
+        .map(|enum_variant: &EnumVariant| {
+            let struct_variant = enum_variant.struct_variant;
+            let variant_name = &enum_variant.name;
+            let field_names = &enum_variant.field_names;
+            let field_types = &enum_variant.field_types;
+            match struct_variant {
+                StructVariant::NamedStruct =>  quote! {
+                    #variant_name {
+                        #(
+                            #field_names:
+                            Option<<#field_types as DeltaOps>::Delta>,
+                        )*
+                    },
+                },
+                StructVariant::TupleStruct =>  quote! {
+                    #variant_name(
+                        #(
+                            Option<<#field_types as DeltaOps>::Delta>,
+                        )*
+                    ),
+                },
+                StructVariant::UnitStruct =>  quote! {
+                    #variant_name,
+                },
+            }
+        })
+        .collect();
     quote! {
         #[derive(Debug, PartialEq, Clone)]
         #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
@@ -856,99 +1049,114 @@ fn define_delta_enum(
     }
 }
 
-fn generate_enum_variant(
-    struct_variant: StructVariant,
-    variant_name: &Ident,
-    field_idents: &[Ident],
+// fn generate_enum_variant(
+//     struct_variant: StructVariant,
+//     variant_name: &Ident,
+//     field_idents: &[Ident],
+//     field_types: &[Type],
+// ) -> TokenStream2 {
+//     match struct_variant {
+//         StructVariant::NamedStruct =>  quote! {
+//             #variant_name {
+//                 #(
+//                     #field_idents: Option<<#field_types as DeltaOps>::Delta>,
+//                 )*
+//             },
+//         },
+//         StructVariant::TupleStruct =>  quote! {
+//             #variant_name(
+//                 #( Option<<#field_types as DeltaOps>::Delta>, )*
+//             ),
+//         },
+//         StructVariant::UnitStruct =>  quote! {
+//             #variant_name,
+//         },
+//     }
+// }
+
+
+
+
+
+
+fn enhance_where_clause_for_deltaops_trait_impl(
     field_types: &[Type],
-) -> TokenStream2 {
-    match struct_variant {
-        StructVariant::NamedStruct =>  quote! {
-            #variant_name {
-                #( #field_idents: Option<<#field_types as DeltaOps>::Delta>, )*
-            },
-        },
-        StructVariant::TupleStruct =>  quote! {
-            #variant_name(
-                #( Option<<#field_types as DeltaOps>::Delta>, )*
-            ),
-        },
-        StructVariant::UnitStruct =>  quote! {
-            #variant_name,
-        },
-    }
-}
-
-
-
-
-
-
-#[deprecated]
-// fn enhance_where_clause_for_trait_impl(
-fn add_type_param_bounds_to_where_clause(
-    where_clause: &mut Option<WhereClause>,
-    field_types: &[Type],
+    clause: &mut WhereClause,
 ) {
-    if where_clause.is_none() {
-        // NOTE: initialize the `WhereClause` if there isn't one yet
-        *where_clause = Some(WhereClause {
-            where_token: Token![where](Span2::call_site()),
-            predicates: Punctuated::new(),
-        });
+    // NOTE: Add a clause for each field `f: F` of the form
+    //    `F: struct_delta_trait::Delta + serde::Serialize`
+    for field_type in field_types.iter() {
+        clause.predicates.push(WherePredicate::Type(PredicateType {
+            lifetimes: None,
+            bounded_ty: field_type.clone(),
+            colon_token: Token![:](Span2::call_site()),
+            bounds: vec![ // Add type param bounds
+                trait_bound(&["struct_delta_trait", "DeltaOps"]),
+                trait_bound(&["serde", "Serialize"]),
+                lifetimed_trait_bound(&["serde", "Deserialize"], "de"), // TODO
+                trait_bound(&["PartialEq"]),
+                trait_bound(&["Clone"]),
+                trait_bound(&["std", "fmt", "Debug"])
+            ].into_iter().collect(),
+        }));
     }
-    if let Some(ref mut clause) = where_clause {
-        // NOTE: Add a clause for each field `f: F` of the form
-        //    `F: struct_delta_trait::Delta + serde::Serialize`
-        for field_type in field_types.iter() {
-            clause.predicates.push(WherePredicate::Type(PredicateType {
-                lifetimes: None,
-                bounded_ty: field_type.clone(),
-                colon_token: Token![:](Span2::call_site()),
-                bounds: vec![ // Add type param bounds
-                    trait_bound(&["struct_delta_trait", "DeltaOps"]),
-                    trait_bound(&["serde", "Serialize"]),
-                    lifetimed_trait_bound(&["serde", "Deserialize"], "de"), // TODO
-                    trait_bound(&["PartialEq"]),
-                    trait_bound(&["Clone"]),
-                    trait_bound(&["std", "fmt", "Debug"])
-                ].into_iter().collect(),
-            }));
-        }
-    }
-    // println!("where_clause: {}", quote! {
-    //     #where_clause
-    // });
 }
+
+// #[deprecated]
+// // fn enhance_where_clause_for_trait_impl(
+// fn add_type_param_bounds_to_where_clause(
+//     where_clause: &mut Option<WhereClause>,
+//     field_types: &[Type],
+// ) {
+//     if where_clause.is_none() {
+//         // NOTE: initialize the `WhereClause` if there isn't one yet
+//         *where_clause = Some(WhereClause {
+//             where_token: Token![where](Span2::call_site()),
+//             predicates: Punctuated::new(),
+//         });
+//     }
+//     if let Some(ref mut clause) = where_clause {
+//         // NOTE: Add a clause for each field `f: F` of the form
+//         //    `F: struct_delta_trait::Delta + serde::Serialize`
+//         for field_type in field_types.iter() {
+//             clause.predicates.push(WherePredicate::Type(PredicateType {
+//                 lifetimes: None,
+//                 bounded_ty: field_type.clone(),
+//                 colon_token: Token![:](Span2::call_site()),
+//                 bounds: vec![ // Add type param bounds
+//                     trait_bound(&["struct_delta_trait", "DeltaOps"]),
+//                     trait_bound(&["serde", "Serialize"]),
+//                     lifetimed_trait_bound(&["serde", "Deserialize"], "de"), // TODO
+//                     trait_bound(&["PartialEq"]),
+//                     trait_bound(&["Clone"]),
+//                     trait_bound(&["std", "fmt", "Debug"])
+//                 ].into_iter().collect(),
+//             }));
+//         }
+//     }
+//     // println!("where_clause: {}", quote! {
+//     //     #where_clause
+//     // });
+// }
 
 fn enhance_where_clause_for_type_def(
-    where_clause: &mut Option<WhereClause>,
     field_types: &[Type],
+    clause: &mut WhereClause,
 ) {
-    if where_clause.is_none() {
-        // NOTE: initialize the `WhereClause` if there isn't one yet
-        *where_clause = Some(WhereClause {
-            where_token: Token![where](Span2::call_site()),
-            predicates: Punctuated::new(),
-        });
-    }
-
-    if let Some(ref mut clause) = where_clause {
-        // NOTE: Add a clause for each field `f: F` of the form
-        //    `F: struct_delta_trait::Delta + serde::Serialize`
-        for field_type in field_types.iter() {
-            clause.predicates.push(WherePredicate::Type(PredicateType {
-                lifetimes: None,
-                bounded_ty: field_type.clone(),
-                colon_token: Token![:](Span2::call_site()),
-                bounds: vec![ // Add type param bounds
-                    trait_bound(&["struct_delta_trait", "DeltaOps"]),
-                    trait_bound(&["PartialEq"]),
-                    trait_bound(&["Clone"]),
-                    trait_bound(&["std", "fmt", "Debug"])
-                ].into_iter().collect(),
-            }));
-        }
+    // NOTE: Add a clause for each field `f: F` of the form
+    //    `F: struct_delta_trait::Delta + serde::Serialize`
+    for field_type in field_types.iter() {
+        clause.predicates.push(WherePredicate::Type(PredicateType {
+            lifetimes: None,
+            bounded_ty: field_type.clone(),
+            colon_token: Token![:](Span2::call_site()),
+            bounds: vec![ // Add type param bounds
+                trait_bound(&["struct_delta_trait", "DeltaOps"]),
+                trait_bound(&["PartialEq"]),
+                trait_bound(&["Clone"]),
+                trait_bound(&["std", "fmt", "Debug"])
+            ].into_iter().collect(),
+        }));
     }
 }
 
@@ -1029,4 +1237,13 @@ fn trait_bound(path_segments: &[&str]) -> TypeParamBound {
                 .collect(),
         },
     })
+}
+
+
+
+fn empty_where_clause() -> WhereClause {
+    WhereClause {
+        where_token: Token![where](Span2::call_site()),
+        predicates: Punctuated::new(),
+    }
 }
