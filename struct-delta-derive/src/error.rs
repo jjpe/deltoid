@@ -17,6 +17,7 @@
 // }
 
 
+#[allow(unused)]
 macro_rules! bug_detected {
     () => {
         Err($crate::error::DeriveError::BugDetected {
