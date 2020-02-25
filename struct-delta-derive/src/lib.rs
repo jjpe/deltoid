@@ -702,7 +702,9 @@ fn impl_IntoDelta_for_input_type(info: &Info) -> TokenStream2 {
                     for #input_type_name<#input_type_params>
                     #where_clause
                 {
-                    fn into_delta(self) -> DeltaResult<<Self as DeltaOps>::Delta> {
+                    fn into_delta(self) -> struct_delta_trait::DeltaResult<
+                        <Self as DeltaOps>::Delta
+                    > {
                         Ok(match self {
                             #match_body
                         })
@@ -764,7 +766,9 @@ fn impl_IntoDelta_for_input_type(info: &Info) -> TokenStream2 {
                     for #input_type_name<#input_type_params>
                     #where_clause
                 {
-                    fn into_delta(self) -> DeltaResult<<Self as DeltaOps>::Delta> {
+                    fn into_delta(self) -> struct_delta_trait::DeltaResult<
+                        <Self as DeltaOps>::Delta
+                    > {
                         Ok(match self {
                             #match_body
                         })
@@ -836,7 +840,7 @@ fn impl_FromDelta_for_input_type(info: &Info) -> TokenStream2 {
                 {
                     fn from_delta(
                         delta: <Self as DeltaOps>::Delta
-                    ) -> DeltaResult<Self> {
+                    ) -> struct_delta_trait::DeltaResult<Self> {
                         use struct_delta_trait::DeltaError;
                         Ok(match delta {
                             #match_body
@@ -904,7 +908,9 @@ fn impl_FromDelta_for_input_type(info: &Info) -> TokenStream2 {
                     for #input_type_name<#input_type_params>
                     #where_clause
                 {
-                    fn from_delta(delta: <Self as DeltaOps>::Delta) -> DeltaResult<Self> {
+                    fn from_delta(
+                        delta: <Self as DeltaOps>::Delta
+                    ) -> struct_delta_trait::DeltaResult<Self> {
                         use struct_delta_trait::DeltaError;
                         Ok(match delta {
                             #match_body
