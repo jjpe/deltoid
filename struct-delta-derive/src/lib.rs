@@ -6,38 +6,20 @@ use itertools::{iproduct};
 use crate::error::{DeriveResult};
 use proc_macro::TokenStream;
 use proc_macro2::{
-    Literal as Literal2,
-    // Punct as Punct2, Spacing as Spacing2,
-    Span as Span2,
-    // TokenTree as TokenTree2,
-    TokenStream as TokenStream2
+    Literal as Literal2, Span as Span2, TokenStream as TokenStream2
 };
 use quote::{format_ident, quote};
-// use std::iter::FromIterator;
 use syn::{
     parse_macro_input, Token/* macro that expands to a type, not a type */,
-    AngleBracketedGenericArguments,
-    // Attribute,
-    BoundLifetimes,
-    Data, DataStruct, DataEnum, DeriveInput,
-    // Field,
-    Expr,
-    // Fields, FieldsNamed, FieldsUnnamed,
-    GenericArgument, GenericParam,
-    // Generics,
-    Ident, Lifetime, LifetimeDef,
+    AngleBracketedGenericArguments, BoundLifetimes,
+    Data, DataStruct, DataEnum, DeriveInput, Expr,
+    GenericArgument, GenericParam, Ident, Lifetime, LifetimeDef,
     Path, PathArguments, PathSegment, PredicateType,
-    // TypeParam,
     Type, TypeParamBound, TraitBound, TraitBoundModifier,
-    // Visibility,
     WhereClause, WherePredicate,
 };
 use syn::punctuated::Punctuated;
-// use syn::token::Eq;
-use syn::token::{
-    // Add, Colon, Colon2,
-    Comma
-};
+use syn::token::{Comma};
 
 
 #[derive(Debug)]
@@ -77,6 +59,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
     TokenStream::from(output)
 }
 
+#[allow(non_snake_case)]
 fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
     let mut info = Info {
         input_data_type: DataType::Struct,
@@ -87,7 +70,6 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
         input_type_param_decls: input.generics.params.clone(),
         input_type_params: input.generics.type_params()
             .map(|type_param| type_param.ident.clone())
-            // .map(TokenTree2::from)
             .collect(),
         enum_variants: vec![],
         type_def_where_clause: input.generics.where_clause.as_ref().cloned()
@@ -107,8 +89,6 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                     info.input_field_names.push(ident.clone());
                 } else {
                     info.input_struct_variant = StructVariant::TupleStruct;
-                    // let lit = Literal2::usize_unsuffixed(fidx);
-                    // info.input_field_names.push(TokenTree2::Literal(lit));
                 }
             }
         },
@@ -132,8 +112,6 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                         enum_variant.field_names.push(field_ident.clone());
                     } else {
                         enum_variant.struct_variant = StructVariant::TupleStruct;
-                        // let lit = Literal2::usize_unsuffixed(fidx);
-                        // enum_variant.field_names.push(TokenTree2::Literal(lit));
                     }
                 }
                 info.enum_variants.push(enum_variant);
@@ -184,7 +162,7 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
             unimplemented!("Delta computation for unions is not supported."),
     }
 
-    let delta_type_definition = match info.input_data_type {
+    let delta_type_definition: TokenStream2 = match info.input_data_type {
         DataType::Union =>
             unimplemented!("Delta computation for unions is not supported."),
         DataType::Struct => define_delta_struct(
@@ -203,8 +181,26 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
         ),
     };
 
-    #[allow(non_snake_case)]
-    let impl_DeltaOps_for_input_type = match info.input_data_type {
+    let impl_DeltaOps_for_input_type  = impl_DeltaOps_for_input_type(&info);
+    let impl_IntoDelta_for_input_type = impl_IntoDelta_for_input_type(&info);
+    let impl_FromDelta_for_input_type = impl_FromDelta_for_input_type(&info);
+    let output: TokenStream2 = quote! {
+        #delta_type_definition
+
+        #impl_DeltaOps_for_input_type
+        #impl_IntoDelta_for_input_type
+        #impl_FromDelta_for_input_type
+    };
+
+    // println!("{}", output);
+    Ok(output)
+}
+
+
+
+#[allow(non_snake_case)]
+fn impl_DeltaOps_for_input_type(info: &Info) -> TokenStream2 {
+    match info.input_data_type {
         DataType::Struct => {
             let input_type_name = &info.input_type_name;
             let input_type_params = &info.input_type_params;
@@ -227,12 +223,8 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                             Ok(Self {
                                 #(
                                     #input_field_names:
-                                    if let Some(field_delta) =
-                                        &delta.#input_field_names
-                                    {
-                                        self.#input_field_names.apply_delta(
-                                            &field_delta
-                                        )?
+                                    if let Some(fdelta) = &delta.#input_field_names {
+                                        self.#input_field_names.apply_delta(&fdelta)?
                                     } else {
                                         self.#input_field_names.clone()
                                     }
@@ -247,9 +239,7 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                             Ok(Self::Delta {
                                 #(
                                     #input_field_names:
-                                    if self.#input_field_names
-                                        != rhs.#input_field_names
-                                    {
+                                    if self.#input_field_names != rhs.#input_field_names {
                                         Some(self.#input_field_names.delta(
                                             &rhs.#input_field_names
                                         )?)
@@ -263,7 +253,7 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                 },
                 StructVariant::TupleStruct => {
                     let fields: Vec<_> = (0 .. info.input_field_types.len())
-                        .map(|n| Literal2::usize_unsuffixed(n))
+                        .map(Literal2::usize_unsuffixed)
                         .collect();
                     let delta_type_name = &info.delta_type_name;
                     quote! {
@@ -429,13 +419,15 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                         if let Self::Delta::#variant_name {
                             #(#field_names),*
                         } = delta {
-                            use struct_delta_trait::DeltaError;
-                            use std::convert::TryInto;
+                            use struct_delta_trait::{DeltaError, FromDelta};
+                            // use std::convert::TryInto;
                             return Ok(Self::#variant_name {
                                 #(
-                                    #field_names:
-                                    match #field_names.as_ref() {
-                                        Some(d) => d.clone().try_into()?,
+                                    #field_names: match #field_names.as_ref() {
+                                        // Some(d) => d.clone().try_into()?,
+                                        Some(d) => <#field_types>::from_delta(
+                                            d.clone()
+                                        )?,
                                         None => return Err(
                                             DeltaError::ExpectedValue
                                         )?,
@@ -453,12 +445,13 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                             if let Self::Delta::#variant_name(
                                 #(#field_names),*
                             ) = delta {
-                                use struct_delta_trait::DeltaError;
-                                use std::convert::TryInto;
+                                use struct_delta_trait::{DeltaError, FromDelta};
                                 return Ok(Self::#variant_name(
                                     #(
                                         match #field_names.as_ref() {
-                                            Some(d) => d.clone().try_into()?,
+                                            Some(d) => <#field_types>::from_delta(
+                                                d.clone()
+                                            )?,
                                             None => return Err(
                                                 DeltaError::ExpectedValue
                                             )?,
@@ -553,10 +546,10 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                                     #(
                                         let #delta_names: Option<
                                             <#lhs_field_types as DeltaOps>::Delta
-                                        > = if #lfield_names == #rfield_names {
-                                            None
-                                        } else {
+                                        > = if #lfield_names != #rfield_names {
                                             Some(#lfield_names.delta(&#rfield_names)?)
+                                        } else {
+                                            None
                                         };
                                     )*
                                     return Ok(Self::Delta::#lhs_variant_name(
@@ -587,11 +580,11 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                 delta_tokens.extend(match struct_variant {
                     StructVariant::NamedStruct => quote! {
                         if let Self::#variant_name { #(#field_names),* } = rhs {
-                            use std::convert::TryInto;
+                            use struct_delta_trait::IntoDelta;
                             return Ok(Self::Delta::#variant_name {
                                 #(
                                     #field_names: Some(
-                                        #field_names.clone().try_into()?
+                                        #field_names.clone().into_delta()?
                                     ),
                                 )*
                             });
@@ -606,10 +599,10 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                             if let Self::#variant_name(
                                 #(#field_names),*
                             ) = rhs {
-                                use std::convert::TryInto;
+                                use struct_delta_trait::IntoDelta;
                                 return Ok(Self::Delta::#variant_name(
                                     #(
-                                        Some(#field_names.clone().try_into()?),
+                                        Some(#field_names.clone().into_delta()?),
                                     )*
                                 ));
                             }
@@ -620,7 +613,6 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                             return Ok(Self::Delta::#variant_name);
                         }
                     },
-
                 });
             }
 
@@ -658,10 +650,12 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
         },
         DataType::Union =>
             unimplemented!("Delta computation for unions is not supported."),
-    };
+    }
+}
 
-    #[allow(non_snake_case)]
-    let impl_TryFrom_input_type_for_delta_type = match info.input_data_type {
+#[allow(non_snake_case)]
+fn impl_IntoDelta_for_input_type(info: &Info) -> TokenStream2 {
+    match info.input_data_type {
         DataType::Struct => {
             let input_type_name = &info.input_type_name;
             let input_type_params = &info.input_type_params;
@@ -673,12 +667,12 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
             let mut match_body = TokenStream2::new();
             match_body.extend(match info.input_struct_variant {
                 StructVariant::NamedStruct => quote! {
-                    #input_type_name { #( #input_field_names ),* } => {
-                        use std::convert::TryInto;
-                        Self {
+                    Self { #( #input_field_names ),* } => {
+                        use struct_delta_trait::IntoDelta;
+                        #delta_type_name {
                             #(
                                 #input_field_names:
-                                Some(#input_field_names.try_into()?),
+                                Some(#input_field_names.into_delta()?),
                             )*
                         }
                     },
@@ -689,31 +683,27 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                         .map(|token| format_ident!("field{}", token))
                         .collect();
                     quote! {
-                        #input_type_name( #( #field_names ),* ) => {
-                            use std::convert::TryInto;
-                            Self(
+                        Self(#( #field_names ),*) => {
+                            use struct_delta_trait::IntoDelta;
+                            #delta_type_name(
                                 #(
-                                    Some(#field_names.try_into()?),
+                                    Some(#field_names.into_delta()?),
                                 )*
                             )
                         },
                     }
                 },
                 StructVariant::UnitStruct => quote! {
-                    #input_type_name => Self,
+                    Self => #delta_type_name,
                 },
             });
             quote! {
-                impl<#input_type_param_decls>
-                    std::convert::TryFrom<#input_type_name<#input_type_params>>
-                    for #delta_type_name<#input_type_params>
+                impl<#input_type_param_decls> struct_delta_trait::IntoDelta
+                    for #input_type_name<#input_type_params>
                     #where_clause
                 {
-                    type Error = struct_delta_trait::DeltaError;
-                    fn try_from(
-                        thing: #input_type_name<#input_type_params>
-                    ) -> Result<Self, Self::Error> {
-                        Ok(match thing {
+                    fn into_delta(self) -> DeltaResult<<Self as DeltaOps>::Delta> {
+                        Ok(match self {
                             #match_body
                         })
                     }
@@ -736,13 +726,12 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                 let field_types = &enum_variant.field_types;
                 match_body.extend(match struct_variant {
                     StructVariant::NamedStruct => quote! {
-                        #input_type_name::#variant_name {
-                            #( #field_names ),*
-                        } => {
-                            use std::convert::TryInto;
-                            Self::#variant_name {
+                        Self::#variant_name { #( #field_names ),* } => {
+                            use struct_delta_trait::IntoDelta;
+                            #delta_type_name::#variant_name {
                                 #(
-                                    #field_names: Some(#field_names.try_into()?),
+                                    #field_names:
+                                    Some(#field_names.into_delta()?),
                                 )*
                             }
                         },
@@ -753,36 +742,30 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                             .map(|token| format_ident!("field{}", token))
                             .collect();
                         quote! {
-                            #input_type_name::#variant_name(
-                                #( #field_names ),*
-                            ) => {
-                                use std::convert::TryInto;
-                                Self::#variant_name(
+                            Self::#variant_name( #( #field_names ),* ) => {
+                                use struct_delta_trait::IntoDelta;
+                                #delta_type_name::#variant_name(
                                     #(
-                                        Some(#field_names.try_into()?),
+                                        Some(#field_names.into_delta()?),
                                     )*
                                 )
                             },
                         }
                     },
                     StructVariant::UnitStruct => quote! {
-                        #input_type_name::#variant_name => {
-                            Self::#variant_name
+                        Self::#variant_name => {
+                            #delta_type_name::#variant_name
                         },
                     },
                 });
             }
             quote! {
-                impl<#input_type_param_decls>
-                    std::convert::TryFrom<#input_type_name<#input_type_params>>
-                    for #delta_type_name<#input_type_params>
+                impl<#input_type_param_decls> struct_delta_trait::IntoDelta
+                    for #input_type_name<#input_type_params>
                     #where_clause
                 {
-                    type Error = struct_delta_trait::DeltaError;
-                    fn try_from(
-                        thing: #input_type_name<#input_type_params>
-                    ) -> Result<Self, Self::Error> {
-                        Ok(match thing {
+                    fn into_delta(self) -> DeltaResult<<Self as DeltaOps>::Delta> {
+                        Ok(match self {
                             #match_body
                         })
                     }
@@ -791,10 +774,13 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
         },
         DataType::Union =>
             unimplemented!("Delta computation for unions is not supported."),
-    };
+    }
+}
 
-    #[allow(non_snake_case)]
-    let impl_TryFrom_delta_type_for_input_type = match info.input_data_type {
+
+#[allow(non_snake_case)]
+fn impl_FromDelta_for_input_type(info: &Info) -> TokenStream2 {
+    match info.input_data_type {
         DataType::Struct => {
             let input_type_name = &info.input_type_name;
             let input_type_params = &info.input_type_params;
@@ -807,13 +793,14 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
             match_body.extend(match info.input_struct_variant {
                 StructVariant::NamedStruct => quote! {
                     #delta_type_name { #( #input_field_names ),* } => {
-                        use std::convert::TryInto;
-                        use struct_delta_trait::DeltaError;
                         Self {
                             #(
-                                #input_field_names: #input_field_names
-                                    .ok_or(DeltaError::ExpectedValue)
-                                    .map(|val| val.try_into())??,
+                                #input_field_names:
+                                <#input_field_types>::from_delta(
+                                    #input_field_names.ok_or(
+                                        DeltaError::ExpectedValue
+                                    )?
+                                )?,
                             )*
                         }
                     },
@@ -825,13 +812,13 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                         .collect();
                     quote! {
                         #delta_type_name( #( #field_names ),* ) => {
-                            use std::convert::TryInto;
-                            use struct_delta_trait::DeltaError;
                             Self(
                                 #(
-                                    #field_names
-                                        .ok_or(DeltaError::ExpectedValue)
-                                        .map(|val| val.try_into())??,
+                                    <#input_field_types>::from_delta(
+                                        #field_names.ok_or(
+                                            DeltaError::ExpectedValue
+                                        )?
+                                    )?,
                                 )*
                             )
                         },
@@ -841,16 +828,16 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                     #delta_type_name => Self,
                 },
             });
+
             quote! {
-                impl<#input_type_param_decls>
-                    std::convert::TryFrom<#delta_type_name<#input_type_params>>
+                impl<#input_type_param_decls> struct_delta_trait::FromDelta
                     for #input_type_name<#input_type_params>
                     #where_clause
                 {
-                    type Error = struct_delta_trait::DeltaError;
-                    fn try_from(
-                        delta: #delta_type_name<#input_type_params>
-                    ) -> Result<Self, Self::Error> {
+                    fn from_delta(
+                        delta: <Self as DeltaOps>::Delta
+                    ) -> DeltaResult<Self> {
+                        use struct_delta_trait::DeltaError;
                         Ok(match delta {
                             #match_body
                         })
@@ -875,13 +862,13 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                 match_body.extend(match struct_variant {
                     StructVariant::NamedStruct => quote! {
                         #delta_type_name::#variant_name { #( #field_names ),* } => {
-                            use std::convert::{TryFrom, TryInto};
-                            use struct_delta_trait::DeltaError;
                             Self::#variant_name {
                                 #(
-                                    #field_names: #field_names
-                                        .ok_or(DeltaError::ExpectedValue)
-                                        .map(|val| val.try_into())??,
+                                    #field_names: <#field_types>::from_delta(
+                                        #field_names.ok_or(
+                                            DeltaError::ExpectedValue
+                                        )?
+                                    )?,
                                 )*
                             }
                         },
@@ -893,13 +880,13 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                             .collect();
                         quote! {
                             #delta_type_name::#variant_name( #( #field_names ),* ) => {
-                                use std::convert::{TryFrom, TryInto};
-                                use struct_delta_trait::DeltaError;
                                 Self::#variant_name(
                                     #(
-                                        #field_names
-                                            .ok_or(DeltaError::ExpectedValue)
-                                            .map(|val| val.try_into())??,
+                                        <#field_types>::from_delta(
+                                            #field_names.ok_or(
+                                                DeltaError::ExpectedValue
+                                            )?
+                                        )?,
                                     )*
                                 )
                             },
@@ -913,15 +900,12 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
                 });
             }
             quote! {
-                impl<#input_type_param_decls>
-                    std::convert::TryFrom<#delta_type_name<#input_type_params>>
+                impl<#input_type_param_decls> struct_delta_trait::FromDelta
                     for #input_type_name<#input_type_params>
                     #where_clause
                 {
-                    type Error = struct_delta_trait::DeltaError;
-                    fn try_from(
-                        delta: #delta_type_name<#input_type_params>
-                    ) -> Result<Self, Self::Error> {
+                    fn from_delta(delta: <Self as DeltaOps>::Delta) -> DeltaResult<Self> {
+                        use struct_delta_trait::DeltaError;
                         Ok(match delta {
                             #match_body
                         })
@@ -931,19 +915,7 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
         },
         DataType::Union =>
             unimplemented!("Delta computation for unions is not supported."),
-    };
-
-    let output: TokenStream2 = quote! {
-        #delta_type_definition
-
-        #impl_DeltaOps_for_input_type
-
-        #impl_TryFrom_input_type_for_delta_type
-        #impl_TryFrom_delta_type_for_input_type
-    };
-
-    println!("{}", output);
-    Ok(output)
+    }
 }
 
 
@@ -1049,33 +1021,6 @@ fn define_delta_enum(
     }
 }
 
-// fn generate_enum_variant(
-//     struct_variant: StructVariant,
-//     variant_name: &Ident,
-//     field_idents: &[Ident],
-//     field_types: &[Type],
-// ) -> TokenStream2 {
-//     match struct_variant {
-//         StructVariant::NamedStruct =>  quote! {
-//             #variant_name {
-//                 #(
-//                     #field_idents: Option<<#field_types as DeltaOps>::Delta>,
-//                 )*
-//             },
-//         },
-//         StructVariant::TupleStruct =>  quote! {
-//             #variant_name(
-//                 #( Option<<#field_types as DeltaOps>::Delta>, )*
-//             ),
-//         },
-//         StructVariant::UnitStruct =>  quote! {
-//             #variant_name,
-//         },
-//     }
-// }
-
-
-
 
 
 
@@ -1092,6 +1037,8 @@ fn enhance_where_clause_for_deltaops_trait_impl(
             colon_token: Token![:](Span2::call_site()),
             bounds: vec![ // Add type param bounds
                 trait_bound(&["struct_delta_trait", "DeltaOps"]),
+                trait_bound(&["struct_delta_trait", "FromDelta"]),
+                trait_bound(&["struct_delta_trait", "IntoDelta"]),
                 trait_bound(&["serde", "Serialize"]),
                 lifetimed_trait_bound(&["serde", "Deserialize"], "de"), // TODO
                 trait_bound(&["PartialEq"]),
@@ -1101,43 +1048,6 @@ fn enhance_where_clause_for_deltaops_trait_impl(
         }));
     }
 }
-
-// #[deprecated]
-// // fn enhance_where_clause_for_trait_impl(
-// fn add_type_param_bounds_to_where_clause(
-//     where_clause: &mut Option<WhereClause>,
-//     field_types: &[Type],
-// ) {
-//     if where_clause.is_none() {
-//         // NOTE: initialize the `WhereClause` if there isn't one yet
-//         *where_clause = Some(WhereClause {
-//             where_token: Token![where](Span2::call_site()),
-//             predicates: Punctuated::new(),
-//         });
-//     }
-//     if let Some(ref mut clause) = where_clause {
-//         // NOTE: Add a clause for each field `f: F` of the form
-//         //    `F: struct_delta_trait::Delta + serde::Serialize`
-//         for field_type in field_types.iter() {
-//             clause.predicates.push(WherePredicate::Type(PredicateType {
-//                 lifetimes: None,
-//                 bounded_ty: field_type.clone(),
-//                 colon_token: Token![:](Span2::call_site()),
-//                 bounds: vec![ // Add type param bounds
-//                     trait_bound(&["struct_delta_trait", "DeltaOps"]),
-//                     trait_bound(&["serde", "Serialize"]),
-//                     lifetimed_trait_bound(&["serde", "Deserialize"], "de"), // TODO
-//                     trait_bound(&["PartialEq"]),
-//                     trait_bound(&["Clone"]),
-//                     trait_bound(&["std", "fmt", "Debug"])
-//                 ].into_iter().collect(),
-//             }));
-//         }
-//     }
-//     // println!("where_clause: {}", quote! {
-//     //     #where_clause
-//     // });
-// }
 
 fn enhance_where_clause_for_type_def(
     field_types: &[Type],

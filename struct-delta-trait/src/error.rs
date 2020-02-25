@@ -126,7 +126,10 @@ macro_rules! bug_detected {
 
 pub type DeltaResult<T> = Result<T, DeltaError>;
 
-#[derive(Clone, Debug)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, PartialOrd, Ord,
+    serde_derive::Deserialize, serde_derive::Serialize,
+)]
 pub enum DeltaError {
     BugDetected {
         msg: String,
@@ -134,6 +137,7 @@ pub enum DeltaError {
         line: u32,
         column: u32
     },
+    CannotDeltaADelta,
     ExpectedValue,
     FailedToEnsure {
         predicate: &'static str,
