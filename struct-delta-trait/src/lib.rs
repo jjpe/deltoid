@@ -54,7 +54,7 @@ pub trait DeltaOps: Sized + PartialEq + Clone + std::fmt::Debug {
 
 
 macro_rules! impl_delta_trait_for_primitive_types {
-    ( $($type:ty => $delta:ident),* $(,)? ) => {
+    ( $($type:ty => $delta:ident $(, derive $($traits:ident),+)?);* $(;)? ) => {
         $(
             impl DeltaOps for $type {
                 type Delta = $delta;
@@ -68,8 +68,8 @@ macro_rules! impl_delta_trait_for_primitive_types {
                 }
             }
 
-            #[derive(Clone, Debug, PartialEq)]
-            #[derive(serde_derive::Deserialize, serde_derive::Serialize, )]
+            $( #[derive( $($traits),+ )] )?
+            #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
             pub struct $delta(Option<$type>);
 
             impl IntoDelta for $type {
@@ -88,25 +88,25 @@ macro_rules! impl_delta_trait_for_primitive_types {
 }
 
 impl_delta_trait_for_primitive_types! {
-    i8    => I8Delta,
-    i16   => I16Delta,
-    i32   => I32Delta,
-    i64   => I64Delta,
-    i128  => I128Delta,
-    isize => IsizeDelta,
+    i8    => I8Delta,    derive Clone, Debug, PartialEq, Hash;
+    i16   => I16Delta,   derive Clone, Debug, PartialEq, Hash;
+    i32   => I32Delta,   derive Clone, Debug, PartialEq, Hash;
+    i64   => I64Delta,   derive Clone, Debug, PartialEq, Hash;
+    i128  => I128Delt,   derive Clone, Debug, PartialEq, Hash;
+    isize => IsizeDelta, derive Clone, Debug, PartialEq, Hash;
 
-    u8    => U8Delta,
-    u16   => U16Delta,
-    u32   => U32Delta,
-    u64   => U64Delta,
-    u128  => U128Delta,
-    usize => UsizeDelta,
+    u8    => U8Delta,    derive Clone, Debug, PartialEq, Hash;
+    u16   => U16Delta,   derive Clone, Debug, PartialEq, Hash;
+    u32   => U32Delta,   derive Clone, Debug, PartialEq, Hash;
+    u64   => U64Delta,   derive Clone, Debug, PartialEq, Hash;
+    u128  => U128Delta,  derive Clone, Debug, PartialEq, Hash;
+    usize => UsizeDelta, derive Clone, Debug, PartialEq, Hash;
 
-    f32  => F32Delta,
-    f64  => F64Delta,
-    bool => BoolDelta,
-    char => CharDelta,
-    ()   => UnitDelta,
+    f32   => F32Delta,   derive Clone, Debug, PartialEq;
+    f64   => F64Delta,   derive Clone, Debug, PartialEq;
+    bool  => BoolDelta,  derive Clone, Debug, PartialEq, Hash;
+    char  => CharDelta,  derive Clone, Debug, PartialEq, Hash;
+    ()    => UnitDelta,  derive Clone, Debug, PartialEq, Hash;
 }
 
 
