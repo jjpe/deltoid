@@ -505,7 +505,7 @@ fn impl_DeltaOps_for_input_type(info: &Info) -> TokenStream2 {
                                     #( let #rfield_names = #lhs_field_names; )*
                                     #(
                                         let #delta_names: Option<
-                                            <#lhs_field_types as DeltaOps>::Delta
+                                            <#lhs_field_types as struct_delta_trait::DeltaOps>::Delta
                                         > = if #lfield_names == #rfield_names {
                                             None
                                         } else {
@@ -545,7 +545,7 @@ fn impl_DeltaOps_for_input_type(info: &Info) -> TokenStream2 {
                                 ) = rhs {
                                     #(
                                         let #delta_names: Option<
-                                            <#lhs_field_types as DeltaOps>::Delta
+                                            <#lhs_field_types as struct_delta_trait::DeltaOps>::Delta
                                         > = if #lfield_names != #rfield_names {
                                             Some(#lfield_names.delta(&#rfield_names)?)
                                         } else {
@@ -703,7 +703,7 @@ fn impl_IntoDelta_for_input_type(info: &Info) -> TokenStream2 {
                     #where_clause
                 {
                     fn into_delta(self) -> struct_delta_trait::DeltaResult<
-                        <Self as DeltaOps>::Delta
+                        <Self as struct_delta_trait::DeltaOps>::Delta
                     > {
                         Ok(match self {
                             #match_body
@@ -767,7 +767,7 @@ fn impl_IntoDelta_for_input_type(info: &Info) -> TokenStream2 {
                     #where_clause
                 {
                     fn into_delta(self) -> struct_delta_trait::DeltaResult<
-                        <Self as DeltaOps>::Delta
+                        <Self as struct_delta_trait::DeltaOps>::Delta
                     > {
                         Ok(match self {
                             #match_body
@@ -839,7 +839,7 @@ fn impl_FromDelta_for_input_type(info: &Info) -> TokenStream2 {
                     #where_clause
                 {
                     fn from_delta(
-                        delta: <Self as DeltaOps>::Delta
+                        delta: <Self as struct_delta_trait::DeltaOps>::Delta
                     ) -> struct_delta_trait::DeltaResult<Self> {
                         use struct_delta_trait::DeltaError;
                         Ok(match delta {
@@ -909,7 +909,7 @@ fn impl_FromDelta_for_input_type(info: &Info) -> TokenStream2 {
                     #where_clause
                 {
                     fn from_delta(
-                        delta: <Self as DeltaOps>::Delta
+                        delta: <Self as struct_delta_trait::DeltaOps>::Delta
                     ) -> struct_delta_trait::DeltaResult<Self> {
                         use struct_delta_trait::DeltaError;
                         Ok(match delta {
@@ -961,7 +961,7 @@ fn define_delta_struct(
             pub struct #delta_struct_name<#type_param_decls> #where_clause {
                 #(
                     pub(self) #field_names:
-                    Option<<#field_types as DeltaOps>::Delta>,
+                    Option<<#field_types as struct_delta_trait::DeltaOps>::Delta>,
                 )*
             }
         },
@@ -970,7 +970,7 @@ fn define_delta_struct(
             #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
             pub struct #delta_struct_name<#type_param_decls> (
                 #(
-                    pub(self) Option<<#field_types as DeltaOps>::Delta>,
+                    pub(self) Option<<#field_types as struct_delta_trait::DeltaOps>::Delta>,
                 )*
             ) #where_clause ;
         },
@@ -1001,14 +1001,14 @@ fn define_delta_enum(
                     #variant_name {
                         #(
                             #field_names:
-                            Option<<#field_types as DeltaOps>::Delta>,
+                            Option<<#field_types as struct_delta_trait::DeltaOps>::Delta>,
                         )*
                     },
                 },
                 StructVariant::TupleStruct =>  quote! {
                     #variant_name(
                         #(
-                            Option<<#field_types as DeltaOps>::Delta>,
+                            Option<<#field_types as struct_delta_trait::DeltaOps>::Delta>,
                         )*
                     ),
                 },
