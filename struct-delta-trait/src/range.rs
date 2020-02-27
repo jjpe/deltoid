@@ -28,7 +28,7 @@ where T: Clone + PartialEq + DeltaOps + std::fmt::Debug
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Hash)]
 #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
 pub struct RangeDelta<T>(Range<T>);
 

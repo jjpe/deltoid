@@ -15,7 +15,7 @@ impl DeltaOps for String { // TODO: Improve space efficiency
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Hash)]
 #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
 pub struct StringDelta(Option<String>);
 
