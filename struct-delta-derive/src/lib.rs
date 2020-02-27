@@ -15,7 +15,7 @@ use syn::{
     Data, DataStruct, DataEnum, DeriveInput, Expr,
     GenericArgument, GenericParam, Ident, Lifetime, LifetimeDef,
     Path, PathArguments, PathSegment, PredicateType,
-    Type, TypeParamBound, TraitBound, TraitBoundModifier,
+    TraitBound, TraitBoundModifier, Type, TypeParamBound, TypePath,
     WhereClause, WherePredicate,
 };
 use syn::punctuated::Punctuated;
@@ -133,15 +133,13 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
     // Enhance the struct/enum definition where clause
     match info.input_data_type {
         DataType::Struct => enhance_where_clause_for_type_def(
-            &info.input_field_types,
+            &info.input_type_param_decls,
             &mut info.type_def_where_clause
-        ),
-        DataType::Enum => for enum_variant in info.enum_variants.iter() {
-            enhance_where_clause_for_type_def(
-                &enum_variant.field_types,
-                &mut info.type_def_where_clause
-            );
-        },
+        )?,
+        DataType::Enum   => enhance_where_clause_for_type_def(
+            &info.input_type_param_decls,
+            &mut info.type_def_where_clause
+        )?,
         DataType::Union =>
             unimplemented!("Delta computation for unions is not supported."),
     }
@@ -149,22 +147,18 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
     // Enhance the `impl DeltaOps for <<SOME_TYPE>>` where clause
     match info.input_data_type {
         DataType::Struct => enhance_where_clause_for_deltaops_trait_impl(
-            &info.input_field_types,
+            &info.input_type_param_decls,
             &mut info.deltaops_trait_impl_where_clause
-        ),
-        DataType::Enum => for enum_variant in info.enum_variants.iter() {
-            enhance_where_clause_for_deltaops_trait_impl(
-                &enum_variant.field_types,
-                &mut info.deltaops_trait_impl_where_clause
-            );
-        },
+        )?,
+        DataType::Enum   => enhance_where_clause_for_deltaops_trait_impl(
+            &info.input_type_param_decls,
+            &mut info.deltaops_trait_impl_where_clause
+        )?,
         DataType::Union =>
             unimplemented!("Delta computation for unions is not supported."),
     }
 
     let delta_type_definition: TokenStream2 = match info.input_data_type {
-        DataType::Union =>
-            unimplemented!("Delta computation for unions is not supported."),
         DataType::Struct => define_delta_struct(
             info.input_struct_variant,
             &info.delta_type_name,
@@ -179,6 +173,8 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
             &info.type_def_where_clause,
             &info.enum_variants
         ),
+        DataType::Union =>
+            unimplemented!("Delta computation for unions is not supported."),
     };
 
     let impl_DeltaOps_for_input_type  = impl_DeltaOps_for_input_type(&info);
@@ -1031,15 +1027,16 @@ fn define_delta_enum(
 
 
 fn enhance_where_clause_for_deltaops_trait_impl(
-    field_types: &[Type],
+    generic_params: &Punctuated<GenericParam, Comma>,
     clause: &mut WhereClause,
-) {
+) -> DeriveResult<()> {
     // NOTE: Add a clause for each field `f: F` of the form
     //    `F: struct_delta_trait::Delta + serde::Serialize`
-    for field_type in field_types.iter() {
+    for generic_param in generic_params.iter() {
+        let field_type = generic_param_to_type(generic_param)?;
         clause.predicates.push(WherePredicate::Type(PredicateType {
             lifetimes: None,
-            bounded_ty: field_type.clone(),
+            bounded_ty: field_type,
             colon_token: Token![:](Span2::call_site()),
             bounds: vec![ // Add type param bounds
                 trait_bound(&["struct_delta_trait", "DeltaOps"]),
@@ -1053,18 +1050,20 @@ fn enhance_where_clause_for_deltaops_trait_impl(
             ].into_iter().collect(),
         }));
     }
+    Ok(())
 }
 
 fn enhance_where_clause_for_type_def(
-    field_types: &[Type],
+    generic_params: &Punctuated<GenericParam, Comma>,
     clause: &mut WhereClause,
-) {
+) -> DeriveResult<()> {
     // NOTE: Add a clause for each field `f: F` of the form
     //    `F: struct_delta_trait::Delta + serde::Serialize`
-    for field_type in field_types.iter() {
+    for generic_param in generic_params.iter() {
+        let field_type = generic_param_to_type(generic_param)?;
         clause.predicates.push(WherePredicate::Type(PredicateType {
             lifetimes: None,
-            bounded_ty: field_type.clone(),
+            bounded_ty: field_type,
             colon_token: Token![:](Span2::call_site()),
             bounds: vec![ // Add type param bounds
                 trait_bound(&["struct_delta_trait", "DeltaOps"]),
@@ -1074,7 +1073,33 @@ fn enhance_where_clause_for_type_def(
             ].into_iter().collect(),
         }));
     }
+    Ok(())
 }
+
+
+fn generic_param_to_type(generic_param: &GenericParam) -> DeriveResult<Type> {
+    let type_param = match generic_param {
+        GenericParam::Lifetime(_) => unimplemented!("GenericParam::Lifetime(_)"),
+        GenericParam::Const(_)    => unimplemented!("GenericParam::Const(_)"),
+        GenericParam::Type(type_param) => type_param,
+    };
+    Ok(Type::Path(
+        TypePath {
+            qself: None,
+            path: Path {
+                leading_colon: None,
+                segments: {
+                    let segment = PathSegment {
+                        ident: type_param.ident.clone(),
+                        arguments: PathArguments::None,
+                    };
+                    vec![segment].into_iter().collect()
+                }
+            },
+        }
+    ))
+}
+
 
 
 fn lifetimed_trait_bound(
