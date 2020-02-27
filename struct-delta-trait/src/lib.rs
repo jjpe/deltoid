@@ -22,6 +22,7 @@ pub use crate::borrow::CowDelta;
 pub use crate::convert::{FromDelta, IntoDelta};
 pub use crate::error::{DeltaError, DeltaResult};
 pub use crate::heap::{ArcDelta, BoxDelta, RcDelta};
+pub use crate::option::{OptionDelta};
 pub use crate::range::RangeDelta;
 pub use crate::string::StringDelta;
 pub use crate::tuple::*;
