@@ -11,6 +11,7 @@ pub mod borrow;
 pub mod convert;
 #[macro_use] pub mod error;
 pub mod heap;
+pub mod option;
 pub mod range;
 pub mod string;
 pub mod tuple;
