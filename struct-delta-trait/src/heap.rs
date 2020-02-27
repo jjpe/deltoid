@@ -2,8 +2,6 @@
 
 use crate::{DeltaOps, DeltaResult};
 use crate::convert::{FromDelta, IntoDelta};
-// use serde::{Deserialize, Serialize};
-// use std::convert::{TryFrom, TryInto};
 use std::rc::{Rc};
 use std::sync::{
     Arc,
@@ -27,24 +25,23 @@ where T: DeltaOps + PartialEq + Clone + std::fmt::Debug
     fn delta(&self, rhs: &Self) -> DeltaResult<Self::Delta> {
         let lhs: &T = self.as_ref();
         let rhs: &T = rhs.as_ref();
-        lhs.delta(rhs).map(RcDelta)
+        lhs.delta(rhs).map(Rc::new).map(RcDelta)
     }
 }
 
 
 #[derive(Clone, Debug, PartialEq)]
 #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
-pub struct RcDelta<T: DeltaOps>(<T as DeltaOps>::Delta);
+pub struct RcDelta<T: DeltaOps>(Rc<<T as DeltaOps>::Delta>);
 
 
 impl<T> IntoDelta for Rc<T>
 where T: DeltaOps + IntoDelta
     + for<'de> serde::Deserialize<'de>
     + serde::Serialize
-// where Rc<T>: Clone + PartialEq + DeltaOps + std::fmt::Debug
 {
     fn into_delta(self) -> DeltaResult<<Self as DeltaOps>::Delta> {
-        self.as_ref().clone().into_delta().map(RcDelta)
+        self.as_ref().clone().into_delta().map(Rc::new).map(RcDelta)
     }
 }
 
@@ -52,10 +49,10 @@ impl<T> FromDelta for Rc<T>
 where T: DeltaOps + FromDelta
     + for<'de> serde::Deserialize<'de>
     + serde::Serialize
-// where Rc<T>: Clone + PartialEq + DeltaOps + std::fmt::Debug
 {
     fn from_delta(delta: <Self as DeltaOps>::Delta) -> DeltaResult<Self> {
-        <T>::from_delta(delta.0).map(Rc::new)
+        let unboxed = Rc::try_unwrap(delta.0).unwrap(/*TODO*/);
+        <T>::from_delta(unboxed).map(Rc::new)
     }
 }
 
@@ -82,23 +79,22 @@ where T: DeltaOps + PartialEq + Clone + std::fmt::Debug
     fn delta(&self, rhs: &Self) -> DeltaResult<Self::Delta> {
         let lhs: &T = self.as_ref();
         let rhs: &T = rhs.as_ref();
-        lhs.delta(rhs).map(ArcDelta)
+        lhs.delta(rhs).map(Arc::new).map(ArcDelta)
     }
 }
 
 
 #[derive(Clone, Debug, PartialEq)]
 #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
-pub struct ArcDelta<T: DeltaOps>(<T as DeltaOps>::Delta);
+pub struct ArcDelta<T: DeltaOps>(Arc<<T as DeltaOps>::Delta>);
 
 impl<T> IntoDelta for Arc<T>
 where T: DeltaOps + IntoDelta
     + for<'de> serde::Deserialize<'de>
     + serde::Serialize
-// where Arc<T>: Clone + PartialEq + DeltaOps + std::fmt::Debug
 {
     fn into_delta(self) -> DeltaResult<<Self as DeltaOps>::Delta> {
-        self.as_ref().clone().into_delta().map(ArcDelta)
+        self.as_ref().clone().into_delta().map(Arc::new).map(ArcDelta)
     }
 }
 
@@ -106,10 +102,10 @@ impl<T> FromDelta for Arc<T>
 where T: DeltaOps + FromDelta
     + for<'de> serde::Deserialize<'de>
     + serde::Serialize
-// where Arc<T>: Clone + PartialEq + DeltaOps + std::fmt::Debug
 {
     fn from_delta(delta: <Self as DeltaOps>::Delta) -> DeltaResult<Self> {
-        <T>::from_delta(delta.0).map(Arc::new)
+        let unboxed = Arc::try_unwrap(delta.0).unwrap(/*TODO*/);
+        <T>::from_delta(unboxed).map(Arc::new)
     }
 }
 
