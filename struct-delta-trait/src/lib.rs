@@ -81,23 +81,6 @@ macro_rules! impl_delta_trait_for_primitive_types {
                     delta.0.ok_or(DeltaError::ExpectedValue)
                 }
             }
-
-            // TODO: Keep this impl, or toss it? It's needed to make e.g.
-            // computing a delta of 2 `Vec<i32>` instances compilable,
-            // but it feels like a HACK. So if it's tossed, a better
-            // solution needs to be found.
-            impl DeltaOps for $delta {
-                type Delta = ();
-
-                fn apply_delta(&self, _: &Self::Delta) -> DeltaResult<Self> {
-                    Err(DeltaError::CannotDeltaADelta)
-                }
-
-                fn delta(&self, _: &Self) -> DeltaResult<Self::Delta> {
-                    Err(DeltaError::CannotDeltaADelta)
-                }
-            }
-
         )*
     };
 }

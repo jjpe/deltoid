@@ -4,13 +4,13 @@ use crate::{DeltaError, DeltaOps, DeltaResult};
 use crate::convert::{FromDelta, IntoDelta};
 use serde::{Deserialize, Serialize};
 
+
 impl<T> DeltaOps for Vec<T>
 where T: Clone + PartialEq + DeltaOps + std::fmt::Debug
         + Serialize
         + for<'de> Deserialize<'de>
         + IntoDelta
-        + FromDelta,
-      <T as DeltaOps>::Delta: DeltaOps
+        + FromDelta
 {
     // TODO While this impl should work fine in terms of soundness, it
     //      is actually more suited to a `Stack`-like type in terms of
@@ -26,7 +26,7 @@ where T: Clone + PartialEq + DeltaOps + std::fmt::Debug
                 ensure_lt![*index, self.len()]?;
                 new[*index] = self[*index].apply_delta(item)?;
             },
-            EltDelta::Add(delta) =>  new.push(T::from_delta(delta.clone())?),
+            EltDelta::Add(delta) =>  new.push(<T>::from_delta(delta.clone())?),
             EltDelta::Remove { count } =>  for _ in 0 .. *count {
                 new.pop().ok_or(DeltaError::ExpectedValue)?;
             },
@@ -37,7 +37,7 @@ where T: Clone + PartialEq + DeltaOps + std::fmt::Debug
     fn delta(&self, rhs: &Self) -> DeltaResult<Self::Delta> {
         let (lhs_len, rhs_len) = (self.len(), rhs.len());
         let max_len = usize::max(lhs_len, rhs_len);
-        let mut changes: Vec<EltDelta<<T as DeltaOps>::Delta>> = vec![];
+        let mut changes: Vec<EltDelta<T>> = vec![];
         for index in 0 .. max_len { match (self.get(index), rhs.get(index)) {
             (Some(lhs), Some(rhs)) if lhs != rhs =>
                 changes.push(EltDelta::Edit { index, item: lhs.delta(rhs)? }),
@@ -60,11 +60,10 @@ where T: Clone + PartialEq + DeltaOps + std::fmt::Debug
         + for<'de> serde::Deserialize<'de>
         + serde::Serialize
         + IntoDelta
-        + FromDelta,
-      <T as DeltaOps>::Delta: DeltaOps
+        + FromDelta
 {
     fn into_delta(self) -> DeltaResult<<Self as DeltaOps>::Delta> {
-        let mut vec: Vec<EltDelta<<T as DeltaOps>::Delta>> = vec![];
+        let mut vec: Vec<EltDelta<T>> = vec![];
         for elt in self {
             vec.push(EltDelta::Add(elt.into_delta()?));
         }
@@ -77,14 +76,13 @@ where T: Clone + PartialEq + DeltaOps + std::fmt::Debug
         + for<'de> serde::Deserialize<'de>
         + serde::Serialize
         + IntoDelta
-        + FromDelta,
-      <T as DeltaOps>::Delta: DeltaOps
+        + FromDelta
 {
     fn from_delta(delta: <Self as DeltaOps>::Delta) -> DeltaResult<Self> {
         let mut vec: Vec<T> = vec![];
         for (index, element) in delta.0.into_iter().enumerate() {
             match element {
-                EltDelta::Add(elt) => vec.push(FromDelta::from_delta(elt)?),
+                EltDelta::Add(elt) => vec.push(<T>::from_delta(elt)?),
                 _ => return Err(DeltaError::IllegalDelta { index })?,
             }
         }
@@ -100,27 +98,24 @@ pub enum EltDelta<T: DeltaOps> {
         /// The location of the edit
         index: usize,
         /// The new value of the item
-        item: T,
+        item: <T as DeltaOps>::Delta,
     },
     /// Remove `count` elements from the end of the Vec.
     Remove { count: usize },
     /// Add a value.
-    Add(T),
+    Add(<T as DeltaOps>::Delta),
 }
 
 #[derive(Clone, Debug, PartialEq)]
 #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
-pub struct VecDelta<T: DeltaOps>(Vec<EltDelta<<T as DeltaOps>::Delta>>)
-where <T as DeltaOps>::Delta: DeltaOps;
+pub struct VecDelta<T: DeltaOps>(Vec<EltDelta<T>>);
 
-impl<T> VecDelta<T>
-where T: Clone + PartialEq + DeltaOps + std::fmt::Debug,
-      <T as DeltaOps>::Delta: DeltaOps {
-    pub fn iter(&self) -> impl Iterator<Item = &EltDelta<<T as DeltaOps>::Delta>> {
+impl<T: DeltaOps> VecDelta<T> {
+    pub fn iter(&self) -> impl Iterator<Item = &EltDelta<T>> {
         self.0.iter()
     }
 
-    pub fn into_iter(self) -> impl Iterator<Item = EltDelta<<T as DeltaOps>::Delta>> {
+    pub fn into_iter(self) -> impl Iterator<Item = EltDelta<T>> {
         self.0.into_iter()
     }
 }
@@ -144,8 +139,6 @@ mod tests {
             EltDelta::Edit { index: 3, item:  49.into_delta()?, },
             EltDelta::Add(30.into_delta()?),
             EltDelta::Add(500.into_delta()?),
-            // I32Delta(30),
-            // I32Delta(500),
         ]));
         let v2 = v0.apply_delta(&delta0)?;
         println!("v2: {:#?}", v2);
@@ -182,7 +175,7 @@ mod tests {
         let v0 = vec![1,3,10,30, 30];
         let delta = VecDelta(vec![
             EltDelta::Edit { index: 3, item:  49i32.into_delta()?, },
-            EltDelta::Add(500.into_delta()?),
+            EltDelta::Add(500i32.into_delta()?),
         ]);
         let v1 = v0.apply_delta(&delta)?;
         let expected = vec![1,3,10,49, 30, 500];
