@@ -43,13 +43,11 @@ where T: DeltaOps + PartialEq + Clone + std::fmt::Debug
     }
 
     fn delta(&self, rhs: &Self) -> DeltaResult<Self::Delta> {
-
         if let Self::None = self {
             if let Self::None = rhs {
                 return Ok(Self::Delta::None);
             }
         }
-
         if let Self::Some(lhs_0) = self {
             if let Self::Some(rhs_0) = rhs {
                 let delta_0: Option<<T as DeltaOps>::Delta> = if lhs_0 != rhs_0 {
@@ -60,26 +58,15 @@ where T: DeltaOps + PartialEq + Clone + std::fmt::Debug
                 return Ok(Self::Delta::Some(delta_0));
             }
         }
-
         if let Self::None = rhs {
             return Ok(Self::Delta::None);
         }
-
         if let Self::Some(t) = rhs {
             return Ok(Self::Delta::Some(
                 Some(t.clone().into_delta()?),
             ));
         }
-
         crate::bug_detected!()
-
-        // match (self, rhs) {
-        //     (Some(lhs), Some(rhs)) => Ok(Self::Delta::Some(lhs.delta(rhs)?)),
-        //     (None, Some(rhs)) => Ok(Self::Delta::Some(rhs.clone().into_delta()?)),
-        //     (Some(lhs), None) => Ok(Self::Delta::None),
-        //     (None,      None) => Ok(Self::Delta::None),
-        // }
-
     }
 }
 
@@ -90,12 +77,6 @@ pub enum OptionDelta<T: DeltaOps> {
     None,
     Some(Option<<T as DeltaOps>::Delta>),
 }
-
-// #[derive(Clone, Debug, PartialEq)]
-// #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
-// pub struct OptionDelta<T: DeltaOps>(Option<
-//         Option<<T as DeltaOps>::Delta>
-// >);
 
 
 impl<T> IntoDelta for Option<T>
