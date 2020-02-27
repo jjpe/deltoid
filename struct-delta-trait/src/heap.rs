@@ -134,24 +134,23 @@ where T: DeltaOps + PartialEq + Clone + std::fmt::Debug
     fn delta(&self, rhs: &Self) -> DeltaResult<Self::Delta> {
         let lhs: &T = self.as_ref();
         let rhs: &T = rhs.as_ref();
-        lhs.delta(rhs).map(BoxDelta)
+        lhs.delta(rhs).map(Box::new).map(BoxDelta)
     }
 }
 
 
 #[derive(Clone, Debug, PartialEq)]
 #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
-pub struct BoxDelta<T: DeltaOps>(<T as DeltaOps>::Delta);
+pub struct BoxDelta<T: DeltaOps>(Box<<T as DeltaOps>::Delta>);
 
 
 impl<T> IntoDelta for Box<T>
 where T: DeltaOps + IntoDelta
     + for<'de> serde::Deserialize<'de>
     + serde::Serialize
-// where Box<T>: Clone + PartialEq + DeltaOps + std::fmt::Debug
 {
     fn into_delta(self) -> DeltaResult<<Self as DeltaOps>::Delta> {
-        self.as_ref().clone().into_delta().map(BoxDelta)
+        self.as_ref().clone().into_delta().map(Box::new).map(BoxDelta)
     }
 }
 
@@ -159,9 +158,8 @@ impl<T> FromDelta for Box<T>
 where T: DeltaOps + FromDelta
     + for<'de> serde::Deserialize<'de>
     + serde::Serialize
-// where Box<T>: Clone + PartialEq + DeltaOps + std::fmt::Debug
 {
     fn from_delta(delta: <Self as DeltaOps>::Delta) -> DeltaResult<Self> {
-        <T>::from_delta(delta.0).map(Box::new)
+        <T>::from_delta(*delta.0).map(Box::new)
     }
 }
