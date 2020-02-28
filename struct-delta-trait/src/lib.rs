@@ -14,6 +14,7 @@ pub mod heap;
 pub mod option;
 pub mod range;
 pub mod string;
+pub mod sync;
 pub mod tuple;
 pub mod vec;
 
