@@ -1,5 +1,7 @@
 //!
 
+use std::sync::TryLockError;
+
 
 #[macro_export]
 macro_rules! ensure_eq {
@@ -147,4 +149,18 @@ pub enum DeltaError {
         column: u32
     },
     IllegalDelta { index: usize },
+    RwLockAccessWouldBlock,
+    RwLockPoisoned(String)
+}
+
+
+impl<T> From<TryLockError<T>> for DeltaError {
+    fn from(err: TryLockError<T>) -> DeltaError {
+        match err {
+            TryLockError::WouldBlock =>
+                DeltaError::RwLockAccessWouldBlock,
+            TryLockError::Poisoned(psn_err) =>
+                DeltaError::RwLockPoisoned(format!("{}", psn_err)),
+        }
+    }
 }
