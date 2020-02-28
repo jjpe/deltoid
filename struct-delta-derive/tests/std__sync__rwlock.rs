@@ -1,9 +1,9 @@
 #![allow(non_snake_case)]
 
+use serde_json;
+use struct_delta_derive;
 use struct_delta_trait::*;
 use struct_delta_trait::sync::rwlock::{RwLock, RwLockDelta};
-use struct_delta_derive;
-use serde_json;
 
 #[derive(Debug, Clone, PartialEq, struct_delta_derive::Delta)]
 #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
