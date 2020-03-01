@@ -35,43 +35,71 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
         #impl_FromDelta_for_input_type
     };
 
-    // println!("define new code:\n");
-    // println!("{}\n", delta_type_definition);
-    // println!("{}\n", impl_DeltaOps_for_input_type);
-    // println!("{}\n", impl_FromDelta_for_input_type);
-    // println!("{}\n", impl_IntoDelta_for_input_type);
-    // println!("\n\n\n\n");
-
-
-    // use std::io::Write;
-    // let mut file: std::fs::File = std::fs::OpenOptions::new()
-    //     .write(true)
-    //     .truncate(true)
-    //     .open("/home/j/dev/struct-delta/floof.rs")
-    //     .expect("Failed to write floof.rs");
-
-    // file.write_all(format!("{}", delta_type_definition).as_bytes())
-    //     .expect("Failed to write delta_type_definition");
-    // file.write_all("\n\n".as_bytes()).expect("Failed to write newlines");
-
-    // file.write_all(format!("{}", impl_DeltaOps_for_input_type).as_bytes())
-    //     .expect("Failed to write impl_DeltaOps_for_input_type");
-    // file.write_all("\n\n".as_bytes()).expect("Failed to write newlines");
-
-    // file.write_all(format!("{}", impl_FromDelta_for_input_type).as_bytes())
-    //     .expect("Failed to write impl_FromDelta_for_input_type");
-    // file.write_all("\n\n".as_bytes()).expect("Failed to write newlines");
-
-    // file.write_all(format!("{}", impl_IntoDelta_for_input_type).as_bytes())
-    //     .expect("Failed to write impl_IntoDelta_for_input_type");
-    // file.write_all("\n\n".as_bytes()).expect("Failed to write newlines");
-
-    // file.flush().expect("Failed to flush floof.rs");
-    // std::process::Command::new("rustfmt")
-    //     .args(&["--emit-files", "--edition 2018", "/home/j/dev/struct-delta/floof.rs"])
-    //     .output()
-    //     .expect("failed to execute rustfmt;");
-
+    // print_generated_code(
+    //     &delta_type_definition,
+    //     &impl_DeltaOps_for_input_type,
+    //     &impl_FromDelta_for_input_type,
+    //     &impl_IntoDelta_for_input_type
+    // );
+    // write_generated_code_to_file(
+    //     &delta_type_definition,
+    //     &impl_DeltaOps_for_input_type,
+    //     &impl_FromDelta_for_input_type,
+    //     &impl_IntoDelta_for_input_type
+    // );
 
     Ok(output)
+}
+
+
+#[allow(unused, non_snake_case)]
+fn print_generated_code(
+    delta_type_definition: &TokenStream2,
+    impl_DeltaOps_for_input_type: &TokenStream2,
+    impl_FromDelta_for_input_type: &TokenStream2,
+    impl_IntoDelta_for_input_type: &TokenStream2,
+) {
+    println!("{}\n", delta_type_definition);
+    println!("{}\n", impl_DeltaOps_for_input_type);
+    println!("{}\n", impl_FromDelta_for_input_type);
+    println!("{}\n", impl_IntoDelta_for_input_type);
+    println!("\n\n\n\n");
+}
+
+
+#[allow(unused, non_snake_case)]
+fn write_generated_code_to_file(
+    delta_type_definition: &TokenStream2,
+    impl_DeltaOps_for_input_type: &TokenStream2,
+    impl_FromDelta_for_input_type: &TokenStream2,
+    impl_IntoDelta_for_input_type: &TokenStream2,
+) {
+    use std::io::Write;
+    let mut file: std::fs::File = std::fs::OpenOptions::new()
+        .write(true)
+        .truncate(true)
+        .open("/home/j/dev/struct-delta/floof.rs")
+        .expect("Failed to write floof.rs");
+
+    file.write_all(format!("{}", delta_type_definition).as_bytes())
+        .expect("Failed to write delta_type_definition");
+    file.write_all("\n\n".as_bytes()).expect("Failed to write newlines");
+
+    file.write_all(format!("{}", impl_DeltaOps_for_input_type).as_bytes())
+        .expect("Failed to write impl_DeltaOps_for_input_type");
+    file.write_all("\n\n".as_bytes()).expect("Failed to write newlines");
+
+    file.write_all(format!("{}", impl_FromDelta_for_input_type).as_bytes())
+        .expect("Failed to write impl_FromDelta_for_input_type");
+    file.write_all("\n\n".as_bytes()).expect("Failed to write newlines");
+
+    file.write_all(format!("{}", impl_IntoDelta_for_input_type).as_bytes())
+        .expect("Failed to write impl_IntoDelta_for_input_type");
+    file.write_all("\n\n".as_bytes()).expect("Failed to write newlines");
+
+    file.flush().expect("Failed to flush floof.rs");
+    std::process::Command::new("rustfmt")
+        .args(&["--emit-files", "--edition 2018", "/home/j/dev/struct-delta/floof.rs"])
+        .output()
+        .expect("failed to execute rustfmt;");
 }
