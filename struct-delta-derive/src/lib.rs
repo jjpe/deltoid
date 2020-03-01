@@ -41,6 +41,7 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
     //     &impl_FromDelta_for_input_type,
     //     &impl_IntoDelta_for_input_type
     // );
+
     // write_generated_code_to_file(
     //     &delta_type_definition,
     //     &impl_DeltaOps_for_input_type,
