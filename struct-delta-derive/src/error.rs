@@ -39,6 +39,8 @@ pub enum DeriveError {
         line: u32,
         column: u32
     },
+    ExpectedNamedField,
+    ExpectedPositionalField,
     FailedToEnsure {
         predicate: &'static str,
         file: &'static str,
