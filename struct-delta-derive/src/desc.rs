@@ -501,7 +501,7 @@ impl UserDefinedTypeDesc {
                                 struct_delta_trait::DeltaResult<Self::Delta>
                             {
                                 use struct_delta_trait::IntoDelta;
-                                Ok(Self::Delta { #delta_field_assignments })
+                                Ok(#delta_type_name { #delta_field_assignments })
                             }
                         }
                     }
@@ -557,7 +557,7 @@ impl UserDefinedTypeDesc {
                                 struct_delta_trait::DeltaResult<Self::Delta>
                             {
                                 use struct_delta_trait::IntoDelta;
-                                Ok(Self::Delta(#delta_field_assignments))
+                                Ok(#delta_type_name(#delta_field_assignments))
                             }
                         }
                     }
@@ -581,13 +581,13 @@ impl UserDefinedTypeDesc {
                         fn delta(&self,rhs: &Self) ->
                             struct_delta_trait::DeltaResult<Self::Delta>
                         {
-                            Ok(Self::Delta)
+                            Ok(#delta_type_name)
                         }
                     }
                 },
             },
             Self::Enum {
-                type_name: input_type_name,
+                type_name,
                 delta_name: delta_type_name,
                 variants,
                 input_type_param_decls,
@@ -968,7 +968,7 @@ impl UserDefinedTypeDesc {
                 }
                 quote! {
                     impl<#input_type_param_decls> struct_delta_trait::DeltaOps
-                        for #input_type_name<#input_type_params>
+                        for #type_name<#input_type_params>
                         #where_clause
                     {
                         type Delta = #delta_type_name<#input_type_params>;
@@ -1075,7 +1075,6 @@ impl UserDefinedTypeDesc {
                         #delta_type_name => Self,
                     },
                 });
-
                 quote! {
                     impl<#input_type_param_decls> struct_delta_trait::FromDelta
                         for #type_name<#input_type_params>
@@ -1158,7 +1157,6 @@ impl UserDefinedTypeDesc {
                                     })
                                 })
                                 .fold(Ok(quote!{ }), accumulate_tokens)?;
-
                             quote! {
                                 #delta_type_name::#variant_name(
                                     #( #field_names ),*
@@ -1245,11 +1243,12 @@ impl UserDefinedTypeDesc {
                             .map(|token| format_ident!("field_{}", token))
                             .collect();
                         let field_assignments: TokenStream2 = fields.iter()
-                            .map(|field: &FieldDesc| {
-                                let fname = field.name_ref()?;
+                            .enumerate()
+                            .map(|(fidx, field): (usize, &FieldDesc)| {
+                                let fname = &field_names[fidx];
                                 if field.ignore_field() {
                                     return Ok(quote! {
-                                        #fname: std::marker::PhantomData,
+                                        std::marker::PhantomData,
                                     });
                                 }
                                 Ok(quote! {
@@ -1272,6 +1271,7 @@ impl UserDefinedTypeDesc {
                         for #type_name<#input_type_params>
                         #where_clause
                     {
+                        #[allow(unused)]
                         fn into_delta(self) -> struct_delta_trait::DeltaResult<
                             <Self as struct_delta_trait::DeltaOps>::Delta
                         > {
