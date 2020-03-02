@@ -1,9 +1,11 @@
+//! These integration testss exist because the Delta derive macro cannot be
+//! used within the `struct-delta-trait` crate, where `RwLock` is defined.
+
 #![allow(non_snake_case)]
 
 use serde_json;
 use struct_delta_derive;
 use struct_delta_trait::*;
-use struct_delta_trait::sync::rwlock::{RwLock, RwLockDelta};
 
 #[derive(Debug, Clone, PartialEq, struct_delta_derive::Delta)]
 #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
