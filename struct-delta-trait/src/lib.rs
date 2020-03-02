@@ -2,8 +2,8 @@
 
 // TODO:
 // Can a delta be applied to a value of:
-//   + an array type i.e. [T, N]?               (Probably yes)
-//   + a slice type  e.g. &[T]  and  &str?      (Very unlikely for &T for all T)
+//   + an array type i.e. [T, N]?             (Probably yes)
+//   + a slice type  e.g. &[T]  and  &str?    (Very unlikely for borrowed types)
 
 pub mod borrow;
 pub mod boxed;
