@@ -1,4 +1,5 @@
 mod arc;
+mod rwlock;
 
-pub mod rwlock;
 pub use arc::*;
+pub use rwlock::*;
