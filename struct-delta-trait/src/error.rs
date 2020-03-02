@@ -94,13 +94,13 @@ macro_rules! ensure {
             $crate::error::DeltaResult::Ok(())
         } else {
             Err($crate::error::DeltaError::FailedToEnsure {
-                predicate: stringify!($predicate),
+                predicate: stringify!($predicate).to_string(),
                 msg: {
                     #[allow(unused)] let mut msg = String::new();
                     $(  msg = format!($fmt $(, $args)*);  )?
                     msg
                 },
-                file: file!(),
+                file: file!().to_string(),
                 line: line!(),
                 column: column!(),
             })
@@ -117,7 +117,7 @@ macro_rules! bug_detected {
                 $(  msg = format!($fmt $(, $args)*);  )? ;
                 msg
             }},
-            file: file!(),
+            file: file!().to_string(),
             line: line!(),
             column: column!(),
         })
@@ -135,16 +135,16 @@ pub type DeltaResult<T> = Result<T, DeltaError>;
 pub enum DeltaError {
     BugDetected {
         msg: String,
-        file: &'static str,
+        file: String,
         line: u32,
         column: u32
     },
     CannotDeltaADelta,
     ExpectedValue,
     FailedToEnsure {
-        predicate: &'static str,
+        predicate: String,
         msg: String,
-        file: &'static str,
+        file: String,
         line: u32,
         column: u32
     },
