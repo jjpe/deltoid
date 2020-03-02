@@ -9,6 +9,7 @@
 
 pub mod borrow;
 pub mod boxed;
+pub mod collections;
 pub mod convert;
 #[macro_use] pub mod error;
 pub mod option;
@@ -22,6 +23,7 @@ pub mod vec;
 
 pub use crate::borrow::CowDelta;
 pub use crate::boxed::*;
+pub use crate::collections::*;
 pub use crate::convert::{FromDelta, IntoDelta};
 pub use crate::error::{DeltaError, DeltaResult};
 pub use crate::option::{OptionDelta};
