@@ -39,16 +39,16 @@ where T: Clone + PartialEq + DeltaOps + std::fmt::Debug
         let max_len = usize::max(lhs_len, rhs_len);
         let mut changes: Vec<EltDelta<T>> = vec![];
         for index in 0 .. max_len { match (self.get(index), rhs.get(index)) {
-            (Some(lhs), Some(rhs)) if lhs != rhs =>
+            (None, None) => return bug_detected!(),
+            (Some(lhs), Some(rhs)) if lhs == rhs => {/*NOP*/},
+            (Some(lhs), Some(rhs)) =>
                 changes.push(EltDelta::Edit { index, item: lhs.delta(rhs)? }),
-            (Some(_),   Some(_)) => {/*NOP*/},
             (None, Some(rhs)) =>
                 changes.push(EltDelta::Add(rhs.clone().into_delta()?)),
             (Some(_),   None) => match changes.last_mut() {
                 Some(EltDelta::Remove { ref mut count }) => *count += 1,
                 _ => changes.push(EltDelta::Remove { count: 1 }),
             },
-            _ => return bug_detected!(),
         }}
         Ok(VecDelta(changes))
     }
