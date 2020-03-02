@@ -6,7 +6,6 @@ use crate::{DeltaError, DeltaOps, DeltaResult, FromDelta, IntoDelta};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fmt::{Debug};
-use serde_derive::{Deserialize, Serialize};
 
 
 impl<K, V> DeltaOps for std::collections::HashMap<K, V>
@@ -66,7 +65,9 @@ where K: DeltaOps + PartialEq + Eq + Clone + Debug + Ord + std::hash::Hash
 }
 
 
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[derive(
+    Clone, Debug, PartialEq, serde_derive::Deserialize, serde_derive::Serialize
+)]
 pub struct HashMapDelta<K, V>(
     #[doc(hidden)]
     pub Vec<EntryDelta<K, V>>,
@@ -96,7 +97,9 @@ where K: DeltaOps + PartialEq + Clone + Debug + Ord
 }
 
 
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[derive(
+    Clone, Debug, PartialEq, serde_derive::Deserialize, serde_derive::Serialize
+)]
 pub enum EntryDelta<K, V: DeltaOps> {
     /// Edit a `value` of a given `key`
     Edit { key: K, value: <V as DeltaOps>::Delta },
