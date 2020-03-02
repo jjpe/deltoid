@@ -118,6 +118,8 @@ impl<T: DeltaOps> VecDelta<T> {
     pub fn into_iter(self) -> impl Iterator<Item = EltDelta<T>> {
         self.0.into_iter()
     }
+
+    pub fn len(&self) -> usize { self.0.len() }
 }
 
 
