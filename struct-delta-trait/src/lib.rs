@@ -40,7 +40,7 @@ pub type Delta<T: DeltaOps> = <T as DeltaOps>::Delta;
 
 /// Definitions for delta operations.
 pub trait DeltaOps: Sized + PartialEq + Clone + std::fmt::Debug {
-    type Delta: PartialEq + Clone + std::fmt::Debug
+    type Delta: Clone + std::fmt::Debug + PartialEq
         + Serialize
         + for<'de> Deserialize<'de>;
 
