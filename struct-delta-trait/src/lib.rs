@@ -8,11 +8,12 @@
 
 
 pub mod borrow;
+pub mod boxed;
 pub mod convert;
 #[macro_use] pub mod error;
-pub mod heap;
 pub mod option;
 pub mod range;
+pub mod rc;
 pub mod string;
 pub mod sync;
 pub mod tuple;
@@ -20,12 +21,14 @@ pub mod vec;
 
 
 pub use crate::borrow::CowDelta;
+pub use crate::boxed::*;
 pub use crate::convert::{FromDelta, IntoDelta};
 pub use crate::error::{DeltaError, DeltaResult};
-pub use crate::heap::{ArcDelta, BoxDelta, RcDelta};
 pub use crate::option::{OptionDelta};
 pub use crate::range::RangeDelta;
+pub use crate::rc::*;
 pub use crate::string::StringDelta;
+pub use crate::sync::*;
 pub use crate::tuple::*;
 pub use crate::vec::{EltDelta, VecDelta};
 use serde::{Deserialize, Serialize};
