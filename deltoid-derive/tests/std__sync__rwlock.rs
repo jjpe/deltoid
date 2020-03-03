@@ -3,11 +3,10 @@
 
 #![allow(non_snake_case)]
 
+use deltoid::{DeltaOps, RwLock, RwLockDelta, IntoDelta};
 use serde_json;
-use struct_delta_derive;
-use struct_delta_trait::*;
 
-#[derive(Debug, Clone, PartialEq, struct_delta_derive::Delta)]
+#[derive(Debug, Clone, PartialEq, deltoid_derive::Delta)]
 #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
 struct Foo {
     field0: String,

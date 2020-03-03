@@ -1,8 +1,8 @@
 //!
 #![allow(non_snake_case)]
 
-use struct_delta_trait::{DeltaOps, DeltaResult, IntoDelta};
-use struct_delta_derive::Delta;
+use deltoid::{DeltaOps, DeltaResult, IntoDelta};
+use deltoid_derive::Delta;
 
 
 #[derive(

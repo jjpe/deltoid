@@ -79,7 +79,7 @@ fn write_generated_code_to_file(
     let mut file: std::fs::File = std::fs::OpenOptions::new()
         .write(true)
         .truncate(true)
-        .open("/home/j/dev/struct-delta/floof.rs")
+        .open("/home/j/dev/deltoid/floof.rs")
         .expect("Failed to write floof.rs");
 
     file.write_all(format!("{}", delta_type_definition).as_bytes())
@@ -100,7 +100,7 @@ fn write_generated_code_to_file(
 
     file.flush().expect("Failed to flush floof.rs");
     std::process::Command::new("rustfmt")
-        .args(&["--emit-files", "--edition 2018", "/home/j/dev/struct-delta/floof.rs"])
+        .args(&["--emit-files", "--edition 2018", "/home/j/dev/deltoid/floof.rs"])
         .output()
         .expect("failed to execute rustfmt;");
 }

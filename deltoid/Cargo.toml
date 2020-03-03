@@ -1,5 +1,5 @@
 [package]
-name = "struct-delta-trait"
+name = "deltoid"
 version = "0.1.0"
 authors = ["Joey Ezechiels <joey.ezechiels@gmail.com>"]
 edition = "2018"

@@ -192,14 +192,14 @@ impl UserDefinedTypeDesc {
         clause: &mut WhereClause,
     ) -> DeriveResult<()> {
         // NOTE: Add a clause for each field `f: F` of the form
-        //    `F: struct_delta_trait::Delta (+ <Trait>)*`
+        //    `F: deltoid::Delta (+ <Trait>)*`
         for generic_param in generic_params.iter() {
             clause.predicates.push(WherePredicate::Type(PredicateType {
                 lifetimes: None,
                 bounded_ty: Self::generic_param_to_type(generic_param)?,
                 colon_token: Token![:](Span2::call_site()),
                 bounds: vec![ // Add type param bounds
-                    Self::trait_bound(&["struct_delta_trait", "DeltaOps"]),
+                    Self::trait_bound(&["deltoid", "DeltaOps"]),
                     Self::trait_bound(&["PartialEq"]),
                     Self::trait_bound(&["Clone"]),
                     Self::trait_bound(&["std", "fmt", "Debug"])
@@ -214,7 +214,7 @@ impl UserDefinedTypeDesc {
         clause: &mut WhereClause,
     ) -> DeriveResult<()> {
         // NOTE: Add a clause for each field `f: F` of the form
-        //    `F: struct_delta_trait::Delta + serde::Serialize`
+        //    `F: deltoid::Delta + serde::Serialize`
         for generic_param in generic_params.iter() {
             let field_type = Self::generic_param_to_type(generic_param)?;
             clause.predicates.push(WherePredicate::Type(PredicateType {
@@ -222,9 +222,9 @@ impl UserDefinedTypeDesc {
                 bounded_ty: field_type,
                 colon_token: Token![:](Span2::call_site()),
                 bounds: vec![ // Add type param bounds
-                    Self::trait_bound(&["struct_delta_trait", "DeltaOps"]),
-                    Self::trait_bound(&["struct_delta_trait", "FromDelta"]),
-                    Self::trait_bound(&["struct_delta_trait", "IntoDelta"]),
+                    Self::trait_bound(&["deltoid", "DeltaOps"]),
+                    Self::trait_bound(&["deltoid", "FromDelta"]),
+                    Self::trait_bound(&["deltoid", "IntoDelta"]),
                     Self::trait_bound(&["serde", "Serialize"]),
                     Self::lifetimed_trait_bound(&["serde", "Deserialize"], "de"),
                     Self::trait_bound(&["PartialEq"]),
@@ -483,7 +483,7 @@ impl UserDefinedTypeDesc {
                         .fold(Ok(quote!{ }), accumulate_tokens)?;
                     quote! {
                         impl<#input_type_param_decls>
-                            struct_delta_trait::DeltaOps
+                            deltoid::DeltaOps
                             for #type_name<#input_type_params>
                             #where_clause
                         {
@@ -491,16 +491,16 @@ impl UserDefinedTypeDesc {
 
                             #[allow(unused)]
                             fn apply_delta(&self, delta: &Self::Delta) ->
-                                struct_delta_trait::DeltaResult<Self>
+                                deltoid::DeltaResult<Self>
                             {
                                 Ok(Self { #apply_delta_field_assignments })
                             }
 
                             #[allow(unused)]
                             fn delta(&self, rhs: &Self) ->
-                                struct_delta_trait::DeltaResult<Self::Delta>
+                                deltoid::DeltaResult<Self::Delta>
                             {
-                                use struct_delta_trait::IntoDelta;
+                                use deltoid::IntoDelta;
                                 Ok(#delta_type_name { #delta_field_assignments })
                             }
                         }
@@ -539,7 +539,7 @@ impl UserDefinedTypeDesc {
                         .fold(Ok(quote!{ }), accumulate_tokens)?;
                     quote! {
                         impl<#input_type_param_decls>
-                            struct_delta_trait::DeltaOps
+                            deltoid::DeltaOps
                             for #type_name<#input_type_params>
                             #where_clause
                         {
@@ -547,16 +547,16 @@ impl UserDefinedTypeDesc {
 
                             #[allow(unused)]
                             fn apply_delta(&self, delta: &Self::Delta) ->
-                                struct_delta_trait::DeltaResult<Self>
+                                deltoid::DeltaResult<Self>
                             {
                                 Ok(Self( #apply_delta_field_assignments ))
                             }
 
                             #[allow(unused)]
                             fn delta(&self,rhs: &Self) ->
-                                struct_delta_trait::DeltaResult<Self::Delta>
+                                deltoid::DeltaResult<Self::Delta>
                             {
-                                use struct_delta_trait::IntoDelta;
+                                use deltoid::IntoDelta;
                                 Ok(#delta_type_name(#delta_field_assignments))
                             }
                         }
@@ -564,7 +564,7 @@ impl UserDefinedTypeDesc {
                 },
                 StructVariant::UnitStruct => quote! {
                     impl<#input_type_param_decls>
-                        struct_delta_trait::DeltaOps
+                        deltoid::DeltaOps
                         for #type_name<#input_type_params>
                         #where_clause
                     {
@@ -572,14 +572,14 @@ impl UserDefinedTypeDesc {
 
                         #[allow(unused)]
                         fn apply_delta(&self, delta: &Self::Delta) ->
-                            struct_delta_trait::DeltaResult<Self>
+                            deltoid::DeltaResult<Self>
                         {
                             Ok(Self)
                         }
 
                         #[allow(unused)]
                         fn delta(&self,rhs: &Self) ->
-                            struct_delta_trait::DeltaResult<Self::Delta>
+                            deltoid::DeltaResult<Self::Delta>
                         {
                             Ok(#delta_type_name)
                         }
@@ -736,7 +736,7 @@ impl UserDefinedTypeDesc {
                                 if let Self::Delta::#variant_name {
                                     #(ref #field_names),*
                                 } = delta {
-                                    use struct_delta_trait::{DeltaError, FromDelta};
+                                    use deltoid::{DeltaError, FromDelta};
                                     return Ok(Self::#variant_name {
                                         #field_assignments
                                     })
@@ -767,7 +767,7 @@ impl UserDefinedTypeDesc {
                                 if let Self::Delta::#variant_name(
                                     #(ref #field_names),*
                                 ) = delta {
-                                    use struct_delta_trait::{DeltaError, FromDelta};
+                                    use deltoid::{DeltaError, FromDelta};
                                     return Ok(Self::#variant_name(
                                         #field_assignments
                                     ))
@@ -967,7 +967,7 @@ impl UserDefinedTypeDesc {
                     });
                 }
                 quote! {
-                    impl<#input_type_param_decls> struct_delta_trait::DeltaOps
+                    impl<#input_type_param_decls> deltoid::DeltaOps
                         for #type_name<#input_type_params>
                         #where_clause
                     {
@@ -975,18 +975,18 @@ impl UserDefinedTypeDesc {
 
                         #[allow(unused)]
                         fn apply_delta(&self, delta: &Self::Delta) ->
-                            struct_delta_trait::DeltaResult<Self> {
+                            deltoid::DeltaResult<Self> {
                             #apply_delta_tokens
-                            struct_delta_trait::bug_detected!()
+                            deltoid::bug_detected!()
                         }
 
                         #[allow(unused)]
                         fn delta(&self, rhs: &Self) ->
-                            struct_delta_trait::DeltaResult<Self::Delta>
+                            deltoid::DeltaResult<Self::Delta>
                         {
-                            use struct_delta_trait::IntoDelta;
+                            use deltoid::IntoDelta;
                             #delta_tokens
-                            struct_delta_trait::bug_detected!()
+                            deltoid::bug_detected!()
                         }
                     }
                 }
@@ -1076,15 +1076,15 @@ impl UserDefinedTypeDesc {
                     },
                 });
                 quote! {
-                    impl<#input_type_param_decls> struct_delta_trait::FromDelta
+                    impl<#input_type_param_decls> deltoid::FromDelta
                         for #type_name<#input_type_params>
                         #where_clause
                     {
                         #[allow(unused)]
                         fn from_delta(
-                            delta: <Self as struct_delta_trait::DeltaOps>::Delta
-                        ) -> struct_delta_trait::DeltaResult<Self> {
-                            use struct_delta_trait::DeltaError;
+                            delta: <Self as deltoid::DeltaOps>::Delta
+                        ) -> deltoid::DeltaResult<Self> {
+                            use deltoid::DeltaError;
                             Ok(match delta {
                                 #match_body
                             })
@@ -1173,15 +1173,15 @@ impl UserDefinedTypeDesc {
                     });
                 }
                 quote! {
-                    impl<#input_type_param_decls> struct_delta_trait::FromDelta
+                    impl<#input_type_param_decls> deltoid::FromDelta
                         for #type_name<#input_type_params>
                         #where_clause
                     {
                         #[allow(unused)]
                         fn from_delta(
-                            delta: <Self as struct_delta_trait::DeltaOps>::Delta
-                        ) -> struct_delta_trait::DeltaResult<Self> {
-                            use struct_delta_trait::DeltaError;
+                            delta: <Self as deltoid::DeltaOps>::Delta
+                        ) -> deltoid::DeltaResult<Self> {
+                            use deltoid::DeltaError;
                             Ok(match delta {
                                 #match_body
                             })
@@ -1267,15 +1267,15 @@ impl UserDefinedTypeDesc {
                     },
                 });
                 quote! {
-                    impl<#input_type_param_decls> struct_delta_trait::IntoDelta
+                    impl<#input_type_param_decls> deltoid::IntoDelta
                         for #type_name<#input_type_params>
                         #where_clause
                     {
                         #[allow(unused)]
-                        fn into_delta(self) -> struct_delta_trait::DeltaResult<
-                            <Self as struct_delta_trait::DeltaOps>::Delta
+                        fn into_delta(self) -> deltoid::DeltaResult<
+                            <Self as deltoid::DeltaOps>::Delta
                         > {
-                            use struct_delta_trait::IntoDelta;
+                            use deltoid::IntoDelta;
                             Ok(match self {
                                 #match_body
                             })
@@ -1357,15 +1357,15 @@ impl UserDefinedTypeDesc {
                     });
                 }
                 quote! {
-                    impl<#input_type_param_decls> struct_delta_trait::IntoDelta
+                    impl<#input_type_param_decls> deltoid::IntoDelta
                         for #type_name<#input_type_params>
                         #where_clause
                     {
                         #[allow(unused)]
-                        fn into_delta(self) -> struct_delta_trait::DeltaResult<
-                            <Self as struct_delta_trait::DeltaOps>::Delta
+                        fn into_delta(self) -> deltoid::DeltaResult<
+                            <Self as deltoid::DeltaOps>::Delta
                         > {
-                            use struct_delta_trait::IntoDelta;
+                            use deltoid::IntoDelta;
                             Ok(match self {
                                 #match_body
                             })
@@ -1574,7 +1574,7 @@ impl FieldDesc {
             quote! { std::marker::PhantomData<#ty> }
         } else {
             quote! {
-                Option<<#ty as struct_delta_trait::DeltaOps>::Delta>
+                Option<<#ty as deltoid::DeltaOps>::Delta>
             }
         }
     }
