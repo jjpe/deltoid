@@ -25,3 +25,5 @@ proc-macro = true
 [features]
 # Write generated expansions to files.
 dump-expansions--unstable = []
+# Print generated expansions to stdout.
+print-expansions--unstable = []

@@ -43,12 +43,13 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
         #impl_FromDelta_for_input_type
     };
 
-    // print_generated_code(
-    //     &delta_type_definition,
-    //     &impl_Deltoid_for_input_type,
-    //     &impl_FromDelta_for_input_type,
-    //     &impl_IntoDelta_for_input_type
-    // );
+    #[cfg(feature = "print-expansions--unstable")]
+    print_generated_code(
+        &delta_type_definition,
+        &impl_Deltoid_for_input_type,
+        &impl_FromDelta_for_input_type,
+        &impl_IntoDelta_for_input_type
+    );
 
     #[cfg(feature = "dump-expansions--unstable")]
     write_generated_code_to_file(
@@ -63,6 +64,7 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
 }
 
 
+#[cfg(feature = "print-expansions--unstable")]
 #[allow(unused, non_snake_case)]
 fn print_generated_code(
     delta_type_definition: &TokenStream2,
