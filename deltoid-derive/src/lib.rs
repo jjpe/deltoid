@@ -6,8 +6,11 @@ mod desc;
 use crate::desc::{UserDefinedTypeDesc};
 use crate::error::{DeriveError, DeriveResult};
 use proc_macro::TokenStream;
-use proc_macro2::{TokenStream as TokenStream2};
+use proc_macro2::{Ident as Ident2, TokenStream as TokenStream2};
 use quote::{quote};
+use std::io::Write;
+use std::path::{Path, PathBuf};
+use std::fs::{remove_file, File, OpenOptions};
 use syn::{parse_macro_input, DeriveInput};
 
 
@@ -42,12 +45,13 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
     //     &impl_IntoDelta_for_input_type
     // );
 
-    // write_generated_code_to_file(
-    //     &delta_type_definition,
-    //     &impl_Deltoid_for_input_type,
-    //     &impl_FromDelta_for_input_type,
-    //     &impl_IntoDelta_for_input_type
-    // );
+    write_generated_code_to_file(
+        type_desc.type_name(),
+        &delta_type_definition,
+        &impl_Deltoid_for_input_type,
+        &impl_FromDelta_for_input_type,
+        &impl_IntoDelta_for_input_type,
+    );
 
     Ok(output)
 }
@@ -70,17 +74,20 @@ fn print_generated_code(
 
 #[allow(unused, non_snake_case)]
 fn write_generated_code_to_file(
+    type_name: &Ident2,
     delta_type_definition: &TokenStream2,
     impl_Deltoid_for_input_type: &TokenStream2,
     impl_FromDelta_for_input_type: &TokenStream2,
     impl_IntoDelta_for_input_type: &TokenStream2,
 ) {
-    use std::io::Write;
-    let mut file: std::fs::File = std::fs::OpenOptions::new()
-        .write(true)
-        .truncate(true)
-        .open("/home/j/dev/deltoid/floof.rs")
-        .expect("Failed to write floof.rs");
+    let manifest_dir: &Path = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let expanded_dir: PathBuf = manifest_dir.join("expanded");
+    let filename: PathBuf = expanded_dir.join(&format!("{}.rs", type_name));
+
+    create_dir(&expanded_dir);
+    let _ = remove_file(&filename);
+    let mut file: File = open_file(&filename);
+    println!("wrote {}", filename.display());
 
     file.write_all(format!("{}", delta_type_definition).as_bytes())
         .expect("Failed to write delta_type_definition");
@@ -98,9 +105,30 @@ fn write_generated_code_to_file(
         .expect("Failed to write impl_IntoDelta_for_input_type");
     file.write_all("\n\n".as_bytes()).expect("Failed to write newlines");
 
-    file.flush().expect("Failed to flush floof.rs");
+    file.flush().expect(&format!("Failed to flush {}", filename.display()));
     std::process::Command::new("rustfmt")
-        .args(&["--emit-files", "--edition 2018", "/home/j/dev/deltoid/floof.rs"])
+        .args(&[
+            "--emit", "files", "--edition", "2018",
+            &format!("{}", filename.display())
+        ])
         .output()
         .expect("failed to execute rustfmt;");
+}
+
+fn create_dir<P: AsRef<Path>>(path: P) {
+    let path = path.as_ref();
+    std::fs::DirBuilder::new()
+        .recursive(true)
+        .create(path)
+        .expect(&format!("Failed to create dir {}", path.display()));
+}
+
+fn open_file<P: AsRef<Path>>(path: P) -> File {
+    let path = path.as_ref();
+    OpenOptions::new()
+        .create_new(true)
+        .write(true)
+        .truncate(true)
+        .open(path)
+        .expect(&format!("Failed to open {}", path.display()))
 }

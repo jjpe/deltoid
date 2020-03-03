@@ -379,6 +379,14 @@ impl UserDefinedTypeDesc {
         }
     }
 
+    pub fn type_name(&self) -> &Ident2 {
+        match self {
+            Self::Enum { type_name, .. } => type_name,
+            Self::Struct { type_name, .. } => type_name,
+            Self::Union { .. } => panic!("Unions are not supported."),
+        }
+    }
+
     pub fn define_delta_type(&self) -> DeriveResult<TokenStream2> {
         Ok(match self {
             Self::Struct {
