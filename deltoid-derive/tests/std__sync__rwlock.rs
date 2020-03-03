@@ -3,7 +3,7 @@
 
 #![allow(non_snake_case)]
 
-use deltoid::{DeltaOps, RwLock, RwLockDelta, IntoDelta};
+use deltoid::{Deltoid, RwLock, RwLockDelta, IntoDelta};
 use serde_json;
 
 #[derive(Debug, Clone, PartialEq, deltoid_derive::Delta)]

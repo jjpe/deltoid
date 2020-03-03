@@ -3,8 +3,8 @@
 use crate::*;
 
 
-impl<T> DeltaOps for Option<T>
-where T: DeltaOps + PartialEq + Clone + std::fmt::Debug
+impl<T> Deltoid for Option<T>
+where T: Deltoid + PartialEq + Clone + std::fmt::Debug
     + for<'de> serde::Deserialize<'de>
     + serde::Serialize
     + IntoDelta
@@ -50,7 +50,7 @@ where T: DeltaOps + PartialEq + Clone + std::fmt::Debug
         }
         if let Self::Some(lhs_0) = self {
             if let Self::Some(rhs_0) = rhs {
-                let delta_0: Option<<T as DeltaOps>::Delta> = if lhs_0 != rhs_0 {
+                let delta_0: Option<<T as Deltoid>::Delta> = if lhs_0 != rhs_0 {
                     Some(lhs_0.delta(&rhs_0)?)
                 } else {
                     None
@@ -73,20 +73,20 @@ where T: DeltaOps + PartialEq + Clone + std::fmt::Debug
 
 #[derive(Clone, Debug, PartialEq)]
 #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
-pub enum OptionDelta<T: DeltaOps> {
+pub enum OptionDelta<T: Deltoid> {
     None,
-    Some(Option<<T as DeltaOps>::Delta>),
+    Some(Option<<T as Deltoid>::Delta>),
 }
 
 
 impl<T> IntoDelta for Option<T>
-where T: DeltaOps + IntoDelta
+where T: Deltoid + IntoDelta
     + for<'de> serde::Deserialize<'de>
     + serde::Serialize
     + IntoDelta
     + FromDelta
 {
-    fn into_delta(self) -> DeltaResult<<Self as DeltaOps>::Delta> {
+    fn into_delta(self) -> DeltaResult<<Self as Deltoid>::Delta> {
         Ok(match self {
             Self::None => OptionDelta::None,
             Self::Some(field0) => OptionDelta::Some(
@@ -97,13 +97,13 @@ where T: DeltaOps + IntoDelta
 }
 
 impl<T> FromDelta for Option<T>
-where T: DeltaOps + FromDelta
+where T: Deltoid + FromDelta
     + for<'de> serde::Deserialize<'de>
     + serde::Serialize
     + IntoDelta
     + FromDelta
 {
-    fn from_delta(delta: <Self as DeltaOps>::Delta) -> DeltaResult<Self> {
+    fn from_delta(delta: <Self as Deltoid>::Delta) -> DeltaResult<Self> {
         Ok(match delta {
             Self::Delta::None => Self::None,
             Self::Delta::Some(field0) => Self::Some(

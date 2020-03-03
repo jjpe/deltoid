@@ -25,26 +25,26 @@ pub fn derive(input: TokenStream) -> TokenStream {
 fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
     let type_desc = UserDefinedTypeDesc::parse(&input)?;
     let delta_type_definition         = type_desc.define_delta_type()?;
-    let impl_DeltaOps_for_input_type  = type_desc.define_DeltaOps_impl()?;
+    let impl_Deltoid_for_input_type   = type_desc.define_Deltoid_impl()?;
     let impl_IntoDelta_for_input_type = type_desc.define_IntoDelta_impl()?;
     let impl_FromDelta_for_input_type = type_desc.define_FromDelta_impl()?;
     let output: TokenStream2 = quote! {
         #delta_type_definition
-        #impl_DeltaOps_for_input_type
+        #impl_Deltoid_for_input_type
         #impl_IntoDelta_for_input_type
         #impl_FromDelta_for_input_type
     };
 
     // print_generated_code(
     //     &delta_type_definition,
-    //     &impl_DeltaOps_for_input_type,
+    //     &impl_Deltoid_for_input_type,
     //     &impl_FromDelta_for_input_type,
     //     &impl_IntoDelta_for_input_type
     // );
 
     // write_generated_code_to_file(
     //     &delta_type_definition,
-    //     &impl_DeltaOps_for_input_type,
+    //     &impl_Deltoid_for_input_type,
     //     &impl_FromDelta_for_input_type,
     //     &impl_IntoDelta_for_input_type
     // );
@@ -56,12 +56,12 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
 #[allow(unused, non_snake_case)]
 fn print_generated_code(
     delta_type_definition: &TokenStream2,
-    impl_DeltaOps_for_input_type: &TokenStream2,
+    impl_Deltoid_for_input_type: &TokenStream2,
     impl_FromDelta_for_input_type: &TokenStream2,
     impl_IntoDelta_for_input_type: &TokenStream2,
 ) {
     println!("{}\n", delta_type_definition);
-    println!("{}\n", impl_DeltaOps_for_input_type);
+    println!("{}\n", impl_Deltoid_for_input_type);
     println!("{}\n", impl_FromDelta_for_input_type);
     println!("{}\n", impl_IntoDelta_for_input_type);
     println!("\n\n\n\n");
@@ -71,7 +71,7 @@ fn print_generated_code(
 #[allow(unused, non_snake_case)]
 fn write_generated_code_to_file(
     delta_type_definition: &TokenStream2,
-    impl_DeltaOps_for_input_type: &TokenStream2,
+    impl_Deltoid_for_input_type: &TokenStream2,
     impl_FromDelta_for_input_type: &TokenStream2,
     impl_IntoDelta_for_input_type: &TokenStream2,
 ) {
@@ -86,8 +86,8 @@ fn write_generated_code_to_file(
         .expect("Failed to write delta_type_definition");
     file.write_all("\n\n".as_bytes()).expect("Failed to write newlines");
 
-    file.write_all(format!("{}", impl_DeltaOps_for_input_type).as_bytes())
-        .expect("Failed to write impl_DeltaOps_for_input_type");
+    file.write_all(format!("{}", impl_Deltoid_for_input_type).as_bytes())
+        .expect("Failed to write impl_Deltoid_for_input_type");
     file.write_all("\n\n".as_bytes()).expect("Failed to write newlines");
 
     file.write_all(format!("{}", impl_FromDelta_for_input_type).as_bytes())

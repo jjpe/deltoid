@@ -35,11 +35,11 @@ use serde::{Deserialize, Serialize};
 
 
 #[allow(type_alias_bounds)]
-pub type Delta<T: DeltaOps> = <T as DeltaOps>::Delta;
+pub type Delta<T: Deltoid> = <T as Deltoid>::Delta;
 
 
 /// Definitions for delta operations.
-pub trait DeltaOps: Sized + PartialEq + Clone + std::fmt::Debug {
+pub trait Deltoid: Sized + PartialEq + Clone + std::fmt::Debug {
     type Delta: Clone + std::fmt::Debug + PartialEq
         + Serialize
         + for<'de> Deserialize<'de>;
@@ -64,7 +64,7 @@ pub trait DeltaOps: Sized + PartialEq + Clone + std::fmt::Debug {
 macro_rules! impl_delta_trait_for_primitive_types {
     ( $($type:ty => $delta:ident $(, derive $($traits:ident),+)?);* $(;)? ) => {
         $(
-            impl DeltaOps for $type {
+            impl Deltoid for $type {
                 type Delta = $delta;
 
                 fn apply_delta(&self, delta: &Self::Delta) -> DeltaResult<Self> {
@@ -81,13 +81,13 @@ macro_rules! impl_delta_trait_for_primitive_types {
             pub struct $delta(Option<$type>);
 
             impl IntoDelta for $type {
-                fn into_delta(self) -> DeltaResult<<Self as DeltaOps>::Delta> {
+                fn into_delta(self) -> DeltaResult<<Self as Deltoid>::Delta> {
                     Ok($delta(Some(self)))
                 }
             }
 
             impl FromDelta for $type {
-                fn from_delta(delta: <Self as DeltaOps>::Delta) -> DeltaResult<Self> {
+                fn from_delta(delta: <Self as Deltoid>::Delta) -> DeltaResult<Self> {
                     delta.0.ok_or(DeltaError::ExpectedValue)
                 }
             }

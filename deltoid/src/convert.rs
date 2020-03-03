@@ -1,16 +1,16 @@
 //! This module defines 2 traits which are used to convert between a type
-//! `T: DeltaOps` and its corresponding Delta type, `<T as DeltaOps>::Delta`.
+//! `T: Deltoid` and its corresponding Delta type, `<T as Deltoid>::Delta`.
 
-use crate::{DeltaOps, DeltaResult};
+use crate::{Deltoid, DeltaResult};
 
 
 /// Convert `self` into its corresponding delta type.
-pub trait IntoDelta: Sized + DeltaOps {
-    /// Performs the conversion from `Self` to `<Self as DeltaOps>::Delta`.
-    fn into_delta(self) -> DeltaResult<<Self as DeltaOps>::Delta>;
+pub trait IntoDelta: Sized + Deltoid {
+    /// Performs the conversion from `Self` to `<Self as Deltoid>::Delta`.
+    fn into_delta(self) -> DeltaResult<<Self as Deltoid>::Delta>;
 }
 
-pub trait FromDelta: Sized + DeltaOps {
-    /// Performs the conversion from `<Self as DeltaOps>::Delta` to `Self`.
-    fn from_delta(delta: <Self as DeltaOps>::Delta) -> DeltaResult<Self>;
+pub trait FromDelta: Sized + Deltoid {
+    /// Performs the conversion from `<Self as Deltoid>::Delta` to `Self`.
+    fn from_delta(delta: <Self as Deltoid>::Delta) -> DeltaResult<Self>;
 }

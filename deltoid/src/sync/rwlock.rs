@@ -3,7 +3,7 @@
 //!
 //! [`RwLock`]: https://doc.rust-lang.org/std/sync/struct.RwLock.html
 
-use crate::{DeltaError, DeltaOps, DeltaResult, FromDelta, IntoDelta};
+use crate::{DeltaError, Deltoid, DeltaResult, FromDelta, IntoDelta};
 use serde::{Serialize, Serializer, Deserialize, Deserializer};
 use serde::de::{Visitor};
 use std::cmp::Ordering;
@@ -106,8 +106,8 @@ impl<'de, T: Deserialize<'de>> Deserialize<'de> for RwLock<T> {
 
 
 
-impl<T> DeltaOps for RwLock<T>
-where T: DeltaOps
+impl<T> Deltoid for RwLock<T>
+where T: Deltoid
     + for<'de> Deserialize<'de>
     + Serialize
 {
@@ -130,30 +130,30 @@ where T: DeltaOps
 
 #[derive(Clone, Debug, PartialEq)]
 #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
-pub struct RwLockDelta<T: DeltaOps>(
+pub struct RwLockDelta<T: Deltoid>(
     #[doc(hidden)]
-    pub Option<<T as DeltaOps>::Delta>
+    pub Option<<T as Deltoid>::Delta>
 );
 
 impl<T> IntoDelta for RwLock<T>
-where T: DeltaOps + Clone + std::fmt::Debug
+where T: Deltoid + Clone + std::fmt::Debug
     + for<'de> Deserialize<'de>
     + Serialize
     + IntoDelta
 {
-    fn into_delta(self) -> DeltaResult<<Self as DeltaOps>::Delta> {
+    fn into_delta(self) -> DeltaResult<<Self as Deltoid>::Delta> {
         let value: &T = &*self.0.try_read().unwrap(/*TODO*/);
         value.clone().into_delta().map(Some).map(RwLockDelta)
     }
 }
 
 impl<T> FromDelta for RwLock<T>
-where T: DeltaOps + Clone + std::fmt::Debug
+where T: Deltoid + Clone + std::fmt::Debug
     + for<'de> Deserialize<'de>
     + Serialize
     + FromDelta
 {
-    fn from_delta(delta: <Self as DeltaOps>::Delta) -> DeltaResult<Self> {
+    fn from_delta(delta: <Self as Deltoid>::Delta) -> DeltaResult<Self> {
         let inner_delta = delta.0.ok_or(DeltaError::ExpectedValue)?;
         <T>::from_delta(inner_delta).map(Self::new)
     }

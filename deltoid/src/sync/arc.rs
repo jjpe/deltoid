@@ -1,15 +1,15 @@
-//! A DeltaOps impl for [`Arc`] that provides extra functionality in
+//! A Deltoid impl for [`Arc`] that provides extra functionality in
 //! the form of delta support, de/serialization, partial equality and more.
 //!
 //! [`Arc`]: https://doc.rust-lang.org/std/sync/struct.Arc.html
 
-use crate::{DeltaOps, DeltaResult};
+use crate::{Deltoid, DeltaResult};
 use crate::convert::{FromDelta, IntoDelta};
 use std::sync::{Arc};
 
 
-impl<T> DeltaOps for Arc<T>
-where T: DeltaOps + PartialEq + Clone + std::fmt::Debug
+impl<T> Deltoid for Arc<T>
+where T: Deltoid + PartialEq + Clone + std::fmt::Debug
     + for<'de> serde::Deserialize<'de>
     + serde::Serialize
 {
@@ -17,7 +17,7 @@ where T: DeltaOps + PartialEq + Clone + std::fmt::Debug
 
     fn apply_delta(&self, delta: &Self::Delta) -> DeltaResult<Self> {
         let lhs: &T = self.as_ref();
-        let rhs: &<T as DeltaOps>::Delta = &delta.0;
+        let rhs: &<T as Deltoid>::Delta = &delta.0;
         lhs.apply_delta(rhs).map(Arc::new)
     }
 
@@ -31,24 +31,24 @@ where T: DeltaOps + PartialEq + Clone + std::fmt::Debug
 
 #[derive(Clone, Debug, PartialEq)]
 #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
-pub struct ArcDelta<T: DeltaOps>(Arc<<T as DeltaOps>::Delta>);
+pub struct ArcDelta<T: Deltoid>(Arc<<T as Deltoid>::Delta>);
 
 impl<T> IntoDelta for Arc<T>
-where T: DeltaOps + IntoDelta
+where T: Deltoid + IntoDelta
     + for<'de> serde::Deserialize<'de>
     + serde::Serialize
 {
-    fn into_delta(self) -> DeltaResult<<Self as DeltaOps>::Delta> {
+    fn into_delta(self) -> DeltaResult<<Self as Deltoid>::Delta> {
         self.as_ref().clone().into_delta().map(Arc::new).map(ArcDelta)
     }
 }
 
 impl<T> FromDelta for Arc<T>
-where T: DeltaOps + FromDelta
+where T: Deltoid + FromDelta
     + for<'de> serde::Deserialize<'de>
     + serde::Serialize
 {
-    fn from_delta(delta: <Self as DeltaOps>::Delta) -> DeltaResult<Self> {
+    fn from_delta(delta: <Self as Deltoid>::Delta) -> DeltaResult<Self> {
         let unboxed = Arc::try_unwrap(delta.0).unwrap(/*TODO*/);
         <T>::from_delta(unboxed).map(Arc::new)
     }

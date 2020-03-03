@@ -1,7 +1,7 @@
 //!
 #![allow(non_snake_case)]
 
-use deltoid::{DeltaOps, DeltaResult, IntoDelta};
+use deltoid::{Deltoid, DeltaResult, IntoDelta};
 use deltoid_derive::Delta;
 
 

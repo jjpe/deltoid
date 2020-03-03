@@ -1,12 +1,12 @@
 //!
 
-use crate::{DeltaError, DeltaOps, DeltaResult};
+use crate::{DeltaError, Deltoid, DeltaResult};
 use crate::convert::{FromDelta, IntoDelta};
 use serde::{Deserialize, Serialize};
 
 
-impl<T> DeltaOps for Vec<T>
-where T: Clone + PartialEq + DeltaOps + std::fmt::Debug
+impl<T> Deltoid for Vec<T>
+where T: Clone + PartialEq + Deltoid + std::fmt::Debug
         + Serialize
         + for<'de> Deserialize<'de>
         + IntoDelta
@@ -56,13 +56,13 @@ where T: Clone + PartialEq + DeltaOps + std::fmt::Debug
 
 
 impl<T> IntoDelta for Vec<T>
-where T: Clone + PartialEq + DeltaOps + std::fmt::Debug
+where T: Clone + PartialEq + Deltoid + std::fmt::Debug
         + for<'de> serde::Deserialize<'de>
         + serde::Serialize
         + IntoDelta
         + FromDelta
 {
-    fn into_delta(self) -> DeltaResult<<Self as DeltaOps>::Delta> {
+    fn into_delta(self) -> DeltaResult<<Self as Deltoid>::Delta> {
         let mut vec: Vec<EltDelta<T>> = vec![];
         for elt in self {
             vec.push(EltDelta::Add(elt.into_delta()?));
@@ -72,13 +72,13 @@ where T: Clone + PartialEq + DeltaOps + std::fmt::Debug
 }
 
 impl<T> FromDelta for Vec<T>
-where T: Clone + PartialEq + DeltaOps + std::fmt::Debug
+where T: Clone + PartialEq + Deltoid + std::fmt::Debug
         + for<'de> serde::Deserialize<'de>
         + serde::Serialize
         + IntoDelta
         + FromDelta
 {
-    fn from_delta(delta: <Self as DeltaOps>::Delta) -> DeltaResult<Self> {
+    fn from_delta(delta: <Self as Deltoid>::Delta) -> DeltaResult<Self> {
         let mut vec: Vec<T> = vec![];
         for (index, element) in delta.0.into_iter().enumerate() {
             match element {
@@ -92,25 +92,25 @@ where T: Clone + PartialEq + DeltaOps + std::fmt::Debug
 
 #[derive(Clone, Debug, PartialEq)]
 #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
-pub enum EltDelta<T: DeltaOps> {
+pub enum EltDelta<T: Deltoid> {
     /// Edit a value at a given `index`.
     Edit {
         /// The location of the edit
         index: usize,
         /// The new value of the item
-        item: <T as DeltaOps>::Delta,
+        item: <T as Deltoid>::Delta,
     },
     /// Remove `count` elements from the end of the Vec.
     Remove { count: usize },
     /// Add a value.
-    Add(<T as DeltaOps>::Delta),
+    Add(<T as Deltoid>::Delta),
 }
 
 #[derive(Clone, Debug, PartialEq)]
 #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
-pub struct VecDelta<T: DeltaOps>(Vec<EltDelta<T>>);
+pub struct VecDelta<T: Deltoid>(Vec<EltDelta<T>>);
 
-impl<T: DeltaOps> VecDelta<T> {
+impl<T: Deltoid> VecDelta<T> {
     pub fn iter(&self) -> impl Iterator<Item = &EltDelta<T>> {
         self.0.iter()
     }

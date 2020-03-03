@@ -1,14 +1,14 @@
 //!
 
-use crate::{DeltaError, DeltaOps, DeltaResult};
+use crate::{DeltaError, DeltaResult, Deltoid};
 use crate::convert::{FromDelta, IntoDelta};
 use serde::{Deserialize, Serialize};
 use std::borrow::{Borrow, Cow, ToOwned};
 use std::marker::PhantomData;
 
 
-impl<'a, B> DeltaOps for Cow<'a, B>
-where B: ToOwned + PartialEq + DeltaOps + Clone + std::fmt::Debug
+impl<'a, B> Deltoid for Cow<'a, B>
+where B: Clone + std::fmt::Debug + PartialEq + Deltoid + ToOwned
         + Serialize
         + for<'de> Deserialize<'de>,
       <B as ToOwned>::Owned: std::fmt::Debug
@@ -39,7 +39,7 @@ where B: ToOwned + PartialEq + DeltaOps + Clone + std::fmt::Debug
 
 impl<'a, B> IntoDelta for Cow<'a, B>
 where B: IntoDelta + Serialize + for<'de> Deserialize<'de> {
-    fn into_delta(self) -> DeltaResult<<Self as DeltaOps>::Delta> {
+    fn into_delta(self) -> DeltaResult<<Self as Deltoid>::Delta> {
         Ok(CowDelta {
             inner: Some((self.borrow() as &B).clone().into_delta()?),
             _phantom: PhantomData,
@@ -49,8 +49,8 @@ where B: IntoDelta + Serialize + for<'de> Deserialize<'de> {
 
 impl<'a, B> FromDelta for Cow<'a, B>
 where B: FromDelta + Serialize + for<'de> Deserialize<'de> {
-    fn from_delta(delta: <Self as DeltaOps>::Delta) -> DeltaResult<Self> {
-        let delta: <B as DeltaOps>::Delta = delta.inner
+    fn from_delta(delta: <Self as Deltoid>::Delta) -> DeltaResult<Self> {
+        let delta: <B as Deltoid>::Delta = delta.inner
             .ok_or(DeltaError::ExpectedValue)?;
         B::from_delta(delta)
             .map(|b: B| b.to_owned())
@@ -61,7 +61,7 @@ where B: FromDelta + Serialize + for<'de> Deserialize<'de> {
 
 #[derive(Clone, Debug, PartialEq)]
 #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
-pub struct CowDelta<'a, B: DeltaOps + Clone> {
-    inner: Option<<B as DeltaOps>::Delta>,
+pub struct CowDelta<'a, B: Deltoid + Clone> {
+    inner: Option<<B as Deltoid>::Delta>,
     _phantom: PhantomData<&'a B>
 }

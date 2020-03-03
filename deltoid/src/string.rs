@@ -1,9 +1,9 @@
 //!
 
-use crate::{DeltaError, DeltaOps, DeltaResult};
+use crate::{DeltaError, Deltoid, DeltaResult};
 use crate::convert::{FromDelta, IntoDelta};
 
-impl DeltaOps for String { // TODO: Improve space efficiency
+impl Deltoid for String { // TODO: Improve space efficiency
     type Delta = StringDelta;
 
     fn apply_delta(&self, delta: &Self::Delta) -> DeltaResult<Self> {
@@ -20,13 +20,13 @@ impl DeltaOps for String { // TODO: Improve space efficiency
 pub struct StringDelta(Option<String>);
 
 impl IntoDelta for String {
-    fn into_delta(self) -> DeltaResult<<Self as DeltaOps>::Delta> {
+    fn into_delta(self) -> DeltaResult<<Self as Deltoid>::Delta> {
         Ok(StringDelta(Some(self)))
     }
 }
 
 impl FromDelta for String {
-    fn from_delta(delta: <Self as DeltaOps>::Delta) -> DeltaResult<Self> {
+    fn from_delta(delta: <Self as Deltoid>::Delta) -> DeltaResult<Self> {
         delta.0.ok_or(DeltaError::ExpectedValue)
     }
 }

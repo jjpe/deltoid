@@ -3,19 +3,19 @@
 //!
 //! [`BtreeMap`]: https://doc.rust-lang.org/std/collections/struct.BTreeMap.html
 
-use crate::{DeltaError, DeltaOps, DeltaResult, FromDelta, IntoDelta};
+use crate::{DeltaError, Deltoid, DeltaResult, FromDelta, IntoDelta};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::fmt::{Debug};
 
 
-impl<K, V> DeltaOps for std::collections::BTreeMap<K, V>
-where K: DeltaOps + PartialEq + Clone + Debug + Ord
+impl<K, V> Deltoid for std::collections::BTreeMap<K, V>
+where K: Deltoid + PartialEq + Clone + Debug + Ord
     + for<'de> Deserialize<'de>
     + Serialize
     + FromDelta
     + IntoDelta,
-      V: DeltaOps
+      V: Deltoid
     + for<'de> Deserialize<'de>
     + Serialize
     + FromDelta
@@ -49,7 +49,7 @@ where K: DeltaOps + PartialEq + Clone + Debug + Ord
         let mut changes: Vec<EntryDelta<K, V>> = vec![];
         for key in edited_keys {
             let (lhs_val, rhs_val): (&V, &V) = (&self[key], &rhs[key]);
-            let delta: <V as DeltaOps>::Delta = lhs_val.delta(rhs_val)?;
+            let delta: <V as Deltoid>::Delta = lhs_val.delta(rhs_val)?;
             changes.push(EntryDelta::Edit { key: (*key).clone(), value: delta });
         }
         for key in added_keys {
@@ -72,15 +72,15 @@ where K: DeltaOps + PartialEq + Clone + Debug + Ord
 pub struct BTreeMapDelta<K, V>(
     #[doc(hidden)]
     pub Vec<EntryDelta<K, V>>,
-) where V: DeltaOps + FromDelta + IntoDelta;
+) where V: Deltoid + FromDelta + IntoDelta;
 
 impl<K, V> BTreeMapDelta<K, V>
-where K: DeltaOps + PartialEq + Clone + Debug + Ord
+where K: Deltoid + PartialEq + Clone + Debug + Ord
     + for<'de> Deserialize<'de>
     + Serialize
     + FromDelta
     + IntoDelta,
-      V: DeltaOps
+      V: Deltoid
     + for<'de> Deserialize<'de>
     + Serialize
     + FromDelta
@@ -101,29 +101,29 @@ where K: DeltaOps + PartialEq + Clone + Debug + Ord
 #[derive(
     Clone, Debug, PartialEq, serde_derive::Deserialize, serde_derive::Serialize
 )]
-pub enum EntryDelta<K, V: DeltaOps> {
+pub enum EntryDelta<K, V: Deltoid> {
     /// Edit a `value` of a given `key`
-    Edit { key: K, value: <V as DeltaOps>::Delta },
+    Edit { key: K, value: <V as Deltoid>::Delta },
     /// Add a given `key` and `value` entry.
-    Add { key: K, value: <V as DeltaOps>::Delta },
+    Add { key: K, value: <V as Deltoid>::Delta },
     /// Remove the entry with a given `key` from the map.
     Remove { key: K },
 }
 
 
 impl<K, V> IntoDelta for std::collections::BTreeMap<K, V>
-where K: DeltaOps + PartialEq + Clone + Debug + Ord
+where K: Deltoid + PartialEq + Clone + Debug + Ord
     + for<'de> Deserialize<'de>
     + Serialize
     + FromDelta
     + IntoDelta,
-      V: DeltaOps
+      V: Deltoid
     + for<'de> Deserialize<'de>
     + Serialize
     + FromDelta
     + IntoDelta
 {
-    fn into_delta(self) -> DeltaResult<<Self as DeltaOps>::Delta> {
+    fn into_delta(self) -> DeltaResult<<Self as Deltoid>::Delta> {
         let mut vec: Vec<EntryDelta<K, V>> = vec![];
         for (key, val) in self {
             vec.push(EntryDelta::Add { key: key, value: val.into_delta()? });
@@ -133,18 +133,18 @@ where K: DeltaOps + PartialEq + Clone + Debug + Ord
 }
 
 impl<K, V> FromDelta for std::collections::BTreeMap<K, V>
-where K: DeltaOps + Clone + std::fmt::Debug + Ord
+where K: Deltoid + Clone + std::fmt::Debug + Ord
     + for<'de> Deserialize<'de>
     + Serialize
     + FromDelta
     + IntoDelta,
-      V: DeltaOps
+      V: Deltoid
     + for<'de> Deserialize<'de>
     + Serialize
     + FromDelta
     + IntoDelta
 {
-    fn from_delta(delta: <Self as DeltaOps>::Delta) -> DeltaResult<Self> {
+    fn from_delta(delta: <Self as Deltoid>::Delta) -> DeltaResult<Self> {
         let mut map: Self = Self::new();
         for (index, element) in delta.0.into_iter().enumerate() {
             match element {

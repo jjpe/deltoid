@@ -28,7 +28,7 @@ pub enum UserDefinedTypeDesc {
         input_type_params: Punctuated<Ident, Comma>,
         /// WhereClause for generated type definitions
         type_def_where_clause: WhereClause,
-        /// WhereClause for the generated `DeltaOps` impl
+        /// WhereClause for the generated `Deltoid` impl
         deltaops_trait_impl_where_clause: WhereClause,
     },
     #[allow(unused)]
@@ -47,7 +47,7 @@ pub enum UserDefinedTypeDesc {
         input_type_params: Punctuated<Ident, Comma>,
         /// WhereClause for generated type definitions
         type_def_where_clause: WhereClause,
-        /// WhereClause for the generated `DeltaOps` impl
+        /// WhereClause for the generated `Deltoid` impl
         deltaops_trait_impl_where_clause: WhereClause,
     },
     #[doc(hidden)]
@@ -190,15 +190,13 @@ impl UserDefinedTypeDesc {
         generic_params: &Punctuated<GenericParam, Comma>,
         clause: &mut WhereClause,
     ) -> DeriveResult<()> {
-        // NOTE: Add a clause for each field `f: F` of the form
-        //    `F: deltoid::Delta (+ <Trait>)*`
         for generic_param in generic_params.iter() {
             clause.predicates.push(WherePredicate::Type(PredicateType {
                 lifetimes: None,
                 bounded_ty: Self::generic_param_to_type(generic_param)?,
                 colon_token: Token![:](Span2::call_site()),
                 bounds: vec![ // Add type param bounds
-                    Self::trait_bound(&["deltoid", "DeltaOps"]),
+                    Self::trait_bound(&["deltoid", "Deltoid"]),
                     Self::trait_bound(&["PartialEq"]),
                     Self::trait_bound(&["Clone"]),
                     Self::trait_bound(&["std", "fmt", "Debug"])
@@ -212,8 +210,6 @@ impl UserDefinedTypeDesc {
         generic_params: &Punctuated<GenericParam, Comma>,
         clause: &mut WhereClause,
     ) -> DeriveResult<()> {
-        // NOTE: Add a clause for each field `f: F` of the form
-        //    `F: deltoid::Delta + serde::Serialize`
         for generic_param in generic_params.iter() {
             let field_type = Self::generic_param_to_type(generic_param)?;
             clause.predicates.push(WherePredicate::Type(PredicateType {
@@ -221,7 +217,7 @@ impl UserDefinedTypeDesc {
                 bounded_ty: field_type,
                 colon_token: Token![:](Span2::call_site()),
                 bounds: vec![ // Add type param bounds
-                    Self::trait_bound(&["deltoid", "DeltaOps"]),
+                    Self::trait_bound(&["deltoid", "Deltoid"]),
                     Self::trait_bound(&["deltoid", "FromDelta"]),
                     Self::trait_bound(&["deltoid", "IntoDelta"]),
                     Self::trait_bound(&["serde", "Serialize"]),
@@ -416,7 +412,7 @@ impl UserDefinedTypeDesc {
     }
 
     #[allow(non_snake_case)]
-    pub fn define_DeltaOps_impl(&self) -> DeriveResult<TokenStream2> {
+    pub fn define_Deltoid_impl(&self) -> DeriveResult<TokenStream2> {
         let accumulate_tokens = |total_result, elt_result| {
             let (total, elt) = (total_result?, elt_result?);
             Ok(quote! { #total  #elt })
@@ -466,8 +462,7 @@ impl UserDefinedTypeDesc {
                         })
                         .fold(Ok(quote!{ }), accumulate_tokens)?;
                     quote! {
-                        impl<#input_type_param_decls>
-                            deltoid::DeltaOps
+                        impl<#input_type_param_decls> deltoid::Deltoid
                             for #type_name<#input_type_params>
                             #where_clause
                         {
@@ -522,8 +517,7 @@ impl UserDefinedTypeDesc {
                         })
                         .fold(Ok(quote!{ }), accumulate_tokens)?;
                     quote! {
-                        impl<#input_type_param_decls>
-                            deltoid::DeltaOps
+                        impl<#input_type_param_decls> deltoid::Deltoid
                             for #type_name<#input_type_params>
                             #where_clause
                         {
@@ -547,8 +541,7 @@ impl UserDefinedTypeDesc {
                     }
                 },
                 StructVariant::UnitStruct => quote! {
-                    impl<#input_type_param_decls>
-                        deltoid::DeltaOps
+                    impl<#input_type_param_decls> deltoid::Deltoid
                         for #type_name<#input_type_params>
                         #where_clause
                     {
@@ -951,7 +944,7 @@ impl UserDefinedTypeDesc {
                     });
                 }
                 quote! {
-                    impl<#input_type_param_decls> deltoid::DeltaOps
+                    impl<#input_type_param_decls> deltoid::Deltoid
                         for #type_name<#input_type_params>
                         #where_clause
                     {
@@ -1066,7 +1059,7 @@ impl UserDefinedTypeDesc {
                     {
                         #[allow(unused)]
                         fn from_delta(
-                            delta: <Self as deltoid::DeltaOps>::Delta
+                            delta: <Self as deltoid::Deltoid>::Delta
                         ) -> deltoid::DeltaResult<Self> {
                             use deltoid::DeltaError;
                             Ok(match delta {
@@ -1163,7 +1156,7 @@ impl UserDefinedTypeDesc {
                     {
                         #[allow(unused)]
                         fn from_delta(
-                            delta: <Self as deltoid::DeltaOps>::Delta
+                            delta: <Self as deltoid::Deltoid>::Delta
                         ) -> deltoid::DeltaResult<Self> {
                             use deltoid::DeltaError;
                             Ok(match delta {
@@ -1257,7 +1250,7 @@ impl UserDefinedTypeDesc {
                     {
                         #[allow(unused)]
                         fn into_delta(self) -> deltoid::DeltaResult<
-                            <Self as deltoid::DeltaOps>::Delta
+                            <Self as deltoid::Deltoid>::Delta
                         > {
                             use deltoid::IntoDelta;
                             Ok(match self {
@@ -1347,7 +1340,7 @@ impl UserDefinedTypeDesc {
                     {
                         #[allow(unused)]
                         fn into_delta(self) -> deltoid::DeltaResult<
-                            <Self as deltoid::DeltaOps>::Delta
+                            <Self as deltoid::Deltoid>::Delta
                         > {
                             use deltoid::IntoDelta;
                             Ok(match self {
@@ -1558,7 +1551,7 @@ impl FieldDesc {
             quote! { std::marker::PhantomData<#ty> }
         } else {
             quote! {
-                Option<<#ty as deltoid::DeltaOps>::Delta>
+                Option<<#ty as deltoid::Deltoid>::Delta>
             }
         }
     }
