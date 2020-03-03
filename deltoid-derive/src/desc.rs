@@ -4,7 +4,6 @@ use crate::{DeriveError, DeriveResult};
 use itertools::iproduct;
 use proc_macro2::{
     Ident as Ident2, Literal as Literal2, Span as Span2,
-    // TokenTree as TokenTree2,
     TokenStream as TokenStream2
 };
 use syn::*;
@@ -383,21 +382,6 @@ impl UserDefinedTypeDesc {
             _ => false
         }
     }
-
-    // pub fn is_union(&self) -> bool {
-    //     match self {
-    //         Self::Union { .. } => true,
-    //         _ => false
-    //     }
-    // }
-
-    // pub fn type_name(&self) -> &Ident2 {
-    //     match self {
-    //         Self::Enum { type_name, .. } => type_name,
-    //         Self::Struct { type_name, .. } => type_name,
-    //         _ => unimplemented!("Unions are not supported"),
-    //     }
-    // }
 
     pub fn define_delta_type(&self) -> DeriveResult<TokenStream2> {
         Ok(match self {

@@ -116,16 +116,3 @@ impl_delta_trait_for_primitive_types! {
     char  => CharDelta,  derive Clone, Debug, PartialEq, Hash;
     ()    => UnitDelta,  derive Clone, Debug, PartialEq, Hash;
 }
-
-
-
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-
-//     #[test]
-//     fn foo() -> DeltaResult<()> {
-//         Ok(())
-//     }
-
-// }

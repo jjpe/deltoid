@@ -19,17 +19,13 @@ impl DeltaOps for String { // TODO: Improve space efficiency
 #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
 pub struct StringDelta(Option<String>);
 
-impl IntoDelta for String
-// where String: Clone + PartialEq + DeltaOps + std::fmt::Debug
-{
+impl IntoDelta for String {
     fn into_delta(self) -> DeltaResult<<Self as DeltaOps>::Delta> {
         Ok(StringDelta(Some(self)))
     }
 }
 
-impl FromDelta for String
-// where String: Clone + PartialEq + DeltaOps + std::fmt::Debug
-{
+impl FromDelta for String {
     fn from_delta(delta: <Self as DeltaOps>::Delta) -> DeltaResult<Self> {
         delta.0.ok_or(DeltaError::ExpectedValue)
     }

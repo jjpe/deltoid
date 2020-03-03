@@ -4,7 +4,6 @@ use crate::{DeltaError, DeltaOps, DeltaResult};
 use crate::convert::{FromDelta, IntoDelta};
 use serde::{Deserialize, Serialize};
 use std::borrow::{Borrow, Cow, ToOwned};
-// use std::convert::{TryFrom, TryInto};
 use std::marker::PhantomData;
 
 
@@ -60,33 +59,9 @@ where B: FromDelta + Serialize + for<'de> Deserialize<'de> {
 }
 
 
-// impl<'a, B> TryFrom<CowDelta<'a, B>> for Cow<'a, B>
-// where B: Clone + std::fmt::Debug + DeltaOps {
-//     type Error = DeltaError;
-//     fn try_from(delta: CowDelta<'a, B>) -> Result<Self, Self::Error> {
-//         delta.inner
-//             .ok_or(DeltaError::ExpectedValue)?
-//             .try_into()
-//             .map(Cow::Owned)
-//     }
-// }
-
-
 #[derive(Clone, Debug, PartialEq)]
 #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
 pub struct CowDelta<'a, B: DeltaOps + Clone> {
     inner: Option<<B as DeltaOps>::Delta>,
     _phantom: PhantomData<&'a B>
 }
-
-// impl<'a, B> TryFrom<Cow<'a, B>> for CowDelta<'a, B>
-// where B: Clone + std::fmt::Debug + DeltaOps {
-//     type Error = DeltaError;
-//     fn try_from(thing: Cow<'a, B>) -> Result<Self, Self::Error> {
-//         let borrowed: &B = thing.borrow();
-//         Ok(CowDelta {
-//             inner: Some(borrowed.to_owned().try_into()?),
-//             _phantom: PhantomData
-//         })
-//     }
-// }

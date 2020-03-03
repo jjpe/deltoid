@@ -1,7 +1,6 @@
 //!
 
 use crate::{DeltaOps, DeltaResult};
-// use crate::convert::{FromDelta, IntoDelta};
 
 
 impl<T0> DeltaOps for (T0,)
