@@ -379,6 +379,7 @@ impl UserDefinedTypeDesc {
         }
     }
 
+    #[cfg(feature = "dump-expansions--unstable")]
     pub fn type_name(&self) -> &Ident2 {
         match self {
             Self::Enum { type_name, .. } => type_name,

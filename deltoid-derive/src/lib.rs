@@ -6,11 +6,16 @@ mod desc;
 use crate::desc::{UserDefinedTypeDesc};
 use crate::error::{DeriveError, DeriveResult};
 use proc_macro::TokenStream;
-use proc_macro2::{Ident as Ident2, TokenStream as TokenStream2};
+use proc_macro2::{TokenStream as TokenStream2};
+#[cfg(feature = "dump-expansions--unstable")]
+use proc_macro2::{Ident as Ident2};
 use quote::{quote};
-use std::io::Write;
-use std::path::{Path, PathBuf};
+#[cfg(feature = "dump-expansions--unstable")]
 use std::fs::{remove_file, File, OpenOptions};
+#[cfg(feature = "dump-expansions--unstable")]
+use std::io::Write;
+#[cfg(feature = "dump-expansions--unstable")]
+use std::path::{Path, PathBuf};
 use syn::{parse_macro_input, DeriveInput};
 
 
@@ -45,6 +50,7 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
     //     &impl_IntoDelta_for_input_type
     // );
 
+    #[cfg(feature = "dump-expansions--unstable")]
     write_generated_code_to_file(
         type_desc.type_name(),
         &delta_type_definition,
@@ -72,6 +78,7 @@ fn print_generated_code(
 }
 
 
+#[cfg(feature = "dump-expansions--unstable")]
 #[allow(unused, non_snake_case)]
 fn write_generated_code_to_file(
     type_name: &Ident2,
@@ -115,6 +122,7 @@ fn write_generated_code_to_file(
         .expect("failed to execute rustfmt;");
 }
 
+#[cfg(feature = "dump-expansions--unstable")]
 fn create_dir<P: AsRef<Path>>(path: P) {
     let path = path.as_ref();
     std::fs::DirBuilder::new()
@@ -123,6 +131,7 @@ fn create_dir<P: AsRef<Path>>(path: P) {
         .expect(&format!("Failed to create dir {}", path.display()));
 }
 
+#[cfg(feature = "dump-expansions--unstable")]
 fn open_file<P: AsRef<Path>>(path: P) -> File {
     let path = path.as_ref();
     OpenOptions::new()
