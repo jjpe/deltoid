@@ -1381,8 +1381,10 @@ impl UserDefinedTypeDesc {
                     .map(|field: &FieldDesc| field.name_ref())
                     .collect::<DeriveResult<_>>()?;
                 quote! {
-                    #[derive(Debug, PartialEq, Clone)]
-                    #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
+                    #[derive(
+                        Clone, Debug, PartialEq,
+                        serde_derive::Deserialize, serde_derive::Serialize
+                    )]
                     pub struct #delta_struct_name<#type_param_decls>
                         #where_clause
                     {
