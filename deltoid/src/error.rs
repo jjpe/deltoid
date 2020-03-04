@@ -139,7 +139,6 @@ pub enum DeltaError {
         line: u32,
         column: u32
     },
-    CannotDeltaADelta,
     ExpectedValue,
     FailedToEnsure {
         predicate: String,
