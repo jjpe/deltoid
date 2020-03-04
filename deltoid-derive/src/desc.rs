@@ -1388,6 +1388,12 @@ impl UserDefinedTypeDesc {
                     {
                         #( pub(self) #field_names: #field_types, )*
                     }
+
+                    // TODO: Add a Hash impl for `#delta_struct_name`
+                    // where `T: Hash` for every generic type arg `T`.
+
+                    // TODO: Add an Eq impl for `#delta_struct_name`
+                    // where `T: Eq` for every generic type arg `T`.
                 }
             },
             StructVariant::TupleStruct => quote! {
