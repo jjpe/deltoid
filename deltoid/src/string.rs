@@ -15,7 +15,7 @@ impl Deltoid for String { // TODO: Improve space efficiency
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
 pub struct StringDelta(Option<String>);
 
