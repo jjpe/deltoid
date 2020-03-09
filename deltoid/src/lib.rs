@@ -5,6 +5,7 @@
 //   + an array type i.e. [T, N]?             (Probably yes)
 //   + a slice type  e.g. &[T]  and  &str?    (Very unlikely for borrowed types)
 
+#[macro_use] pub mod snapshot;
 pub mod borrow;
 pub mod boxed;
 pub mod collections;

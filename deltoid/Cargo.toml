@@ -9,3 +9,7 @@ edition = "2018"
 [dependencies]
 serde = { version = "1.0", features = ["rc"] }
 serde_derive = "1.0"
+chrono = { version = "0.4", features = ["serde"], optional = true }
+
+[features]
+snapshot = ["chrono"]
