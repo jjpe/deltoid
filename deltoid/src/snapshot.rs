@@ -10,6 +10,7 @@ macro_rules! snap {
     ([$($location:ident)::*] $new:expr => $context:expr) => {{
         #[cfg(feature = "snapshot")]
         #[allow(redundant_semicolon)] {
+            use $crate::Deltoid;
             use $crate::snapshot::Snapshot;
             let mut origin = String::new();
             $(
