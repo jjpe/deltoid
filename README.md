@@ -64,5 +64,3 @@ There are some limitations to this library:
       types making use of advanced generics are not supported.
       In such cases, it is better to manually implement the
       `Deltoid` trait for your type.
-
-3. .
