@@ -97,9 +97,9 @@ impl<T: Deltoid + Default> History<T> {
 #[cfg(feature = "snapshot")]
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Snapshot<T: Deltoid> {
-    timestamp: DateTime<Utc>,
-    origin: String,
-    contents: <T as Deltoid>::Delta,
+    pub timestamp: DateTime<Utc>,
+    pub origin: String,
+    pub contents: <T as Deltoid>::Delta,
 }
 
 #[cfg(feature = "snapshot")]
@@ -114,12 +114,6 @@ impl<T: Deltoid> Snapshot<T> {
             contents: contents,
         }
     }
-
-    pub fn timestamp(&self) -> &DateTime<Utc> { &self.timestamp }
-
-    pub fn origin(&self) -> &str { &self.origin }
-
-    pub fn contents(&self) -> &<T as Deltoid>::Delta { &self.contents }
 }
 
 #[cfg(feature = "snapshot")]
