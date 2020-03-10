@@ -3,7 +3,9 @@ name = "deltoid-derive"
 version = "0.1.0"
 authors = ["Joey Ezechiels <joey.ezechiels@gmail.com>"]
 edition = "2018"
-description = "Derive infrastructure to calculate and apply deltas at the struct level."
+description = "Derive macro that generates code to calculate and apply deltas to structs and enums"
+repository = "https://github.com/jjpe/deltoid"
+license = "MIT OR Apache-2.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
