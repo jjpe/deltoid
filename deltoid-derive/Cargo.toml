@@ -10,7 +10,7 @@ license = "MIT OR Apache-2.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-deltoid = { path = "../deltoid" }
+deltoid = "0.2"
 itertools = "0.8"
 proc-macro2 = "1.0"
 quote = "1.0"
