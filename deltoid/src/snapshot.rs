@@ -114,6 +114,12 @@ impl<T: Deltoid> Snapshot<T> {
             contents: contents,
         }
     }
+
+    pub fn timestamp(&self) -> &DateTime<Utc> { &self.timestamp }
+
+    pub fn origin(&self) -> &str { &self.origin }
+
+    pub fn contents(&self) -> &T { &self.contents }
 }
 
 #[cfg(feature = "snapshot")]
