@@ -20,7 +20,7 @@ dependencies = [
 
 [[package]]
 name = "deltoid"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "serde",
@@ -29,7 +29,7 @@ dependencies = [
 
 [[package]]
 name = "deltoid-derive"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "deltoid",
  "itertools",
