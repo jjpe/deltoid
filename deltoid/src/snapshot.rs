@@ -119,7 +119,7 @@ impl<T: Deltoid> Snapshot<T> {
 
     pub fn origin(&self) -> &str { &self.origin }
 
-    pub fn contents(&self) -> &T { &self.contents }
+    pub fn contents(&self) -> &<T as Deltoid>::Delta { &self.contents }
 }
 
 #[cfg(feature = "snapshot")]
