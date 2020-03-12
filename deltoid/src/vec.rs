@@ -23,6 +23,9 @@ where T: Clone + PartialEq + Deltoid + std::fmt::Debug
         let mut new: Self = self.clone();
         for change in delta.iter() { match change {
             EltDelta::Edit { index, item } => {
+                // NOTE: If self.len() == 0, the Edit should have been an Add:
+                ensure_gt![self.len(), 0]?;
+                // NOTE: Ensure index is not out of bounds:
                 ensure_lt![*index, self.len()]?;
                 new[*index] = self[*index].apply_delta(item)?;
             },
