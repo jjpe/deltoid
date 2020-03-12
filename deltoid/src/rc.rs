@@ -24,14 +24,14 @@ where T: Deltoid + PartialEq + Clone + std::fmt::Debug
     fn delta(&self, rhs: &Self) -> DeltaResult<Self::Delta> {
         let lhs: &T = self.as_ref();
         let rhs: &T = rhs.as_ref();
-        lhs.delta(rhs).map(Rc::new).map(RcDelta)
+        lhs.delta(rhs).map(Box::new).map(RcDelta)
     }
 }
 
 
 #[derive(Clone, Debug, PartialEq)]
 #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
-pub struct RcDelta<T: Deltoid>(Rc<<T as Deltoid>::Delta>);
+pub struct RcDelta<T: Deltoid>(Box<<T as Deltoid>::Delta>);
 
 
 impl<T> IntoDelta for Rc<T>
@@ -40,7 +40,8 @@ where T: Deltoid + IntoDelta
     + serde::Serialize
 {
     fn into_delta(self) -> DeltaResult<<Self as Deltoid>::Delta> {
-        self.as_ref().clone().into_delta().map(Rc::new).map(RcDelta)
+        let thing: T = self.as_ref().clone();
+        thing.into_delta().map(Box::new).map(RcDelta)
     }
 }
 
@@ -50,7 +51,6 @@ where T: Deltoid + FromDelta
     + serde::Serialize
 {
     fn from_delta(delta: <Self as Deltoid>::Delta) -> DeltaResult<Self> {
-        let unboxed = Rc::try_unwrap(delta.0).unwrap(/*TODO*/);
-        <T>::from_delta(unboxed).map(Rc::new)
+        <T>::from_delta(*delta.0).map(Rc::new)
     }
 }
