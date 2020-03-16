@@ -33,7 +33,7 @@ where T: Clone + PartialEq + Deltoid + std::fmt::Debug
 
 #[derive(Clone, Debug, PartialEq, Hash)]
 #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
-pub struct RangeDelta<T>(Option<Range<T>>);
+pub struct RangeDelta<T>(#[doc(hidden)]pub Option<Range<T>>);
 
 impl<T> IntoDelta for Range<T>
 where T: Clone + PartialEq + Deltoid + std::fmt::Debug

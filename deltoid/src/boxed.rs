@@ -30,7 +30,7 @@ where T: Deltoid + PartialEq + Clone + std::fmt::Debug
 
 #[derive(Clone, Debug, PartialEq)]
 #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
-pub struct BoxDelta<T: Deltoid>(Box<<T as Deltoid>::Delta>);
+pub struct BoxDelta<T: Deltoid>(#[doc(hidden)]pub Box<<T as Deltoid>::Delta>);
 
 
 impl<T> IntoDelta for Box<T>

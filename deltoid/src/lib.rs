@@ -79,7 +79,7 @@ macro_rules! impl_delta_trait_for_primitive_types {
 
             $( #[derive( $($traits),+ )] )?
             #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
-            pub struct $delta(Option<$type>);
+            pub struct $delta(#[doc(hidden)]pub Option<$type>);
 
             impl IntoDelta for $type {
                 fn into_delta(self) -> DeltaResult<<Self as Deltoid>::Delta> {

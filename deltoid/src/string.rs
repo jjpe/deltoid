@@ -17,7 +17,7 @@ impl Deltoid for String { // TODO: Improve space efficiency
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
-pub struct StringDelta(Option<String>);
+pub struct StringDelta(#[doc(hidden)]pub Option<String>);
 
 impl IntoDelta for String {
     fn into_delta(self) -> DeltaResult<<Self as Deltoid>::Delta> {

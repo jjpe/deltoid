@@ -111,7 +111,7 @@ pub enum EltDelta<T: Deltoid> {
 
 #[derive(Clone, Debug, PartialEq)]
 #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
-pub struct VecDelta<T: Deltoid>(Vec<EltDelta<T>>);
+pub struct VecDelta<T: Deltoid>(#[doc(hidden)]pub Vec<EltDelta<T>>);
 
 impl<T: Deltoid> VecDelta<T> {
     pub fn iter(&self) -> impl Iterator<Item = &EltDelta<T>> {

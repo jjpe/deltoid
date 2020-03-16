@@ -62,6 +62,6 @@ where B: FromDelta + Serialize + for<'de> Deserialize<'de> {
 #[derive(Clone, Debug, PartialEq)]
 #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
 pub struct CowDelta<'a, B: Deltoid + Clone> {
-    inner: Option<<B as Deltoid>::Delta>,
-    _phantom: PhantomData<&'a B>
+    #[doc(hidden)]pub inner: Option<<B as Deltoid>::Delta>,
+    #[doc(hidden)]pub _phantom: PhantomData<&'a B>
 }
