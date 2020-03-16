@@ -1,4 +1,4 @@
-//! These integration testss exist because the Delta derive macro cannot be
+//! These integration tests exist because the Delta derive macro cannot be
 //! used within the `struct-delta-trait` crate, where `RwLock` is defined.
 
 #![allow(non_snake_case)]
@@ -14,7 +14,7 @@ struct Foo {
 }
 
 #[test]
-fn rwlock__serialize() {
+fn RwLock__serialize() {
     let value: RwLock<Foo> = RwLock::new(Foo {
         field0: "flapjacks are fun".to_string(),
         field1: 42,
@@ -32,7 +32,7 @@ fn rwlock__serialize() {
 }
 
 #[test]
-fn rwlock__deserialize() {
+fn RwLock__deserialize() {
     let serialized = r#"{"field0":"flapjacks are fun","field1":42}"#;
     println!("serialized:\n{}", serialized);
 
@@ -50,7 +50,7 @@ fn rwlock__deserialize() {
 }
 
 #[test]
-fn rwlock__apply_delta() {
+fn RwLock__apply_delta() {
     let value0: RwLock<Foo> = RwLock::new(Foo {
         field0: "flapjacks are fun".to_string(),
         field1: 42,
@@ -78,7 +78,7 @@ fn rwlock__apply_delta() {
 }
 
 #[test]
-fn rwlock__calculate_delta() {
+fn RwLock__calculate_delta() {
     let value0: RwLock<Foo> = RwLock::new(Foo {
         field0: "flapjacks are fun".to_string(),
         field1: 42,
