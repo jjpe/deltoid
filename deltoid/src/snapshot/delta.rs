@@ -7,14 +7,12 @@ use serde_derive::{Deserialize, Serialize};
 use std::cmp::Ordering;
 
 
-#[cfg(feature = "snapshot")]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize)]
 pub struct DeltaSnapshots<T: Deltoid + Default> {
     pub(crate) snapshots: Vec<DeltaSnapshot<T>>,
     pub(crate) current: FullSnapshot<T>,
 }
 
-#[cfg(feature = "snapshot")]
 impl<T: Deltoid + Default> DeltaSnapshots<T> {
     pub fn new() -> Self {
         Self {
@@ -77,7 +75,6 @@ impl<T: Deltoid + Default> DeltaSnapshots<T> {
     }
 }
 
-#[cfg(feature = "snapshot")]
 impl<T: Deltoid + Default> Default for DeltaSnapshots<T> {
     fn default() -> Self { Self::new() }
 }
@@ -85,7 +82,6 @@ impl<T: Deltoid + Default> Default for DeltaSnapshots<T> {
 
 
 
-#[cfg(feature = "snapshot")]
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct DeltaSnapshot<T: Deltoid> {
     pub timestamp: DateTime<Utc>,
@@ -93,14 +89,12 @@ pub struct DeltaSnapshot<T: Deltoid> {
     pub delta: <T as Deltoid>::Delta,
 }
 
-#[cfg(feature = "snapshot")]
 impl<T: Deltoid> DeltaSnapshot<T> {
     pub fn new(origin: String, delta: <T as Deltoid>::Delta) -> Self {
         Self { timestamp: Utc::now(), origin, delta }
     }
 }
 
-#[cfg(feature = "snapshot")]
 impl<T: Deltoid> PartialEq for DeltaSnapshot<T> {
     fn eq(&self, rhs: &Self) -> bool {
         if self.timestamp != rhs.timestamp { return false; }
@@ -109,10 +103,8 @@ impl<T: Deltoid> PartialEq for DeltaSnapshot<T> {
     }
 }
 
-#[cfg(feature = "snapshot")]
 impl<T: Deltoid> Eq for DeltaSnapshot<T> {}
 
-#[cfg(feature = "snapshot")]
 impl<T: Deltoid> PartialOrd for DeltaSnapshot<T> {
     fn partial_cmp(&self, rhs: &Self) -> Option<Ordering> {
         let timestamp_cmp = self.timestamp.partial_cmp(&rhs.timestamp);
@@ -123,7 +115,6 @@ impl<T: Deltoid> PartialOrd for DeltaSnapshot<T> {
     }
 }
 
-#[cfg(feature = "snapshot")]
 impl<T: Deltoid> Ord for DeltaSnapshot<T> {
     fn cmp(&self, rhs: &Self) -> Ordering {
         let timestamp_cmp = self.timestamp.cmp(&rhs.timestamp);

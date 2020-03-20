@@ -8,11 +8,9 @@ use serde_derive::{Deserialize, Serialize};
 use std::cmp::Ordering;
 
 
-#[cfg(feature = "snapshot")]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize)]
 pub struct FullSnapshots<T: Deltoid + Default>(pub(crate) Vec<FullSnapshot<T>>);
 
-#[cfg(feature = "snapshot")]
 impl<T: Deltoid + Default> FullSnapshots<T> {
     pub fn new() -> Self { Self(vec![]) }
 
@@ -60,7 +58,6 @@ impl<T: Deltoid + Default> FullSnapshots<T> {
     }
 }
 
-#[cfg(feature = "snapshot")]
 impl<T: Deltoid + Default> Default for FullSnapshots<T> {
     fn default() -> Self { Self::new() }
 }
@@ -68,7 +65,6 @@ impl<T: Deltoid + Default> Default for FullSnapshots<T> {
 
 
 
-#[cfg(feature = "snapshot")]
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct FullSnapshot<T: Deltoid> {
     pub timestamp: DateTime<Utc>,
@@ -76,14 +72,12 @@ pub struct FullSnapshot<T: Deltoid> {
     pub state: T,
 }
 
-#[cfg(feature = "snapshot")]
 impl<T: Deltoid> FullSnapshot<T> {
     pub fn new(origin: String, state: T) -> Self {
         Self { timestamp: Utc::now(), origin, state }
     }
 }
 
-#[cfg(feature = "snapshot")]
 impl<T: Deltoid + Default> Default for FullSnapshot<T> {
     fn default() -> Self {
         Self {
@@ -94,7 +88,6 @@ impl<T: Deltoid + Default> Default for FullSnapshot<T> {
     }
 }
 
-#[cfg(feature = "snapshot")]
 impl<T: Deltoid> PartialEq for FullSnapshot<T> {
     fn eq(&self, rhs: &Self) -> bool {
         if self.timestamp != rhs.timestamp { return false; }
@@ -103,10 +96,8 @@ impl<T: Deltoid> PartialEq for FullSnapshot<T> {
     }
 }
 
-#[cfg(feature = "snapshot")]
 impl<T: Deltoid> Eq for FullSnapshot<T> {}
 
-#[cfg(feature = "snapshot")]
 impl<T: Deltoid> PartialOrd for FullSnapshot<T> {
     fn partial_cmp(&self, rhs: &Self) -> Option<Ordering> {
         let timestamp_cmp = self.timestamp.partial_cmp(&rhs.timestamp);
@@ -117,7 +108,6 @@ impl<T: Deltoid> PartialOrd for FullSnapshot<T> {
     }
 }
 
-#[cfg(feature = "snapshot")]
 impl<T: Deltoid> Ord for FullSnapshot<T> {
     fn cmp(&self, rhs: &Self) -> Ordering {
         let timestamp_cmp = self.timestamp.cmp(&rhs.timestamp);
