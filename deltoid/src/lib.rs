@@ -53,12 +53,6 @@ pub trait Deltoid: Sized + PartialEq + Clone + std::fmt::Debug {
     /// Calculate `self --[delta]--> other`.
     ///                    ^^^^^
     fn delta(&self, other: &Self) -> DeltaResult<Self::Delta>;
-
-    /// Calculate `other --[delta]--> self`.
-    ///                     ^^^^^
-    fn inverse_delta(&self, other: &Self) -> DeltaResult<Self::Delta> {
-        other.delta(self)
-    }
 }
 
 
