@@ -13,6 +13,7 @@ pub mod convert;
 #[macro_use] pub mod error;
 pub mod option;
 pub mod range;
+pub mod result;
 pub mod rc;
 pub mod string;
 pub mod sync;
