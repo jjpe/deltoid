@@ -29,7 +29,11 @@ where B: Clone + std::fmt::Debug + PartialEq + Deltoid + ToOwned
     fn delta(&self, other: &Self) -> DeltaResult<Self::Delta> {
         let (lhs, rhs): (&B, &B) = (self.borrow(), other.borrow());
         Ok(CowDelta {
-            inner: Some(lhs.delta(rhs)?),
+            inner: if self != other {
+                Some(lhs.delta(rhs)?)
+            } else {
+                None
+            },
             _phantom: PhantomData,
         })
     }
