@@ -36,7 +36,9 @@ where T: Deltoid + PartialEq + Clone + std::fmt::Debug
 
 #[derive(Clone, Debug, PartialEq)]
 #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
-pub struct BoxDelta<T: Deltoid>(#[doc(hidden)] pub Option<Box<<T as Deltoid>::Delta>>);
+pub struct BoxDelta<T: Deltoid>(
+    #[doc(hidden)] pub Option<Box<<T as Deltoid>::Delta>>
+);
 
 
 impl<T> IntoDelta for Box<T>
@@ -45,16 +47,19 @@ where T: Deltoid + IntoDelta
     + serde::Serialize
 {
     fn into_delta(self) -> DeltaResult<<Self as Deltoid>::Delta> {
-        self.as_ref().clone().into_delta().map(Box::new).map(BoxDelta)
+        self.as_ref().clone().into_delta().map(Box::new).map(Some).map(BoxDelta)
     }
 }
 
 impl<T> FromDelta for Box<T>
-where T: Deltoid + FromDelta
+where T: Deltoid + FromDelta + Default
     + for<'de> serde::Deserialize<'de>
     + serde::Serialize
 {
     fn from_delta(delta: <Self as Deltoid>::Delta) -> DeltaResult<Self> {
-        <T>::from_delta(*delta.0).map(Box::new)
+        match delta.0 {
+            None => Ok(Self::default()),
+            Some(delta) => <T>::from_delta(*delta).map(Box::new),
+        }
     }
 }
