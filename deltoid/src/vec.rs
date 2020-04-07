@@ -129,13 +129,13 @@ impl<T: Deltoid> VecDelta<T> {
 
 
 
-
+#[allow(non_snake_case)]
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn calculate_delta_for_vec() -> DeltaResult<()> {
+    fn calculate_delta_for_Vec() -> DeltaResult<()> {
         let v0: Vec<i32> = vec![1, 3, 10, 30];
         let v1: Vec<i32> = vec![1, 3, 10, 49, 30, 500];
         let delta0 = v0.delta(&v1)?;
@@ -176,7 +176,7 @@ mod tests {
     }
 
     #[test]
-    fn apply_delta_to_vec() -> DeltaResult<()> {
+    fn apply_delta_to_Vec() -> DeltaResult<()> {
         let v0 = vec![1,3,10,30, 30];
         let delta = VecDelta(vec![
             EltDelta::Edit { index: 3, item:  49i32.into_delta()?, },
