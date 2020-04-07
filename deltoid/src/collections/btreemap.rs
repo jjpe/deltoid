@@ -61,7 +61,11 @@ where K: Deltoid + PartialEq + Clone + Debug + Ord
         for key in removed_keys {
             changes.push(EntryDelta::Remove { key: (*key).clone() });
         }
-        Ok(BTreeMapDelta(changes))
+        Ok(BTreeMapDelta(if !changes.is_empty() {
+            Some(changes)
+        } else {
+            None
+        }))
     }
 }
 
@@ -71,7 +75,7 @@ where K: Deltoid + PartialEq + Clone + Debug + Ord
 )]
 pub struct BTreeMapDelta<K, V>(
     #[doc(hidden)]
-    pub Vec<EntryDelta<K, V>>,
+    pub Option<Vec<EntryDelta<K, V>>>,
 ) where V: Deltoid + FromDelta + IntoDelta;
 
 impl<K, V> BTreeMapDelta<K, V>
@@ -86,15 +90,27 @@ where K: Deltoid + PartialEq + Clone + Debug + Ord
     + FromDelta
     + IntoDelta
 {
-    pub fn iter(&self) -> impl Iterator<Item = &EntryDelta<K, V>> {
-        self.0.iter()
+    pub fn iter<'d>(&'d self) -> Box<dyn Iterator<Item = &EntryDelta<K, V>> + 'd> {
+        match &self.0 {
+            Some(delta) => Box::new(delta.iter()),
+            None => Box::new(std::iter::empty()),
+        }
     }
 
-    pub fn into_iter(self) -> impl Iterator<Item = EntryDelta<K, V>> {
-        self.0.into_iter()
+    pub fn into_iter<'d>(self) -> Box<dyn Iterator<Item = EntryDelta<K, V>> + 'd>
+    where Self: 'd {
+        match self.0 {
+            Some(delta) => Box::new(delta.into_iter()),
+            None => Box::new(std::iter::empty()),
+        }
     }
 
-    pub fn len(&self) -> usize { self.0.len() }
+    pub fn len(&self) -> usize {
+        match &self.0 {
+            Some(delta) => delta.len(),
+            None => 0,
+        }
+    }
 }
 
 
@@ -124,11 +140,15 @@ where K: Deltoid + PartialEq + Clone + Debug + Ord
     + IntoDelta
 {
     fn into_delta(self) -> DeltaResult<<Self as Deltoid>::Delta> {
-        let mut vec: Vec<EntryDelta<K, V>> = vec![];
+        let mut changes: Vec<EntryDelta<K, V>> = vec![];
         for (key, val) in self {
-            vec.push(EntryDelta::Add { key: key, value: val.into_delta()? });
+            changes.push(EntryDelta::Add { key: key, value: val.into_delta()? });
         }
-        Ok(BTreeMapDelta(vec))
+        Ok(BTreeMapDelta(if !changes.is_empty() {
+            Some(changes)
+        } else {
+            None
+        }))
     }
 }
 
@@ -146,12 +166,14 @@ where K: Deltoid + Clone + std::fmt::Debug + Ord
 {
     fn from_delta(delta: <Self as Deltoid>::Delta) -> DeltaResult<Self> {
         let mut map: Self = Self::new();
-        for (index, element) in delta.0.into_iter().enumerate() {
-            match element {
-                EntryDelta::Add { key, value } =>
-                    map.insert(key, <V>::from_delta(value)?),
-                _ => return Err(DeltaError::IllegalDelta { index })?,
-            };
+        if let Some(delta) = delta.0 {
+            for (index, element) in delta.into_iter().enumerate() {
+                match element {
+                    EntryDelta::Add { key, value } =>
+                        map.insert(key, <V>::from_delta(value)?),
+                    _ => return Err(DeltaError::IllegalDelta { index })?,
+                };
+            }
         }
         Ok(map)
     }
@@ -159,7 +181,7 @@ where K: Deltoid + Clone + std::fmt::Debug + Ord
 
 
 
-
+#[allow(non_snake_case)]
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -174,7 +196,7 @@ mod tests {
     }
 
     #[test]
-    fn calculate_delta_for_btreemap() -> DeltaResult<()> {
+    fn calculate_delta_for_BTreeMap() -> DeltaResult<()> {
         let v0: BTreeMap<String, usize> = map! {
             "bar".into()     => 300usize,
             "foo".into()     =>  42usize,
@@ -189,11 +211,11 @@ mod tests {
         };
         let delta0 = v0.delta(&v1)?;
         println!("delta0: {:#?}", delta0);
-        let expected = BTreeMapDelta(vec![
+        let expected = BTreeMapDelta(Some(vec![
             EntryDelta::Edit { key: "bar".into(),  value:   350usize.into_delta()? },
             EntryDelta::Add  { key: "baz".into(),  value:  9000usize.into_delta()? },
             EntryDelta::Remove { key: "floozie".into() },
-        ]);
+        ]));
         assert_eq!(delta0, expected, "{:#?}\n    !=\n{:#?}", delta0, expected);
         let v2 = v0.apply_delta(&delta0)?;
         println!("v2: {:#?}", v2);
@@ -201,11 +223,11 @@ mod tests {
 
         let delta1 = v1.delta(&v0)?;
         println!("delta1: {:#?}", delta1);
-        assert_eq!(delta1, BTreeMapDelta(vec![
+        assert_eq!(delta1, BTreeMapDelta(Some(vec![
             EntryDelta::Edit { key: "bar".into(),     value: 300usize.into_delta()? },
             EntryDelta::Add  { key: "floozie".into(), value:   0usize.into_delta()? },
             EntryDelta::Remove { key: "baz".into() },
-        ]));
+        ])));
         let v3 = v1.apply_delta(&delta1)?;
         println!("v3: {:#?}", v3);
         assert_eq!(v0, v3);
@@ -214,18 +236,18 @@ mod tests {
     }
 
     #[test]
-    fn apply_delta_to_btreemap() -> DeltaResult<()> {
+    fn apply_delta_to_BTreeMap() -> DeltaResult<()> {
         let v0: BTreeMap<String, usize> = map! {
             "bar".into()     => 300usize,
             "foo".into()     =>  42usize,
             "floozie".into() =>  0usize,
             "quux".into()    => 16000usize,
         };
-        let delta = BTreeMapDelta(vec![
+        let delta = BTreeMapDelta(Some(vec![
             EntryDelta::Edit { key: "bar".into(),  value:   350usize.into_delta()? },
             EntryDelta::Add  { key: "baz".into(),  value:  9000usize.into_delta()? },
             EntryDelta::Remove { key: "floozie".into() },
-        ]);
+        ]));
         let v1 = v0.apply_delta(&delta)?;
         let expected: BTreeMap<String, usize> = map! {
             "bar".into()  =>   350usize,
