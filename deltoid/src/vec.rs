@@ -53,7 +53,11 @@ where T: Clone + PartialEq + Deltoid + std::fmt::Debug
                 _ => changes.push(EltDelta::Remove { count: 1 }),
             },
         }}
-        Ok(VecDelta(changes))
+        Ok(VecDelta(if !changes.is_empty() {
+            Some(changes)
+        } else {
+            None
+        }))
     }
 }
 
@@ -66,11 +70,15 @@ where T: Clone + PartialEq + Deltoid + std::fmt::Debug
         + FromDelta
 {
     fn into_delta(self) -> DeltaResult<<Self as Deltoid>::Delta> {
-        let mut vec: Vec<EltDelta<T>> = vec![];
+        let mut changes: Vec<EltDelta<T>> = vec![];
         for elt in self {
-            vec.push(EltDelta::Add(elt.into_delta()?));
+            changes.push(EltDelta::Add(elt.into_delta()?));
         }
-        Ok(VecDelta(vec))
+        Ok(VecDelta(if !changes.is_empty() {
+            Some(changes)
+        } else {
+            None
+        }))
     }
 }
 
@@ -83,10 +91,12 @@ where T: Clone + PartialEq + Deltoid + std::fmt::Debug
 {
     fn from_delta(delta: <Self as Deltoid>::Delta) -> DeltaResult<Self> {
         let mut vec: Vec<T> = vec![];
-        for (index, element) in delta.0.into_iter().enumerate() {
-            match element {
-                EltDelta::Add(elt) => vec.push(<T>::from_delta(elt)?),
-                _ => return Err(DeltaError::IllegalDelta { index })?,
+        if let Some(delta) = delta.0 {
+            for (index, element) in delta.into_iter().enumerate() {
+                match element {
+                    EltDelta::Add(elt) => vec.push(<T>::from_delta(elt)?),
+                    _ => return Err(DeltaError::IllegalDelta { index })?,
+                }
             }
         }
         Ok(vec)
@@ -111,18 +121,31 @@ pub enum EltDelta<T: Deltoid> {
 
 #[derive(Clone, Debug, PartialEq)]
 #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
-pub struct VecDelta<T: Deltoid>(#[doc(hidden)]pub Vec<EltDelta<T>>);
+pub struct VecDelta<T: Deltoid>(#[doc(hidden)] pub Option<Vec<EltDelta<T>>>);
 
 impl<T: Deltoid> VecDelta<T> {
-    pub fn iter(&self) -> impl Iterator<Item = &EltDelta<T>> {
-        self.0.iter()
+    pub fn iter<'d>(&'d self) -> Box<dyn Iterator<Item = &EltDelta<T>> + 'd> {
+        match &self.0 {
+            Some(vec) => Box::new(vec.iter()),
+            None => Box::new(std::iter::empty()),
+        }
+
     }
 
-    pub fn into_iter(self) -> impl Iterator<Item = EltDelta<T>> {
-        self.0.into_iter()
+    pub fn into_iter<'d>(self) -> Box<dyn Iterator<Item = EltDelta<T>> + 'd>
+    where Self: 'd {
+        match self.0 {
+            Some(vec) => Box::new(vec.into_iter()),
+            None => Box::new(std::iter::empty()),
+        }
     }
 
-    pub fn len(&self) -> usize { self.0.len() }
+    pub fn len(&self) -> usize {
+        match &self.0 {
+            Some(vec) => vec.len(),
+            None => 0,
+        }
+    }
 }
 
 
@@ -140,21 +163,21 @@ mod tests {
         let v1: Vec<i32> = vec![1, 3, 10, 49, 30, 500];
         let delta0 = v0.delta(&v1)?;
         println!("delta0: {:#?}", delta0);
-        assert_eq!(delta0, VecDelta(vec![
+        assert_eq!(delta0, VecDelta(Some(vec![
             EltDelta::Edit { index: 3, item:  49.into_delta()?, },
             EltDelta::Add(30.into_delta()?),
             EltDelta::Add(500.into_delta()?),
-        ]));
+        ])));
         let v2 = v0.apply_delta(&delta0)?;
         println!("v2: {:#?}", v2);
         assert_eq!(v1, v2);
 
         let delta1 = v1.delta(&v0)?;
         println!("delta1: {:#?}", delta1);
-        assert_eq!(delta1, VecDelta(vec![
+        assert_eq!(delta1, VecDelta(Some(vec![
             EltDelta::Edit { index: 3, item: 30.into_delta()?, },
             EltDelta::Remove  { count: 2, },
-        ]));
+        ])));
         let v3 = v1.apply_delta(&delta1)?;
         println!("v3: {:#?}", v3);
         assert_eq!(v0, v3);
@@ -163,11 +186,11 @@ mod tests {
         let v1 = vec![1, 3, 10, 30, 500, 49];
         let delta0 = v0.delta(&v1)?;
         println!("delta0: {:#?}", delta0);
-        assert_eq!(delta0, VecDelta(vec![
+        assert_eq!(delta0, VecDelta(Some(vec![
             EltDelta::Edit { index: 3, item:  30i32.into_delta()?, },
             EltDelta::Edit { index: 4, item: 500i32.into_delta()?, },
             EltDelta::Edit { index: 5, item:  49i32.into_delta()?, },
-        ]));
+        ])));
         let v2 = v0.apply_delta(&delta0)?;
         println!("v2: {:#?}", v2);
         assert_eq!(v1, v2);
@@ -178,10 +201,10 @@ mod tests {
     #[test]
     fn apply_delta_to_Vec() -> DeltaResult<()> {
         let v0 = vec![1,3,10,30, 30];
-        let delta = VecDelta(vec![
+        let delta = VecDelta(Some(vec![
             EltDelta::Edit { index: 3, item:  49i32.into_delta()?, },
             EltDelta::Add(500i32.into_delta()?),
-        ]);
+        ]));
         let v1 = v0.apply_delta(&delta)?;
         let expected = vec![1,3,10,49, 30, 500];
         assert_eq!(expected, v1);
