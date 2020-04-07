@@ -60,7 +60,11 @@ where K: Deltoid + PartialEq + Eq + Clone + Debug + Ord + std::hash::Hash
         for key in removed_keys {
             changes.push(EntryDelta::Remove { key: (*key).clone() });
         }
-        Ok(HashMapDelta(changes))
+        Ok(HashMapDelta(if !changes.is_empty() {
+            Some(changes)
+        } else {
+            None
+        }))
     }
 }
 
@@ -70,7 +74,7 @@ where K: Deltoid + PartialEq + Eq + Clone + Debug + Ord + std::hash::Hash
 )]
 pub struct HashMapDelta<K, V>(
     #[doc(hidden)]
-    pub Vec<EntryDelta<K, V>>,
+    pub Option<Vec<EntryDelta<K, V>>>,
 ) where V: Deltoid + FromDelta + IntoDelta;
 
 impl<K, V> HashMapDelta<K, V>
@@ -85,15 +89,27 @@ where K: Deltoid + PartialEq + Clone + Debug + Ord
     + FromDelta
     + IntoDelta
 {
-    pub fn iter(&self) -> impl Iterator<Item = &EntryDelta<K, V>> {
-        self.0.iter()
+    pub fn iter<'d>(&'d self) -> Box<dyn Iterator<Item = &EntryDelta<K, V>> + 'd> {
+        match &self.0 {
+            Some(delta) => Box::new(delta.iter()),
+            None => Box::new(std::iter::empty()),
+        }
     }
 
-    pub fn into_iter(self) -> impl Iterator<Item = EntryDelta<K, V>> {
-        self.0.into_iter()
+    pub fn into_iter<'d>(self) -> Box<dyn Iterator<Item = EntryDelta<K, V>> + 'd>
+    where Self: 'd {
+        match self.0 {
+            Some(delta) => Box::new(delta.into_iter()),
+            None => Box::new(std::iter::empty()),
+        }
     }
 
-    pub fn len(&self) -> usize { self.0.len() }
+    pub fn len(&self) -> usize {
+        match &self.0 {
+            Some(delta) => delta.len(),
+            None => 0,
+        }
+    }
 }
 
 
@@ -123,11 +139,15 @@ where K: Deltoid + PartialEq + Eq + Clone + Debug + Ord + std::hash::Hash
     + IntoDelta
 {
     fn into_delta(self) -> DeltaResult<<Self as Deltoid>::Delta> {
-        let mut vec: Vec<EntryDelta<K, V>> = vec![];
+        let mut changes: Vec<EntryDelta<K, V>> = vec![];
         for (key, val) in self {
-            vec.push(EntryDelta::Add { key: key, value: val.into_delta()? });
+            changes.push(EntryDelta::Add { key: key, value: val.into_delta()? });
         }
-        Ok(HashMapDelta(vec))
+        Ok(HashMapDelta(if !changes.is_empty() {
+            Some(changes)
+        } else {
+            None
+        }))
     }
 }
 
@@ -145,12 +165,14 @@ where K: Deltoid + PartialEq + Eq + Clone + Debug + Ord + std::hash::Hash
 {
     fn from_delta(delta: <Self as Deltoid>::Delta) -> DeltaResult<Self> {
         let mut map: Self = Self::new();
-        for (index, element) in delta.0.into_iter().enumerate() {
-            match element {
-                EntryDelta::Add { key, value } =>
-                    map.insert(key, <V>::from_delta(value)?),
-                _ => return Err(DeltaError::IllegalDelta { index })?,
-            };
+        if let Some(delta) = delta.0 {
+            for (index, element) in delta.into_iter().enumerate() {
+                match element {
+                    EntryDelta::Add { key, value } =>
+                        map.insert(key, <V>::from_delta(value)?),
+                    _ => return Err(DeltaError::IllegalDelta { index })?,
+                };
+            }
         }
         Ok(map)
     }
@@ -158,7 +180,7 @@ where K: Deltoid + PartialEq + Eq + Clone + Debug + Ord + std::hash::Hash
 
 
 
-
+#[allow(non_snake_case)]
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -173,7 +195,7 @@ mod tests {
     }
 
     #[test]
-    fn calculate_delta_for_hashmap() -> DeltaResult<()> {
+    fn calculate_delta_for_HashMap() -> DeltaResult<()> {
         let v0: HashMap<String, usize> = map! {
             "bar".into()     => 300usize,
             "foo".into()     =>  42usize,
@@ -188,11 +210,11 @@ mod tests {
         };
         let delta0 = v0.delta(&v1)?;
         println!("delta0: {:#?}", delta0);
-        let expected = HashMapDelta(vec![
+        let expected = HashMapDelta(Some(vec![
             EntryDelta::Edit { key: "bar".into(),  value:   350usize.into_delta()? },
             EntryDelta::Add  { key: "baz".into(),  value:  9000usize.into_delta()? },
             EntryDelta::Remove { key: "floozie".into() },
-        ]);
+        ]));
         assert_eq!(delta0, expected, "{:#?}\n    !=\n{:#?}", delta0, expected);
         let v2 = v0.apply_delta(&delta0)?;
         println!("v2: {:#?}", v2);
@@ -200,11 +222,11 @@ mod tests {
 
         let delta1 = v1.delta(&v0)?;
         println!("delta1: {:#?}", delta1);
-        assert_eq!(delta1, HashMapDelta(vec![
+        assert_eq!(delta1, HashMapDelta(Some(vec![
             EntryDelta::Edit { key: "bar".into(),     value: 300usize.into_delta()? },
             EntryDelta::Add  { key: "floozie".into(), value:   0usize.into_delta()? },
             EntryDelta::Remove { key: "baz".into() },
-        ]));
+        ])));
         let v3 = v1.apply_delta(&delta1)?;
         println!("v3: {:#?}", v3);
         assert_eq!(v0, v3);
@@ -213,18 +235,18 @@ mod tests {
     }
 
     #[test]
-    fn apply_delta_to_hashmap() -> DeltaResult<()> {
+    fn apply_delta_to_HashMap() -> DeltaResult<()> {
         let v0: HashMap<String, usize> = map! {
             "bar".into()     => 300usize,
             "foo".into()     =>  42usize,
             "floozie".into() =>  0usize,
             "quux".into()    => 16000usize,
         };
-        let delta = HashMapDelta(vec![
+        let delta = HashMapDelta(Some(vec![
             EntryDelta::Edit { key: "bar".into(),  value:   350usize.into_delta()? },
             EntryDelta::Add  { key: "baz".into(),  value:  9000usize.into_delta()? },
             EntryDelta::Remove { key: "floozie".into() },
-        ]);
+        ]));
         let v1 = v0.apply_delta(&delta)?;
         let expected: HashMap<String, usize> = map! {
             "bar".into()  =>   350usize,
