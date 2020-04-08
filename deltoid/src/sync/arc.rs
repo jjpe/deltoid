@@ -53,14 +53,13 @@ where T: Deltoid + IntoDelta
 }
 
 impl<T> FromDelta for Arc<T>
-where T: Deltoid + FromDelta + Default
+where T: Deltoid + FromDelta
     + for<'de> serde::Deserialize<'de>
     + serde::Serialize
 {
     fn from_delta(delta: <Self as Deltoid>::Delta) -> DeltaResult<Self> {
-        match delta.0 {
-            None => Ok(Self::default()),
-            Some(delta) => <T>::from_delta(*delta).map(Arc::new),
+        let delta = delta.0.ok_or(DeltaError::ExpectedValue)?;
+        <T>::from_delta(*delta).map(Arc::new)
         }
     }
 }
