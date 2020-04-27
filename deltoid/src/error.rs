@@ -112,7 +112,7 @@ macro_rules! ensure {
 macro_rules! bug_detected {
     ($($fmt:expr $(, $args:expr)*)?) => {
         Err($crate::error::DeltaError::BugDetected {
-            msg: { #[allow(redundant_semicolon)] {
+            msg: { #[allow(redundant_semicolons)] {
                 #[allow(unused)] let mut msg = String::new();
                 $(  msg = format!($fmt $(, $args)*);  )? ;
                 msg
