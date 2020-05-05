@@ -119,10 +119,10 @@ fn Arc__calculate_delta() -> DeltaResult<()> {
     let v1 = Arc::new(Foo { field0: "hello world!!".to_string(), field1: 42 });
     let delta0 = v0.delta(&v1)?;
     println!("delta0: {:#?}", delta0);
-    let expected = ArcDelta(Box::new(FooDelta {
+    let expected = ArcDelta(Some(Box::new(FooDelta {
         field0: Some(StringDelta(Some("hello world!!".to_string()))),
         field1: None,
-    }));
+    })));
     assert_eq!(delta0, expected, "{:#?}\n    !=\n{:#?}", delta0, expected);
 
     let v2 = v0.apply_delta(&delta0)?;
@@ -131,10 +131,10 @@ fn Arc__calculate_delta() -> DeltaResult<()> {
 
     let delta1 = v1.delta(&v0)?;
     println!("delta1: {:#?}", delta1);
-    assert_eq!(delta1, ArcDelta(Box::new(FooDelta {
+    assert_eq!(delta1, ArcDelta(Some(Box::new(FooDelta {
         field0: Some(StringDelta(Some("hello world".to_string()))),
         field1: None,
-    })));
+    }))));
     let v3 = v1.apply_delta(&delta1)?;
     println!("v3: {:#?}", v3);
     assert_eq!(v0, v3);
@@ -145,10 +145,10 @@ fn Arc__calculate_delta() -> DeltaResult<()> {
 #[test]
 fn Arc__apply_delta() -> DeltaResult<()> {
     let v0 = Arc::new(Foo { field0: "hello world".to_string(), field1: 42 });
-    let delta = ArcDelta(Box::new(FooDelta {
+    let delta = ArcDelta(Some(Box::new(FooDelta {
         field0: Some(StringDelta(Some("hello world!!".to_string()))),
         field1: None,
-    }));
+    })));
     let v1 = v0.apply_delta(&delta)?;
     let expected = Arc::new(Foo {
         field0: "hello world!!".to_string(),
