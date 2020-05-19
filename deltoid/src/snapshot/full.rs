@@ -2,7 +2,7 @@
 
 
 use chrono::prelude::{DateTime, Utc};
-use crate::{DeltaError, DeltaResult, Deltoid};
+use crate::{DeltaResult, Deltoid};
 use crate::snapshot::delta::{DeltaSnapshot, DeltaSnapshots};
 use serde_derive::{Deserialize, Serialize};
 use std::cmp::Ordering;
@@ -34,7 +34,7 @@ impl<T: Deltoid + Default> FullSnapshots<T> {
     }
 
     pub fn snapshot_ref(&self, idx: usize) -> DeltaResult<&FullSnapshot<T>> {
-        self.0.get(idx).ok_or(DeltaError::ExpectedValue)
+        self.0.get(idx).ok_or_else(|| ExpectedValue!("FullSnapshot<T>"))
     }
 
     pub fn to_delta_snapshots(mut self) -> DeltaResult<DeltaSnapshots<T>> {
