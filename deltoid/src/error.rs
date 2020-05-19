@@ -124,6 +124,18 @@ macro_rules! bug_detected {
     };
 }
 
+#[macro_export]
+macro_rules! ExpectedValue {
+    ($name:expr) => {
+        $crate::error::DeltaError::ExpectedValue {
+            type_name: $name.to_string(),
+            file: file!().to_string(),
+            line: line!(),
+            column: column!(),
+        }
+    };
+}
+
 
 
 pub type DeltaResult<T> = Result<T, DeltaError>;
@@ -139,13 +151,18 @@ pub enum DeltaError {
         line: u32,
         column: u32
     },
-    ExpectedValue,
+    ExpectedValue {
+        type_name: String,
+        file: String,
+        line: u32,
+        column: u32
+    },
     FailedToEnsure {
         predicate: String,
         msg: String,
         file: String,
         line: u32,
-        column: u32
+        column: u32,
     },
     FailedToApplyDelta { reason: String },
     IllegalDelta { index: usize },

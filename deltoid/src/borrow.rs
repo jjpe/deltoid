@@ -1,6 +1,6 @@
 //!
 
-use crate::{DeltaError, DeltaResult, Deltoid};
+use crate::{DeltaResult, Deltoid};
 use crate::convert::{FromDelta, IntoDelta};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde::de;
@@ -58,7 +58,7 @@ impl<'a, B> FromDelta for Cow<'a, B>
 where B: FromDelta + Serialize + for<'de> Deserialize<'de> {
     fn from_delta(delta: <Self as Deltoid>::Delta) -> DeltaResult<Self> {
         let delta: <B as Deltoid>::Delta = delta.inner
-            .ok_or(DeltaError::ExpectedValue)?;
+            .ok_or_else(|| ExpectedValue!("CowDelta<'a, B>"))?;
         B::from_delta(delta)
             .map(|b: B| b.to_owned())
             .map(Cow::Owned)

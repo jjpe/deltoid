@@ -1,6 +1,6 @@
 //!
 
-use crate::{Deltoid, DeltaError, DeltaResult};
+use crate::{Deltoid, DeltaResult};
 
 
 impl<T0> Deltoid for (T0,)
@@ -11,7 +11,9 @@ where T0: Deltoid + Clone + PartialEq {
 
     fn apply_delta(&self, delta: &Self::Delta) -> DeltaResult<Self> {
         let field0: T0 = self.0.apply_delta(
-            delta.0.as_ref().ok_or(DeltaError::ExpectedValue)?
+            delta.0.as_ref().ok_or_else(|| ExpectedValue!(
+                "Option<<T0 as Deltoid>::Delta>"
+            ))?
         )?;
         Ok((field0,))
     }
@@ -34,10 +36,14 @@ where T0: Deltoid + Clone + PartialEq,
 
     fn apply_delta(&self, delta: &Self::Delta) -> DeltaResult<Self> {
         let field0: T0 = self.0.apply_delta(
-            delta.0.as_ref().ok_or(DeltaError::ExpectedValue)?
+            delta.0.as_ref().ok_or_else(|| ExpectedValue!(
+                "Option<<T0 as Deltoid>::Delta>"
+            ))?
         )?;
         let field1: T1 = self.1.apply_delta(
-            delta.1.as_ref().ok_or(DeltaError::ExpectedValue)?
+            delta.1.as_ref().ok_or_else(|| ExpectedValue!(
+                "Option<<T1 as Deltoid>::Delta>"
+            ))?
         )?;
         Ok((field0, field1))
     }
@@ -64,13 +70,19 @@ where T0: Deltoid + Clone + PartialEq,
 
     fn apply_delta(&self, delta: &Self::Delta) -> DeltaResult<Self> {
         let field0: T0 = self.0.apply_delta(
-            delta.0.as_ref().ok_or(DeltaError::ExpectedValue)?
+            delta.0.as_ref().ok_or_else(|| ExpectedValue!(
+                "Option<<T0 as Deltoid>::Delta>"
+            ))?
         )?;
         let field1: T1 = self.1.apply_delta(
-            delta.1.as_ref().ok_or(DeltaError::ExpectedValue)?
+            delta.1.as_ref().ok_or_else(|| ExpectedValue!(
+                "Option<<T1 as Deltoid>::Delta>"
+            ))?
         )?;
         let field2: T2 = self.2.apply_delta(
-            delta.2.as_ref().ok_or(DeltaError::ExpectedValue)?
+            delta.2.as_ref().ok_or_else(|| ExpectedValue!(
+                "Option<<T2 as Deltoid>::Delta>"
+            ))?
         )?;
         Ok((field0, field1, field2))
     }
@@ -101,16 +113,24 @@ where T0: Deltoid + Clone + PartialEq,
 
     fn apply_delta(&self, delta: &Self::Delta) -> DeltaResult<Self> {
         let field0: T0 = self.0.apply_delta(
-            delta.0.as_ref().ok_or(DeltaError::ExpectedValue)?
+            delta.0.as_ref().ok_or_else(|| ExpectedValue!(
+                "Option<<T0 as Deltoid>::Delta>"
+            ))?
         )?;
         let field1: T1 = self.1.apply_delta(
-            delta.1.as_ref().ok_or(DeltaError::ExpectedValue)?
+            delta.1.as_ref().ok_or_else(|| ExpectedValue!(
+                "Option<<T1 as Deltoid>::Delta>"
+            ))?
         )?;
         let field2: T2 = self.2.apply_delta(
-            delta.2.as_ref().ok_or(DeltaError::ExpectedValue)?
+            delta.2.as_ref().ok_or_else(|| ExpectedValue!(
+                "Option<<T2 as Deltoid>::Delta>"
+            ))?
         )?;
         let field3: T3 = self.3.apply_delta(
-            delta.3.as_ref().ok_or(DeltaError::ExpectedValue)?
+            delta.3.as_ref().ok_or_else(|| ExpectedValue!(
+                "Option<<T3 as Deltoid>::Delta>"
+            ))?
         )?;
         Ok((field0, field1, field2, field3))
     }

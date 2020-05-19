@@ -27,7 +27,7 @@ where K: Deltoid + PartialEq + Eq + Clone + Debug + Ord + std::hash::Hash
         for change in delta.iter() { match change {
             EntryDelta::Edit { key, value } => {
                 let place: &mut V = &mut *new.get_mut(key)
-                    .ok_or(DeltaError::ExpectedValue)?;
+                    .ok_or_else(|| ExpectedValue!("HashMapDelta<K, V>"))?;
                 *place = <V>::from_delta(value.clone())?;
             },
             EntryDelta::Add { key, value } => {

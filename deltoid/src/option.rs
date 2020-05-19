@@ -35,7 +35,7 @@ where T: Deltoid + PartialEq + Clone + std::fmt::Debug
             return Ok(Self::Some(
                 match delta_t.as_ref() {
                     Some(d) => <T>::from_delta(d.clone())?,
-                    None => return Err(DeltaError::ExpectedValue)?,
+                    None => return Err(ExpectedValue!("OptionDelta<T>"))?,
                 },
             ));
         }
@@ -106,9 +106,10 @@ where T: Deltoid + FromDelta
     fn from_delta(delta: <Self as Deltoid>::Delta) -> DeltaResult<Self> {
         Ok(match delta {
             Self::Delta::None => Self::None,
-            Self::Delta::Some(field0) => Self::Some(
-                <T>::from_delta(field0.ok_or(DeltaError::ExpectedValue)?)?,
-            ),
+            Self::Delta::Some(field0) => Self::Some({
+                let expected_value = || ExpectedValue!("OptionDelta<T>");
+                <T>::from_delta(field0.ok_or_else(expected_value)?)?
+            }),
         })
     }
 }

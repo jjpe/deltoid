@@ -31,7 +31,7 @@ where T: Clone + PartialEq + Deltoid + std::fmt::Debug
             },
             EltDelta::Add(delta) =>  new.push(<T>::from_delta(delta.clone())?),
             EltDelta::Remove { count } =>  for _ in 0 .. *count {
-                new.pop().ok_or(DeltaError::ExpectedValue)?;
+                new.pop().ok_or_else(|| ExpectedValue!("VecDelta<T>"))?;
             },
         }}
         Ok(new)

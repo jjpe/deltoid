@@ -1,6 +1,6 @@
 //!
 
-use crate::{DeltaError, Deltoid, DeltaResult};
+use crate::{Deltoid, DeltaResult};
 use crate::convert::{FromDelta, IntoDelta};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde::de;
@@ -58,7 +58,7 @@ where T: Clone + PartialEq + Deltoid + std::fmt::Debug
     + FromDelta
 {
     fn from_delta(delta: <Self as Deltoid>::Delta) -> DeltaResult<Self> {
-        Ok(delta.0.ok_or(DeltaError::ExpectedValue)?)
+        Ok(delta.0.ok_or_else(|| ExpectedValue!("RangeDelta<K, V>"))?)
     }
 }
 

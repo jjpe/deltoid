@@ -28,7 +28,7 @@ where K: Deltoid + PartialEq + Clone + Debug + Ord
         for change in delta.iter() { match change {
             EntryDelta::Edit { key, value } => {
                 let place: &mut V = &mut *new.get_mut(key)
-                    .ok_or(DeltaError::ExpectedValue)?;
+                    .ok_or_else(|| ExpectedValue!("BTreeMapDelta<K, V>"))?;
                 *place = <V>::from_delta(value.clone())?;
             },
             EntryDelta::Add { key, value } => {

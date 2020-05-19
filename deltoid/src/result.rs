@@ -1,6 +1,6 @@
 //!
 
-use crate::{Deltoid, DeltaError, DeltaResult, FromDelta, IntoDelta};
+use crate::{Deltoid, DeltaResult, FromDelta, IntoDelta};
 use serde::{Deserialize, Serialize};
 
 impl<T, E> Deltoid for Result<T, E>
@@ -71,7 +71,7 @@ where T: FromDelta + IntoDelta + for<'de> Deserialize<'de> + Serialize,
       E: FromDelta + IntoDelta + for<'de> Deserialize<'de> + Serialize {
     fn from_delta(delta: <Self as Deltoid>::Delta) -> DeltaResult<Self> {
         match delta {
-            ResultDelta::None => Err(DeltaError::ExpectedValue),
+            ResultDelta::None => Err(ExpectedValue!("ResultDelta<T, E>")),
             ResultDelta::OkDelta(delta) =>
                 Ok(Self::Ok(<T>::from_delta(delta)?)),
             ResultDelta::ErrDelta(delta) =>

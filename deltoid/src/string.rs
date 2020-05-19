@@ -1,6 +1,6 @@
 //!
 
-use crate::{DeltaError, Deltoid, DeltaResult};
+use crate::{Deltoid, DeltaResult};
 use crate::convert::{FromDelta, IntoDelta};
 
 impl Deltoid for String { // TODO: Improve space efficiency
@@ -27,6 +27,6 @@ impl IntoDelta for String {
 
 impl FromDelta for String {
     fn from_delta(delta: <Self as Deltoid>::Delta) -> DeltaResult<Self> {
-        delta.0.ok_or(DeltaError::ExpectedValue)
+        delta.0.ok_or_else(|| ExpectedValue!("StringDelta<T>"))
     }
 }

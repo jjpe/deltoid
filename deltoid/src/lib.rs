@@ -5,12 +5,12 @@
 //   + an array type i.e. [T, N]?             (Probably yes)
 //   + a slice type  e.g. &[T]  and  &str?    (Very unlikely for borrowed types)
 
+#[macro_use] pub mod error;
 #[macro_use] pub mod snapshot;
 pub mod borrow;
 pub mod boxed;
 pub mod collections;
 pub mod convert;
-#[macro_use] pub mod error;
 pub mod option;
 pub mod range;
 pub mod result;
@@ -72,7 +72,7 @@ macro_rules! impl_delta_trait_for_primitive_types {
 
             $( #[derive( $($traits),+ )] )?
             #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
-            pub struct $delta(#[doc(hidden)]pub Option<$type>);
+            pub struct $delta(#[doc(hidden)] pub Option<$type>);
 
             impl IntoDelta for $type {
                 fn into_delta(self) -> DeltaResult<<Self as Deltoid>::Delta> {
@@ -82,7 +82,7 @@ macro_rules! impl_delta_trait_for_primitive_types {
 
             impl FromDelta for $type {
                 fn from_delta(delta: <Self as Deltoid>::Delta) -> DeltaResult<Self> {
-                    delta.0.ok_or(DeltaError::ExpectedValue)
+                    delta.0.ok_or_else(|| ExpectedValue!(stringify!($delta)))
                 }
             }
         )*

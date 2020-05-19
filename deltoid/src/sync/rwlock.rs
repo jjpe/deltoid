@@ -154,7 +154,7 @@ where T: Deltoid + Clone + std::fmt::Debug
     + FromDelta
 {
     fn from_delta(delta: <Self as Deltoid>::Delta) -> DeltaResult<Self> {
-        let inner_delta = delta.0.ok_or(DeltaError::ExpectedValue)?;
+        let inner_delta = delta.0.ok_or_else(|| ExpectedValue!("RwLockDelta<T>"))?;
         <T>::from_delta(inner_delta).map(Self::new)
     }
 }

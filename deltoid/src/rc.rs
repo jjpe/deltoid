@@ -3,7 +3,7 @@
 //!
 //! [`Rc`]: https://doc.rust-lang.org/std/rc/struct.Rc.html
 
-use crate::{Deltoid, DeltaError, DeltaResult};
+use crate::{Deltoid, DeltaResult};
 use crate::convert::{FromDelta, IntoDelta};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde::de;
@@ -63,7 +63,7 @@ where T: Deltoid + FromDelta
     + serde::Serialize
 {
     fn from_delta(delta: <Self as Deltoid>::Delta) -> DeltaResult<Self> {
-        let delta = delta.0.ok_or(DeltaError::ExpectedValue)?;
+        let delta = delta.0.ok_or_else(|| ExpectedValue!("RcDelta<T>"))?;
         <T>::from_delta(*delta).map(Rc::new)
     }
 }
