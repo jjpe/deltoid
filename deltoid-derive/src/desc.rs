@@ -713,7 +713,14 @@ impl UserDefinedTypeDesc {
                                     Ok(quote! {
                                         #lfname: match #lfname {
                                             Some(d) => <#ftype>::from_delta(d.clone())?,
-                                            None => return Err(DeltaError::ExpectedValue)?,
+                                            None => return Err(DeltaError::ExpectedValue {
+                                                type_name: stringify!(
+                                                    #type_name::#variant_name
+                                                ).to_string(),
+                                                file: file!().to_string(),
+                                                line: line!(),
+                                                column: column!(),
+                                            })?,
                                         },
                                     })
                                 })
@@ -744,7 +751,14 @@ impl UserDefinedTypeDesc {
                                     Ok(quote! {
                                         match #lfname {
                                             Some(d) => <#ftype>::from_delta(d.clone())?,
-                                            None => return Err(DeltaError::ExpectedValue)?,
+                                            None => return Err(DeltaError::ExpectedValue {
+                                                type_name: stringify!(
+                                                    #type_name
+                                                ).to_string(),
+                                                file: file!().to_string(),
+                                                line: line!(),
+                                                column: column!(),
+                                            })?,
                                         },
                                     })
                                 })
@@ -1017,7 +1031,14 @@ impl UserDefinedTypeDesc {
                                 }
                                 Ok(quote! {
                                     #fname: <#ftype>::from_delta(
-                                        #fname.ok_or(DeltaError::ExpectedValue)?
+                                        #fname.ok_or_else(|| DeltaError::ExpectedValue {
+                                            type_name: stringify!(
+                                                #type_name
+                                            ).to_string(),
+                                            file: file!().to_string(),
+                                            line: line!(),
+                                            column: column!(),
+                                        })?
                                     )?,
                                 })
                             })
@@ -1046,7 +1067,14 @@ impl UserDefinedTypeDesc {
                                 }
                                 Ok(quote! {
                                     <#ftype>::from_delta(
-                                        #fname.ok_or(DeltaError::ExpectedValue)?
+                                        #fname.ok_or_else(|| DeltaError::ExpectedValue {
+                                            type_name: stringify!(
+                                                #type_name
+                                            ).to_string(),
+                                            file: file!().to_string(),
+                                            line: line!(),
+                                            column: column!(),
+                                        })?
                                     )?,
                                 })
                             })
@@ -1107,7 +1135,14 @@ impl UserDefinedTypeDesc {
                                     }
                                     Ok(quote! {
                                         #fname: <#ftype>::from_delta(
-                                            #fname.ok_or(DeltaError::ExpectedValue)?
+                                            #fname.ok_or_else(|| DeltaError::ExpectedValue {
+                                                type_name: stringify!(
+                                                    #type_name::#variant_name
+                                                ).to_string(),
+                                                file: file!().to_string(),
+                                                line: line!(),
+                                                column: column!(),
+                                            })?
                                         )?,
                                     })
                                 })
@@ -1138,7 +1173,14 @@ impl UserDefinedTypeDesc {
                                     }
                                     Ok(quote! {
                                         <#ftype>::from_delta(
-                                            #fname.ok_or(DeltaError::ExpectedValue)?
+                                            #fname.ok_or_else(|| DeltaError::ExpectedValue {
+                                                type_name: stringify!(
+                                                    #type_name
+                                                ).to_string(),
+                                                file: file!().to_string(),
+                                                line: line!(),
+                                                column: column!(),
+                                            })?
                                         )?,
                                     })
                                 })
