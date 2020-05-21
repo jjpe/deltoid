@@ -8,18 +8,18 @@ use serde_derive::{Deserialize, Serialize};
 
 
 #[derive(Clone, Debug, PartialEq, Eq, Delta, Deserialize, Serialize)]
-struct Foo {
+struct Foo1 {
     s: String,
     i: usize,
 }
 
 #[test]
 fn Rc__calculate_delta() -> DeltaResult<()> {
-    let v0 = Rc::new(Foo { s: "hello world".to_string(), i: 42 });
-    let v1 = Rc::new(Foo { s: "hello world!!".to_string(), i: 42 });
+    let v0 = Rc::new(Foo1 { s: "hello world".to_string(), i: 42 });
+    let v1 = Rc::new(Foo1 { s: "hello world!!".to_string(), i: 42 });
     let delta0 = v0.delta(&v1)?;
     println!("delta0: {:#?}", delta0);
-    let expected = RcDelta(Some(Box::new(FooDelta {
+    let expected = RcDelta(Some(Box::new(Foo1Delta {
         s: Some(StringDelta(Some("hello world!!".to_string()))),
         i: None,
     })));
@@ -31,7 +31,7 @@ fn Rc__calculate_delta() -> DeltaResult<()> {
 
     let delta1 = v1.delta(&v0)?;
     println!("delta1: {:#?}", delta1);
-    assert_eq!(delta1, RcDelta(Some(Box::new(FooDelta {
+    assert_eq!(delta1, RcDelta(Some(Box::new(Foo1Delta {
         s: Some(StringDelta(Some("hello world".to_string()))),
         i: None,
     }))));
@@ -44,13 +44,13 @@ fn Rc__calculate_delta() -> DeltaResult<()> {
 
 #[test]
 fn Rc__apply_delta() -> DeltaResult<()> {
-    let v0 = Rc::new(Foo { s: "hello world".to_string(), i: 42 });
-    let delta = RcDelta(Some(Box::new(FooDelta {
+    let v0 = Rc::new(Foo1 { s: "hello world".to_string(), i: 42 });
+    let delta = RcDelta(Some(Box::new(Foo1Delta {
         s: Some(StringDelta(Some("hello world!!".to_string()))),
         i: None,
     })));
     let v1 = v0.apply_delta(&delta)?;
-    let expected = Rc::new(Foo { s: "hello world!!".to_string(), i: 42 });
+    let expected = Rc::new(Foo1 { s: "hello world!!".to_string(), i: 42 });
     assert_eq!(expected, v1);
 
     Ok(())

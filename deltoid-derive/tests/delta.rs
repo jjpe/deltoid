@@ -47,7 +47,7 @@ enum Corge<Tx, U: Copy> {
 
 #[derive(Clone, Debug, PartialEq)]
 #[derive(Delta)]
-pub struct Foo<F: Copy> where F: Copy {
+pub struct Foo0<F: Copy> where F: Copy {
     #[delta(ignore_field)]
     f0: (),
     f1: F,
@@ -75,18 +75,18 @@ pub struct Plow(std::borrow::Cow<'static, String>);
 
 #[test]
 pub fn generic_struct__calculate_delta() -> DeltaResult<()> {
-    let val0: Foo<u16> = Foo {
+    let val0: Foo0<u16> = Foo0 {
         f0: (),
         f1: 42 as u16,
         f2: "hello world".into()
     };
-    let val1: Foo<u16> = Foo {
+    let val1: Foo0<u16> = Foo0 {
         f0: (),
         f1: 300,
         f2: "hello world!!!".into()
     };
-    let delta: FooDelta<u16> = val0.delta(&val1)?;
-    let expected: FooDelta<u16> = FooDelta {
+    let delta: Foo0Delta<u16> = val0.delta(&val1)?;
+    let expected: Foo0Delta<u16> = Foo0Delta {
         f0: std::marker::PhantomData,
         f1: Some(300u16.into_delta()?),
         f2: Some("hello world!!!".to_string().into_delta()?),
@@ -97,18 +97,18 @@ pub fn generic_struct__calculate_delta() -> DeltaResult<()> {
 
 #[test]
 pub fn generic_struct__apply_delta() -> DeltaResult<()>  {
-    let val0: Foo<u16> = Foo {
+    let val0: Foo0<u16> = Foo0 {
         f0: (),
         f1: 42 as u16,
         f2: "hello world".into()
     };
-    let delta: FooDelta<u16> = FooDelta {
+    let delta: Foo0Delta<u16> = Foo0Delta {
         f0: std::marker::PhantomData,
         f1: Some(300u16.into_delta()?),
         f2: Some("hello world!!!".to_string().into_delta()?),
     };
     let val1 = val0.apply_delta(&delta)?;
-    let expected: Foo<u16> = Foo {
+    let expected: Foo0<u16> = Foo0 {
         f0: (),
         f1: 300,
         f2: String::from("hello world!!!")
