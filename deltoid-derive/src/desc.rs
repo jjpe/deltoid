@@ -29,7 +29,7 @@ pub enum UserDefinedTypeDesc {
         /// WhereClause for generated type definitions
         type_def_where_clause: WhereClause,
         /// WhereClause for the generated `Deltoid` impl
-        deltaops_trait_impl_where_clause: WhereClause,
+        deltoid_trait_impl_where_clause: WhereClause,
     },
     #[allow(unused)]
     Struct {
@@ -48,7 +48,7 @@ pub enum UserDefinedTypeDesc {
         /// WhereClause for generated type definitions
         type_def_where_clause: WhereClause,
         /// WhereClause for the generated `Deltoid` impl
-        deltaops_trait_impl_where_clause: WhereClause,
+        deltoid_trait_impl_where_clause: WhereClause,
     },
     #[doc(hidden)]
     Union,
@@ -80,7 +80,7 @@ impl UserDefinedTypeDesc {
             fields,
             input_type_param_decls,
             ref mut type_def_where_clause,
-            ref mut deltaops_trait_impl_where_clause,
+            ref mut deltoid_trait_impl_where_clause,
             ..
         } = self {
             for (fidx, field) in input_fields.iter().enumerate() {
@@ -107,9 +107,9 @@ impl UserDefinedTypeDesc {
                 &input_type_param_decls,
                 type_def_where_clause
             )?;
-            Self::enhance_where_clause_for_deltaops_trait_impl(
+            Self::enhance_where_clause_for_deltoid_trait_impl(
                 &input_type_param_decls,
-                deltaops_trait_impl_where_clause,
+                deltoid_trait_impl_where_clause,
             )?;
         }
         Ok(())
@@ -121,7 +121,7 @@ impl UserDefinedTypeDesc {
             struct_variant,
             input_type_param_decls,
             ref mut type_def_where_clause,
-            ref mut deltaops_trait_impl_where_clause,
+            ref mut deltoid_trait_impl_where_clause,
             ..
         } = self {
             *struct_variant = StructVariant::UnitStruct;
@@ -129,9 +129,9 @@ impl UserDefinedTypeDesc {
                 &input_type_param_decls,
                 type_def_where_clause,
             )?;
-            Self::enhance_where_clause_for_deltaops_trait_impl(
+            Self::enhance_where_clause_for_deltoid_trait_impl(
                 &input_type_param_decls,
-                deltaops_trait_impl_where_clause,
+                deltoid_trait_impl_where_clause,
             )?;
         }
         Ok(())
@@ -147,7 +147,7 @@ impl UserDefinedTypeDesc {
             variants,
             input_type_param_decls,
             ref mut type_def_where_clause,
-            ref mut deltaops_trait_impl_where_clause,
+            ref mut deltoid_trait_impl_where_clause,
             ..
         } = self {
             for iev in input_enum_variants {
@@ -178,9 +178,9 @@ impl UserDefinedTypeDesc {
                 &input_type_param_decls,
                 type_def_where_clause,
             )?;
-            Self::enhance_where_clause_for_deltaops_trait_impl(
+            Self::enhance_where_clause_for_deltoid_trait_impl(
                 &input_type_param_decls,
-                deltaops_trait_impl_where_clause,
+                deltoid_trait_impl_where_clause,
             )?;
         }
         Ok(())
@@ -206,7 +206,7 @@ impl UserDefinedTypeDesc {
         Ok(())
     }
 
-    fn enhance_where_clause_for_deltaops_trait_impl(
+    fn enhance_where_clause_for_deltoid_trait_impl(
         generic_params: &Punctuated<GenericParam, Comma>,
         clause: &mut WhereClause,
     ) -> DeriveResult<()> {
@@ -343,7 +343,7 @@ impl UserDefinedTypeDesc {
                 .collect(),
             type_def_where_clause: input.generics.where_clause.clone()
                 .unwrap_or_else(empty_where_clause),
-            deltaops_trait_impl_where_clause: input.generics.where_clause.clone()
+            deltoid_trait_impl_where_clause: input.generics.where_clause.clone()
                 .unwrap_or_else(empty_where_clause),
         }
     }
@@ -360,7 +360,7 @@ impl UserDefinedTypeDesc {
                 .collect(),
             type_def_where_clause: input.generics.where_clause.clone()
                 .unwrap_or_else(empty_where_clause),
-            deltaops_trait_impl_where_clause: input.generics.where_clause.clone()
+            deltoid_trait_impl_where_clause: input.generics.where_clause.clone()
                 .unwrap_or_else(empty_where_clause),
         }
     }
@@ -434,7 +434,7 @@ impl UserDefinedTypeDesc {
                 fields,
                 input_type_param_decls,
                 input_type_params,
-                deltaops_trait_impl_where_clause: where_clause,
+                deltoid_trait_impl_where_clause: where_clause,
                 ..
             } => match struct_variant {
                 StructVariant::NamedStruct => {
@@ -578,7 +578,7 @@ impl UserDefinedTypeDesc {
                 variants,
                 input_type_param_decls,
                 input_type_params,
-                deltaops_trait_impl_where_clause: where_clause,
+                deltoid_trait_impl_where_clause: where_clause,
                 ..
             } => {
                 let mut apply_delta_tokens = TokenStream2::new();
@@ -997,7 +997,7 @@ impl UserDefinedTypeDesc {
                 input_type_params,
                 input_type_param_decls,
                 fields,
-                deltaops_trait_impl_where_clause: where_clause,
+                deltoid_trait_impl_where_clause: where_clause,
                 ..
             } => {
                 let mut match_body = TokenStream2::new();
@@ -1084,7 +1084,7 @@ impl UserDefinedTypeDesc {
                 variants,
                 input_type_params,
                 input_type_param_decls,
-                deltaops_trait_impl_where_clause: where_clause,
+                deltoid_trait_impl_where_clause: where_clause,
                 ..
             } => {
                 let mut match_body = TokenStream2::new();
@@ -1195,7 +1195,7 @@ impl UserDefinedTypeDesc {
                 input_type_params,
                 input_type_param_decls,
                 fields,
-                deltaops_trait_impl_where_clause: where_clause,
+                deltoid_trait_impl_where_clause: where_clause,
                 ..
             } => {
                 let mut match_body = TokenStream2::new();
@@ -1275,7 +1275,7 @@ impl UserDefinedTypeDesc {
                 variants,
                 input_type_params,
                 input_type_param_decls,
-                deltaops_trait_impl_where_clause: where_clause,
+                deltoid_trait_impl_where_clause: where_clause,
                 ..
             } => {
                 let mut match_body = TokenStream2::new();
