@@ -1,5 +1,6 @@
 //! Defines error infrastructure.
 
+#[allow(unused)]
 macro_rules! ensure {
     ($predicate:expr) => {
         if $predicate {
