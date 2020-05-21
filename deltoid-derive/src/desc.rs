@@ -1500,10 +1500,12 @@ impl UserDefinedTypeDesc {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum StructVariant {
     /// A "named struct" i.e. a struct with named fields
+    /// e.g. `struct Foo { bar: u8 }`
     NamedStruct,
     /// A tuple struct i.e. unnamed/positional fields
+    /// e.g. `struct Baz(String);`
     TupleStruct,
-    /// A unit struct i.e. no fields at all
+    /// A unit struct i.e. a struct with no fields at all e.g. `struct Quux;`
     UnitStruct,
 }
 
