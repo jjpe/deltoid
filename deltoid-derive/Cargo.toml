@@ -11,7 +11,7 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 deltoid = "0.3"
-itertools = "0.8"
+itertools = "0.9"
 proc-macro2 = "1.0"
 quote = "1.0"
 serde = "1.0"
