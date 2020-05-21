@@ -1,20 +1,20 @@
 //! Defines error infrastructure.
 
-// macro_rules! ensure {
-//     ($predicate:expr) => {
-//         if $predicate {
-//             DeriveResult::Ok(())
-//         } else {
-//             use $crate::error::{DeriveError, DeriveResult};
-//             DeriveResult::Err(DeriveError::FailedToEnsure {
-//                 predicate: stringify!($predicate),
-//                 file: file!(),
-//                 line: line!(),
-//                 column: column!(),
-//             })
-//         }
-//     };
-// }
+macro_rules! ensure {
+    ($predicate:expr) => {
+        if $predicate {
+            DeriveResult::Ok(())
+        } else {
+            use $crate::error::{DeriveError, DeriveResult};
+            DeriveResult::Err(DeriveError::FailedToEnsure {
+                predicate: stringify!($predicate),
+                file: file!(),
+                line: line!(),
+                column: column!(),
+            })
+        }
+    };
+}
 
 
 #[allow(unused)]
