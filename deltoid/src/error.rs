@@ -165,6 +165,7 @@ pub enum DeltaError {
         column: u32,
     },
     FailedToApplyDelta { reason: String },
+    FailedToConvertFromDelta { reason: String },
     IllegalDelta { index: usize },
     RwLockAccessWouldBlock,
     RwLockPoisoned(String)
