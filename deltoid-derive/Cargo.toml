@@ -25,7 +25,5 @@ serde_json = "1.0"
 proc-macro = true
 
 [features]
-# Write generated expansions to files.
-dump-expansions--unstable = []
-# Print generated expansions to stdout.
-print-expansions--unstable = []
+dump-expansions--unstable  = [] # Write generated expansions to files.
+print-expansions--unstable = [] # Print generated expansions to stdout.
