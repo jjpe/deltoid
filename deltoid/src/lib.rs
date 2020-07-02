@@ -94,7 +94,7 @@ impl_delta_trait_for_primitive_types! {
     i16   => I16Delta:   Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash;
     i32   => I32Delta:   Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash;
     i64   => I64Delta:   Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash;
-    i128  => I128Delt:   Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash;
+    i128  => I128Delta:  Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash;
     isize => IsizeDelta: Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash;
 
     u8    => U8Delta:    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash;
