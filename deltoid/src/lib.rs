@@ -26,7 +26,7 @@ pub use crate::boxed::*;
 pub use crate::collections::*;
 pub use crate::convert::{FromDelta, IntoDelta};
 pub use crate::error::{DeltaError, DeltaResult};
-pub use crate::option::{OptionDelta};
+pub use crate::option::OptionDelta;
 pub use crate::range::RangeDelta;
 pub use crate::rc::*;
 pub use crate::string::StringDelta;
