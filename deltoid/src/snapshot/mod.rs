@@ -8,31 +8,44 @@
 
 
 #[macro_export]
-macro_rules! snap {
-    ([$($location:ident)::*] $new:expr => $context:expr) => {{
+macro_rules! snapshot {
+    (
+        use result type $result_type:ty;
+        [$($origin:ident)::*] $new:expr => $context:expr
+    ) => { loop {
         #[cfg(feature = "snapshot")]
         #[allow(redundant_semicolons)] {
-            use $crate::Deltoid;
-            use $crate::snapshot::DeltaSnapshot;
+            use deltoid::Deltoid;
+            use deltoid::snapshot::DeltaSnapshot;
             let mut origin = String::new();
             $(
                 if !origin.is_empty() { origin.push_str("::"); }
-                origin.push_str(stringify!($location));
+                origin.push_str(stringify!($origin));
             )* ;
-            let history: &mut DeltaSnapshots<_> = &mut *$context.history()?;
+            let mut history_guard = match $context.history() {
+                Ok(guard) => guard,
+                Err(err) => break Err(err.into()) as $result_type,
+            };
+            let history: &mut DeltaSnapshots<_> = &mut *history_guard;
             let old: &_ = &history.current().state;
             let new: &_ = &$new;
-            let delta = old.delta(new)?;
-            history.update_current(origin, new);
-            history.add_snapshot(DeltaSnapshot {
-                timestamp: history.current().timestamp.clone(),
-                origin:    history.current().origin.clone(),
-                delta:     delta,
-            });
+            if &*old != &**new {
+                let delta = match old.delta(new) {
+                    Ok(delta) => delta,
+                    Err(derr) => break Err(derr.into()) as $result_type,
+                };
+                history.update_current(origin, new);
+                history.add_snapshot(DeltaSnapshot {
+                    timestamp: history.current().timestamp.clone(),
+                    origin:    history.current().origin.clone(),
+                    delta:     delta,
+                });
+            }
         }
         #[cfg(not(feature = "snapshot"))] {
+            let _ = $new;
             let _ = $context;
         }
-        $crate::error::DeltaResult::Ok(())
+        break Ok(()) as $result_type;
     }}
 }
