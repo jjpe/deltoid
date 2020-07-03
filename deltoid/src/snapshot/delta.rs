@@ -1,19 +1,19 @@
 //!
 
 use chrono::prelude::{DateTime, Utc};
-use crate::{DeltaResult, Deltoid};
+use crate::{Apply, Core, Delta, DeltaResult};
 use crate::snapshot::full::{FullSnapshot, FullSnapshots};
 use serde_derive::{Deserialize, Serialize};
 use std::cmp::Ordering;
 
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize)]
-pub struct DeltaSnapshots<T: Deltoid + Default> {
+pub struct DeltaSnapshots<T: Core> {
     pub(crate) snapshots: Vec<DeltaSnapshot<T>>,
     pub(crate) current: FullSnapshot<T>,
 }
 
-impl<T: Deltoid + Default> DeltaSnapshots<T> {
+impl<T: Apply + Delta + Default> DeltaSnapshots<T> {
     pub fn new() -> Self {
         Self {
             snapshots: vec![],
@@ -45,7 +45,7 @@ impl<T: Deltoid + Default> DeltaSnapshots<T> {
         self.add_snapshot(DeltaSnapshot {
             timestamp: full.timestamp.clone(),
             origin:    full.origin.clone(),
-            delta:     delta,
+            delta,
         });
         self.current = full;
         Ok(())
@@ -64,7 +64,7 @@ impl<T: Deltoid + Default> DeltaSnapshots<T> {
         let mut uncompressed: Vec<FullSnapshot<T>> = vec![];
         for snapshot in self.snapshots {
             let old: &T = &uncompressed.last().unwrap_or(&initial).state;
-            let new: T = old.apply_delta(&snapshot.delta)?;
+            let new: T = old.apply(snapshot.delta)?;
             uncompressed.push(FullSnapshot {
                 timestamp: snapshot.timestamp,
                 origin:    snapshot.origin,
@@ -75,7 +75,7 @@ impl<T: Deltoid + Default> DeltaSnapshots<T> {
     }
 }
 
-impl<T: Deltoid + Default> Default for DeltaSnapshots<T> {
+impl<T: Apply + Delta + Default> Default for DeltaSnapshots<T> {
     fn default() -> Self { Self::new() }
 }
 
@@ -83,19 +83,19 @@ impl<T: Deltoid + Default> Default for DeltaSnapshots<T> {
 
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct DeltaSnapshot<T: Deltoid> {
+pub struct DeltaSnapshot<T: Core> {
     pub timestamp: DateTime<Utc>,
     pub origin: String,
-    pub delta: <T as Deltoid>::Delta,
+    pub delta: <T as Core>::Delta,
 }
 
-impl<T: Deltoid> DeltaSnapshot<T> {
-    pub fn new(origin: String, delta: <T as Deltoid>::Delta) -> Self {
+impl<T: Core> DeltaSnapshot<T> {
+    pub fn new(origin: String, delta: <T as Core>::Delta) -> Self {
         Self { timestamp: Utc::now(), origin, delta }
     }
 }
 
-impl<T: Deltoid> PartialEq for DeltaSnapshot<T> {
+impl<T: Core> PartialEq for DeltaSnapshot<T> {
     fn eq(&self, rhs: &Self) -> bool {
         if self.timestamp != rhs.timestamp { return false; }
         if self.origin != rhs.origin { return false; }
@@ -103,9 +103,9 @@ impl<T: Deltoid> PartialEq for DeltaSnapshot<T> {
     }
 }
 
-impl<T: Deltoid> Eq for DeltaSnapshot<T> {}
+impl<T: Core> Eq for DeltaSnapshot<T> {}
 
-impl<T: Deltoid> PartialOrd for DeltaSnapshot<T> {
+impl<T: Core> PartialOrd for DeltaSnapshot<T> {
     fn partial_cmp(&self, rhs: &Self) -> Option<Ordering> {
         let timestamp_cmp = self.timestamp.partial_cmp(&rhs.timestamp);
         if timestamp_cmp != Some(Ordering::Equal) { return timestamp_cmp }
@@ -115,7 +115,7 @@ impl<T: Deltoid> PartialOrd for DeltaSnapshot<T> {
     }
 }
 
-impl<T: Deltoid> Ord for DeltaSnapshot<T> {
+impl<T: Core> Ord for DeltaSnapshot<T> {
     fn cmp(&self, rhs: &Self) -> Ordering {
         let timestamp_cmp = self.timestamp.cmp(&rhs.timestamp);
         if timestamp_cmp != Ordering::Equal { return timestamp_cmp }

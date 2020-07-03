@@ -2,16 +2,16 @@
 
 
 use chrono::prelude::{DateTime, Utc};
-use crate::{DeltaResult, Deltoid};
+use crate::{Apply, Core, Delta, DeltaResult};
 use crate::snapshot::delta::{DeltaSnapshot, DeltaSnapshots};
 use serde_derive::{Deserialize, Serialize};
 use std::cmp::Ordering;
 
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize)]
-pub struct FullSnapshots<T: Deltoid + Default>(pub(crate) Vec<FullSnapshot<T>>);
+pub struct FullSnapshots<T: Core>(pub(crate) Vec<FullSnapshot<T>>);
 
-impl<T: Deltoid + Default> FullSnapshots<T> {
+impl<T: Apply + Delta + Default> FullSnapshots<T> {
     pub fn new() -> Self { Self(vec![]) }
 
     pub fn clear(&mut self) { self.0.clear(); }
@@ -21,11 +21,8 @@ impl<T: Deltoid + Default> FullSnapshots<T> {
     pub fn is_empty(&self) -> bool { self.0.is_empty() }
 
     pub fn push_snapshot(&mut self, origin: String, state: T) -> DeltaResult<()> {
-        self.add_snapshot(FullSnapshot {
-            timestamp: Utc::now(),
-            origin: origin,
-            state: state,
-        });
+        let timestamp = Utc::now();
+        self.add_snapshot(FullSnapshot { timestamp, origin, state });
         Ok(())
     }
 
@@ -58,7 +55,7 @@ impl<T: Deltoid + Default> FullSnapshots<T> {
     }
 }
 
-impl<T: Deltoid + Default> Default for FullSnapshots<T> {
+impl<T: Apply + Delta + Default> Default for FullSnapshots<T> {
     fn default() -> Self { Self::new() }
 }
 
@@ -66,19 +63,19 @@ impl<T: Deltoid + Default> Default for FullSnapshots<T> {
 
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct FullSnapshot<T: Deltoid> {
+pub struct FullSnapshot<T: Core> {
     pub timestamp: DateTime<Utc>,
     pub origin: String,
     pub state: T,
 }
 
-impl<T: Deltoid> FullSnapshot<T> {
+impl<T: Core> FullSnapshot<T> {
     pub fn new(origin: String, state: T) -> Self {
         Self { timestamp: Utc::now(), origin, state }
     }
 }
 
-impl<T: Deltoid + Default> Default for FullSnapshot<T> {
+impl<T: Core + Default> Default for FullSnapshot<T> {
     fn default() -> Self {
         Self {
             timestamp: Utc::now(),
@@ -88,7 +85,7 @@ impl<T: Deltoid + Default> Default for FullSnapshot<T> {
     }
 }
 
-impl<T: Deltoid> PartialEq for FullSnapshot<T> {
+impl<T: Core> PartialEq for FullSnapshot<T> {
     fn eq(&self, rhs: &Self) -> bool {
         if self.timestamp != rhs.timestamp { return false; }
         if self.origin != rhs.origin { return false; }
@@ -96,9 +93,9 @@ impl<T: Deltoid> PartialEq for FullSnapshot<T> {
     }
 }
 
-impl<T: Deltoid> Eq for FullSnapshot<T> {}
+impl<T: Core> Eq for FullSnapshot<T> {}
 
-impl<T: Deltoid> PartialOrd for FullSnapshot<T> {
+impl<T: Core> PartialOrd for FullSnapshot<T> {
     fn partial_cmp(&self, rhs: &Self) -> Option<Ordering> {
         let timestamp_cmp = self.timestamp.partial_cmp(&rhs.timestamp);
         if timestamp_cmp != Some(Ordering::Equal) { return timestamp_cmp }
@@ -108,7 +105,7 @@ impl<T: Deltoid> PartialOrd for FullSnapshot<T> {
     }
 }
 
-impl<T: Deltoid> Ord for FullSnapshot<T> {
+impl<T: Core> Ord for FullSnapshot<T> {
     fn cmp(&self, rhs: &Self) -> Ordering {
         let timestamp_cmp = self.timestamp.cmp(&rhs.timestamp);
         if timestamp_cmp != Ordering::Equal { return timestamp_cmp }
