@@ -1,115 +1,81 @@
 //!
 
-use crate::*;
+use crate::{Apply, Core, Delta, DeltaResult, FromDelta, IntoDelta};
+use std::fmt::Debug;
+use serde::{Deserialize, Serialize};
 
-
-impl<T> Deltoid for Option<T>
-where T: Deltoid + PartialEq + Clone + std::fmt::Debug
-    + for<'de> serde::Deserialize<'de>
-    + serde::Serialize
-    + IntoDelta
-    + FromDelta
+impl<T> Core for Option<T>
+where T: Clone + Debug + PartialEq + Core
+    + for<'de> Deserialize<'de>
+    + Serialize
 {
     type Delta = OptionDelta<T>;
-
-    fn apply_delta(&self, delta: &Self::Delta) -> DeltaResult<Self> {
-        if let Self::None = self {
-            if let Self::Delta::None = delta {
-                return Ok(Self::None);
-            }
-        }
-        if let Self::Some(t) = self {
-            if let Self::Delta::Some(delta_t) = delta {
-                return Ok(Self::Some(
-                    match delta_t.as_ref() {
-                        None => t.clone(),
-                        Some(d) => t.apply_delta(d)?,
-                    },
-                ));
-            }
-        }
-        if let Self::Delta::None = delta {
-            return Ok(Self::None);
-        }
-        if let Self::Delta::Some(delta_t) = delta {
-            return Ok(Self::Some(
-                match delta_t.as_ref() {
-                    Some(d) => <T>::from_delta(d.clone())?,
-                    None => return Err(ExpectedValue!("OptionDelta<T>"))?,
-                },
-            ));
-        }
-        crate::bug_detected!()
-    }
-
-    fn delta(&self, rhs: &Self) -> DeltaResult<Self::Delta> {
-        if let Self::None = self {
-            if let Self::None = rhs {
-                return Ok(Self::Delta::None);
-            }
-        }
-        if let Self::Some(lhs_0) = self {
-            if let Self::Some(rhs_0) = rhs {
-                let delta_0: Option<<T as Deltoid>::Delta> = if lhs_0 != rhs_0 {
-                    Some(lhs_0.delta(&rhs_0)?)
-                } else {
-                    None
-                };
-                return Ok(Self::Delta::Some(delta_0));
-            }
-        }
-        if let Self::None = rhs {
-            return Ok(Self::Delta::None);
-        }
-        if let Self::Some(t) = rhs {
-            return Ok(Self::Delta::Some(
-                Some(t.clone().into_delta()?),
-            ));
-        }
-        crate::bug_detected!()
-    }
 }
 
-
-#[derive(Clone, Debug, PartialEq)]
-#[derive(serde_derive::Deserialize, serde_derive::Serialize)]
-pub enum OptionDelta<T: Deltoid> {
-    None,
-    Some(Option<<T as Deltoid>::Delta>),
-}
-
-
-impl<T> IntoDelta for Option<T>
-where T: Deltoid + IntoDelta
-    + for<'de> serde::Deserialize<'de>
-    + serde::Serialize
-    + IntoDelta
-    + FromDelta
+impl<T> Apply for Option<T>
+where T: Apply + FromDelta
+    + for<'de> Deserialize<'de>
+    + Serialize
 {
-    fn into_delta(self) -> DeltaResult<<Self as Deltoid>::Delta> {
-        Ok(match self {
-            Self::None => OptionDelta::None,
-            Self::Some(field0) => OptionDelta::Some(
-                Some(field0.into_delta()?)
+    fn apply(&self, delta: Self::Delta) -> DeltaResult<Self> {
+        Ok(match (&self, delta) {
+            (None,    Self::Delta::None)    => None,
+            (Some(_), Self::Delta::None)    => self.clone(),
+            (None,    Self::Delta::Some(ref d)) => Some(
+                <T>::from_delta(d.clone(/*TODO: rm clone for more efficiency*/))?
             ),
+            (Some(t), Self::Delta::Some(ref d)) =>
+                Some(t.apply(d.clone(/*TODO: rm clone for more efficiency*/))?),
+        })
+    }
+}
+
+impl<T> Delta for Option<T>
+where T: Delta + IntoDelta
+    + for<'de> Deserialize<'de>
+    + Serialize
+{
+    fn delta(&self, rhs: &Self) -> DeltaResult<Self::Delta> {
+        Ok(match (self, rhs) {
+            (Some(lhs), Some(rhs)) => Self::Delta::Some(lhs.delta(&rhs)?),
+            (None,      Some(rhs)) => Self::Delta::Some(rhs.clone().into_delta()?),
+            (Some(_),   None)      => Self::Delta::None,
+            (None,      None)      => Self::Delta::None,
         })
     }
 }
 
 impl<T> FromDelta for Option<T>
-where T: Deltoid + FromDelta
-    + for<'de> serde::Deserialize<'de>
-    + serde::Serialize
-    + IntoDelta
-    + FromDelta
+where T: Clone + Debug + PartialEq + FromDelta
+    + for<'de> Deserialize<'de>
+    + Serialize
 {
-    fn from_delta(delta: <Self as Deltoid>::Delta) -> DeltaResult<Self> {
+    fn from_delta(delta: <Self as Core>::Delta) -> DeltaResult<Self> {
         Ok(match delta {
-            Self::Delta::None => Self::None,
-            Self::Delta::Some(field0) => Self::Some({
-                let expected_value = || ExpectedValue!("OptionDelta<T>");
-                <T>::from_delta(field0.ok_or_else(expected_value)?)?
-            }),
+            Self::Delta::None => None,
+            Self::Delta::Some(delta) => Some(<T>::from_delta(delta)?),
         })
     }
+}
+
+impl<T> IntoDelta for Option<T>
+where T: Clone + Debug + PartialEq + IntoDelta
+    + for<'de> Deserialize<'de>
+    + Serialize
+{
+    fn into_delta(self) -> DeltaResult<<Self as Core>::Delta> {
+        Ok(match self {
+            Self::None => OptionDelta::None,
+            Self::Some(t) => OptionDelta::Some(t.into_delta()?),
+        })
+    }
+}
+
+
+
+#[derive(Clone, Debug, PartialEq)]
+#[derive(serde_derive::Deserialize, serde_derive::Serialize)]
+pub enum OptionDelta<T: Core> {
+    None,
+    Some(<T as Core>::Delta),
 }

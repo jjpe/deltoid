@@ -3,37 +3,49 @@
 //!
 //! [`BTreeSet`]: https://doc.rust-lang.org/std/collections/struct.BTreeSet.html
 
-use crate::{Deltoid, DeltaResult, FromDelta, IntoDelta};
+use crate::{Apply, Core, Delta, DeltaResult, FromDelta, IntoDelta};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::fmt::Debug;
 
 
-impl<T> Deltoid for BTreeSet<T>
-where T: Deltoid + PartialEq + Clone + Debug + Ord
-    + for<'de> Deserialize<'de> + Serialize
-    + FromDelta + IntoDelta,
+impl<T> Core for BTreeSet<T>
+where T: Clone + Debug + PartialEq + Ord + Core
+    + for<'de> Deserialize<'de>
+    + Serialize,
 {
     type Delta = BTreeSetDelta<T>;
+}
 
-    fn apply_delta(&self, delta: &Self::Delta) -> DeltaResult<Self> {
+impl<T> Apply for BTreeSet<T>
+where T: Clone + Debug + PartialEq + Ord + Apply + FromDelta
+    + for<'de> Deserialize<'de>
+    + Serialize,
+{
+    fn apply(&self, delta: Self::Delta) -> DeltaResult<Self> {
         match delta.0 {
             None => Ok(self.clone()),
-            Some(ref entry_deltas) => {
+            Some(entry_deltas) => {
                 let mut new: Self = self.clone();
                 for entry_delta in entry_deltas { match entry_delta {
                     EntryDelta::Add { item } => {
-                        new.insert(<T>::from_delta(item.clone())?);
+                        new.insert(<T>::from_delta(item)?);
                     },
                     EntryDelta::Remove { item } => {
-                        new.remove(&(<T>::from_delta(item.clone())?));
+                        new.remove(&(<T>::from_delta(item)?));
                     },
                 }}
                 Ok(new)
             },
         }
     }
+}
 
+impl<T> Delta for BTreeSet<T>
+where T: Clone + Debug + PartialEq + Ord + Delta + IntoDelta
+    + for<'de> Deserialize<'de>
+    + Serialize,
+{
     fn delta(&self, rhs: &Self) -> DeltaResult<Self::Delta> {
         Ok(BTreeSetDelta(if self == rhs {
             None
@@ -52,18 +64,59 @@ where T: Deltoid + PartialEq + Clone + Debug + Ord
     }
 }
 
+impl<T> FromDelta for BTreeSet<T>
+where T: Clone + Debug + PartialEq + Ord + FromDelta
+    + for<'de> Deserialize<'de>
+    + Serialize,
+{
+    fn from_delta(delta: Self::Delta) -> DeltaResult<Self> {
+        let mut map = Self::new();
+        if let Some(delta_entries) = delta.0 {
+            for entry in delta_entries { match entry {
+                EntryDelta::Add { item } => {
+                    map.insert(<T>::from_delta(item)?);
+                },
+                EntryDelta::Remove { item } => {
+                    let item = <T>::from_delta(item)?;
+                    map.remove(&item);
+                },
+            }}
+        }
+        Ok(map)
+    }
+}
+
+impl<T> IntoDelta for BTreeSet<T>
+where T: Clone + Debug + PartialEq + Ord + IntoDelta
+    + for<'de> Deserialize<'de>
+    + Serialize,
+{
+    fn into_delta(self) -> DeltaResult<Self::Delta> {
+        Ok(BTreeSetDelta(if self.is_empty() {
+            None
+        } else {
+            let mut changes: Vec<EntryDelta<T>> = vec![];
+            for item in self {
+                changes.push(EntryDelta::Add { item: item.into_delta()? });
+            }
+            Some(changes)
+        }))
+    }
+}
+
+
 
 
 #[derive(Clone, Debug, PartialEq)]
 #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
-pub struct BTreeSetDelta<T>(
+pub struct BTreeSetDelta<T: Core>(
     #[doc(hidden)] pub Option<Vec<EntryDelta<T>>>,
-) where T: Deltoid + FromDelta + IntoDelta;
+);
 
 impl<T> BTreeSetDelta<T>
-where T: Deltoid + PartialEq + Clone + Debug + Ord
-    + for<'de> Deserialize<'de> + Serialize
-    + FromDelta + IntoDelta
+where T: Clone + Debug + PartialEq + Ord + Core
+    + for<'de> Deserialize<'de>
+    + Serialize,
 {
     pub fn iter<'d>(&'d self) -> Box<dyn Iterator<Item = &EntryDelta<T>> + 'd> {
         match &self.0 {
@@ -91,51 +144,11 @@ where T: Deltoid + PartialEq + Clone + Debug + Ord
 
 #[derive(Clone, Debug, PartialEq)]
 #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
-pub enum EntryDelta<T: Deltoid> {
-    Add { item: <T as Deltoid>::Delta },
-    Remove { item: <T as Deltoid>::Delta },
+pub enum EntryDelta<T: Core> {
+    Add { item: <T as Core>::Delta },
+    Remove { item: <T as Core>::Delta },
 }
 
-
-impl<T> IntoDelta for BTreeSet<T>
-where T: Deltoid + PartialEq + Clone + Debug + Ord
-    + for<'de> Deserialize<'de> + Serialize
-    + FromDelta + IntoDelta
-{
-    fn into_delta(self) -> DeltaResult<<Self as Deltoid>::Delta> {
-        Ok(BTreeSetDelta(if self.is_empty() {
-            None
-        } else {
-            let mut changes: Vec<EntryDelta<T>> = vec![];
-            for item in self {
-                changes.push(EntryDelta::Add { item: item.into_delta()? });
-            }
-            Some(changes)
-        }))
-    }
-}
-
-impl<T> FromDelta for std::collections::BTreeSet<T>
-where T: Deltoid + Clone + std::fmt::Debug + Ord
-    + for<'de> Deserialize<'de> + Serialize
-    + FromDelta + IntoDelta
-{
-    fn from_delta(delta: <Self as Deltoid>::Delta) -> DeltaResult<Self> {
-        let mut map = Self::new();
-        if let Some(delta_entries) = delta.0 {
-            for entry in delta_entries { match entry {
-                EntryDelta::Add { item } => {
-                    map.insert(<T>::from_delta(item)?);
-                },
-                EntryDelta::Remove { item } => {
-                    let item = <T>::from_delta(item)?;
-                    map.remove(&item);
-                },
-            }}
-        }
-        Ok(map)
-    }
-}
 
 
 
@@ -174,7 +187,7 @@ mod tests {
             EntryDelta::Remove { item: "floozie".to_string().into_delta()? },
         ]));
         assert_eq!(delta0, expected, "{:#?}\n    !=\n{:#?}", delta0, expected);
-        let v2 = v0.apply_delta(&delta0)?;
+        let v2 = v0.apply(delta0)?;
         println!("v2: {:#?}", v2);
         assert_eq!(v1, v2);
 
@@ -184,7 +197,7 @@ mod tests {
             EntryDelta::Add { item: "floozie".to_string().into_delta()? },
             EntryDelta::Remove { item: "baz".to_string().into_delta()? },
         ])));
-        let v3 = v1.apply_delta(&delta1)?;
+        let v3 = v1.apply(delta1)?;
         println!("v3: {:#?}", v3);
         assert_eq!(v0, v3);
 
@@ -203,7 +216,7 @@ mod tests {
             EntryDelta::Add  { item: "baz".to_string().into_delta()? },
             EntryDelta::Remove { item: "floozie".to_string().into_delta()? },
         ]));
-        let v1 = v0.apply_delta(&delta)?;
+        let v1 = v0.apply(delta)?;
         let expected: BTreeSet<String> = set! {
             "bar".into(),
             "baz".into(),

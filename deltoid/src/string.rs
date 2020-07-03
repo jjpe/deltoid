@@ -1,32 +1,100 @@
 //!
 
-use crate::{Deltoid, DeltaResult};
-use crate::convert::{FromDelta, IntoDelta};
+use crate::{Apply, Core, Delta, DeltaResult, FromDelta, IntoDelta};
 
-impl Deltoid for String { // TODO: Improve space efficiency
+impl Core for String {
     type Delta = StringDelta;
+}
 
-    fn apply_delta(&self, delta: &Self::Delta) -> DeltaResult<Self> {
-        Self::from_delta(delta.clone())
+impl Apply for String {
+    fn apply(&self, delta: Self::Delta) -> DeltaResult<Self> {
+        Self::from_delta(delta)
     }
+}
 
+impl Delta for String {
     fn delta(&self, rhs: &Self) -> DeltaResult<Self::Delta> {
         rhs.clone().into_delta()
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[derive(serde_derive::Deserialize, serde_derive::Serialize)]
-pub struct StringDelta(#[doc(hidden)]pub Option<String>);
+impl FromDelta for String {
+    fn from_delta(delta: Self::Delta) -> DeltaResult<Self> {
+        delta.0.ok_or_else(|| ExpectedValue!("StringDelta<T>"))
+    }
+}
 
 impl IntoDelta for String {
-    fn into_delta(self) -> DeltaResult<<Self as Deltoid>::Delta> {
+    fn into_delta(self) -> DeltaResult<Self::Delta> {
         Ok(StringDelta(Some(self)))
     }
 }
 
-impl FromDelta for String {
-    fn from_delta(delta: <Self as Deltoid>::Delta) -> DeltaResult<Self> {
-        delta.0.ok_or_else(|| ExpectedValue!("StringDelta<T>"))
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(serde_derive::Deserialize, serde_derive::Serialize)]
+pub struct StringDelta( // TODO: Improve delta space efficiency
+    #[doc(hidden)] pub Option<String>
+);
+
+
+#[allow(non_snake_case)]
+#[cfg(test)]
+mod tests {
+    use serde_json;
+    use super::*;
+
+    #[test]
+    fn calculate_delta_for_String__same_values() -> DeltaResult<()> {
+        let s0 = String::from("foo");
+        let s1 = String::from("foo");
+        let delta: <String as Core>::Delta = s0.delta(&s1)?;
+        let json_string = serde_json::to_string(&delta)
+            .expect("Could not serialize to json");
+        println!("json_string: {}", json_string);
+        assert_eq!(json_string, "\"foo\"");
+        let delta1: <String as Core>::Delta = serde_json::from_str(
+            &json_string
+        ).expect("Could not deserialize from json");
+        assert_eq!(delta, delta1);
+        assert_eq!(delta, String::from("foo").into_delta()?);
+        Ok(())
+    }
+
+    #[test]
+    fn calculate_delta_for_String__different_values() -> DeltaResult<()> {
+        let s0 = String::from("foo");
+        let s1 = String::from("bar");
+        let delta: <String as Core>::Delta = s0.delta(&s1)?;
+        let json_string = serde_json::to_string(&delta)
+            .expect("Could not serialize to json");
+        println!("json_string: {}", json_string);
+        assert_eq!(json_string, "\"bar\"");
+        let delta1: <String as Core>::Delta = serde_json::from_str(
+            &json_string
+        ).expect("Could not deserialize from json");
+        assert_eq!(delta, delta1);
+        assert_eq!(delta, String::from("bar").into_delta()?);
+        Ok(())
+    }
+
+    #[test]
+    fn apply_delta_for_String_same_values() -> DeltaResult<()> {
+        let s0 = String::from("foo");
+        let s1 = String::from("foo");
+        let delta: <String as Core>::Delta = s0.delta(&s1)?;
+        let s2 = s0.apply(delta)?;
+        assert_eq!(s1, s2);
+        Ok(())
+    }
+
+    #[test]
+    fn apply_delta_for_String_different_values() -> DeltaResult<()> {
+        let s0 = String::from("foo");
+        let s1 = String::from("bar");
+        let delta: <String as Core>::Delta = s0.delta(&s1)?;
+        let s2 = s0.apply(delta)?;
+        assert_eq!(s1, s2);
+        Ok(())
     }
 }

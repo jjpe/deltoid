@@ -1,18 +1,25 @@
 //!
 
-use crate::{Deltoid, DeltaResult, FromDelta, IntoDelta};
+use crate::{Apply, Core, Delta, DeltaResult, FromDelta, IntoDelta};
 use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
 
-impl<T, E> Deltoid for Result<T, E>
-where T: Deltoid + FromDelta + IntoDelta + for<'de> Deserialize<'de> + Serialize,
-      E: Deltoid + FromDelta + IntoDelta + for<'de> Deserialize<'de> + Serialize {
+impl<T, E> Core for Result<T, E>
+where T: Clone + Debug + PartialEq + Core + for<'de> Deserialize<'de> + Serialize,
+      E: Clone + Debug + PartialEq + Core + for<'de> Deserialize<'de> + Serialize,
+{
     type Delta = ResultDelta<T, E>;
+}
 
-    fn apply_delta(&self, delta: &Self::Delta) -> DeltaResult<Self> {
-        match (self, delta) {
+impl<T, E> Apply for Result<T, E>
+where T: Apply + FromDelta + for<'de> Deserialize<'de> + Serialize,
+      E: Apply + FromDelta + for<'de> Deserialize<'de> + Serialize
+{
+    fn apply(&self, delta: Self::Delta) -> DeltaResult<Self> {
+        match (self, &delta/*TODO: match by value*/) {
             (Result::Ok(ok), ResultDelta::None) => Ok(Ok(ok.clone())),
             (Result::Ok(ok), ResultDelta::OkDelta(delta)) => {
-                Ok(Ok(ok.apply_delta(delta)?))
+                Ok(Ok(ok.apply(delta.clone(/*TODO: rm*/))?))
             },
             (Result::Ok(_ok), delta @ ResultDelta::ErrDelta(_)) => {
                 Ok(Self::from_delta(delta.clone())?)
@@ -22,11 +29,16 @@ where T: Deltoid + FromDelta + IntoDelta + for<'de> Deserialize<'de> + Serialize
                 Ok(Self::from_delta(delta.clone())?)
             },
             (Result::Err(err), ResultDelta::ErrDelta(delta)) => {
-                Ok(Err(err.apply_delta(delta)?))
+                Ok(Err(err.apply(delta.clone(/*TODO: rm*/))?))
             },
         }
     }
+}
 
+impl<T, E> Delta for Result<T, E>
+where T: Delta + IntoDelta + for<'de> Deserialize<'de> + Serialize,
+      E: Delta + IntoDelta + for<'de> Deserialize<'de> + Serialize
+{
     fn delta(&self, rhs: &Self) -> DeltaResult<Self::Delta> {
         match (self, rhs) {
             (Ok(lhs), Ok(rhs)) if lhs == rhs => Ok(ResultDelta::None),
@@ -43,33 +55,15 @@ where T: Deltoid + FromDelta + IntoDelta + for<'de> Deserialize<'de> + Serialize
     }
 }
 
-#[derive(
-    Clone, Debug, PartialEq,
-    serde_derive::Deserialize, serde_derive::Serialize
-)]
-pub enum ResultDelta<T, E>
-where T: Deltoid,
-      E: Deltoid {
-    OkDelta(<T as Deltoid>::Delta),
-    ErrDelta(<E as Deltoid>::Delta),
-    None
-}
-
-impl<T, E> IntoDelta for Result<T, E>
-where T: FromDelta + IntoDelta + for<'de> Deserialize<'de> + Serialize,
-      E: FromDelta + IntoDelta + for<'de> Deserialize<'de> + Serialize {
-    fn into_delta(self) -> DeltaResult<<Self as Deltoid>::Delta> {
-        match self {
-            Ok(ok)   => Ok(ResultDelta::OkDelta(ok.into_delta()?)),
-            Err(err) => Ok(ResultDelta::ErrDelta(err.into_delta()?)),
-        }
-    }
-}
-
 impl<T, E> FromDelta for Result<T, E>
-where T: FromDelta + IntoDelta + for<'de> Deserialize<'de> + Serialize,
-      E: FromDelta + IntoDelta + for<'de> Deserialize<'de> + Serialize {
-    fn from_delta(delta: <Self as Deltoid>::Delta) -> DeltaResult<Self> {
+where T: Clone + Debug + PartialEq + FromDelta
+    + for<'de> Deserialize<'de>
+    + Serialize,
+      E: Clone + Debug + PartialEq + FromDelta
+    + for<'de> Deserialize<'de>
+    + Serialize
+{
+    fn from_delta(delta: Self::Delta) -> DeltaResult<Self> {
         match delta {
             ResultDelta::None => Err(ExpectedValue!("ResultDelta<T, E>")),
             ResultDelta::OkDelta(delta) =>
@@ -80,6 +74,31 @@ where T: FromDelta + IntoDelta + for<'de> Deserialize<'de> + Serialize,
     }
 }
 
+impl<T, E> IntoDelta for Result<T, E>
+where T: Clone + Debug + PartialEq + IntoDelta
+    + for<'de> Deserialize<'de>
+    + Serialize,
+      E: Clone + Debug + PartialEq + IntoDelta
+    + for<'de> Deserialize<'de>
+    + Serialize
+{
+    fn into_delta(self) -> DeltaResult<Self::Delta> {
+        match self {
+            Ok(ok)   => Ok(ResultDelta::OkDelta(ok.into_delta()?)),
+            Err(err) => Ok(ResultDelta::ErrDelta(err.into_delta()?)),
+        }
+    }
+}
+
+
+
+#[derive(Clone, Debug, PartialEq,)]
+#[derive(serde_derive::Deserialize, serde_derive::Serialize)]
+pub enum ResultDelta<T: Core, E: Core> {
+    OkDelta(<T as Core>::Delta),
+    ErrDelta(<E as Core>::Delta),
+    None
+}
 
 
 #[allow(non_snake_case)]
@@ -94,12 +113,12 @@ mod tests {
         let bar = String::from("foo");
         let box0 = Ok(foo);
         let box1 = Ok(bar);
-        let delta: <Result<String, ()> as Deltoid>::Delta = box0.delta(&box1)?;
+        let delta: <Result<String, ()> as Core>::Delta = box0.delta(&box1)?;
         let json_string = serde_json::to_string(&delta)
             .expect("Could not serialize to json");
         println!("json_string: \"{}\"", json_string);
         assert_eq!(json_string, "\"None\"");
-        let delta1: <Result<String, ()> as Deltoid>::Delta = serde_json::from_str(
+        let delta1: <Result<String, ()> as Core>::Delta = serde_json::from_str(
             &json_string
         ).expect("Could not deserialize from json");
         assert_eq!(delta, delta1);
@@ -112,12 +131,12 @@ mod tests {
         let bar = String::from("bar");
         let box0 = Ok(foo);
         let box1 = Ok(bar);
-        let delta: <Result<String, ()> as Deltoid>::Delta = box0.delta(&box1)?;
+        let delta: <Result<String, ()> as Core>::Delta = box0.delta(&box1)?;
         let json_string = serde_json::to_string(&delta)
             .expect("Could not serialize to json");
         println!("json_string: \"{}\"", json_string);
         assert_eq!(json_string, "{\"OkDelta\":\"bar\"}");
-        let delta1: <Result<String, ()> as Deltoid>::Delta = serde_json::from_str(
+        let delta1: <Result<String, ()> as Core>::Delta = serde_json::from_str(
             &json_string
         ).expect("Could not deserialize from json");
         assert_eq!(delta, delta1);
@@ -130,8 +149,8 @@ mod tests {
         let bar = String::from("foo");
         let box0 = Ok(foo);
         let box1 = Ok(bar);
-        let delta: <Result<String, ()> as Deltoid>::Delta = box0.delta(&box1)?;
-        let box2 = box0.apply_delta(&delta)?;
+        let delta: <Result<String, ()> as Core>::Delta = box0.delta(&box1)?;
+        let box2 = box0.apply(delta)?;
         assert_eq!(box1, box2);
         Ok(())
     }
@@ -142,8 +161,8 @@ mod tests {
         let bar = String::from("bar");
         let box0 = Ok(foo);
         let box1 = Ok(bar);
-        let delta: <Result<String, ()> as Deltoid>::Delta = box0.delta(&box1)?;
-        let box2 = box0.apply_delta(&delta)?;
+        let delta: <Result<String, ()> as Core>::Delta = box0.delta(&box1)?;
+        let box2 = box0.apply(delta)?;
         assert_eq!(box1, box2);
         Ok(())
     }
@@ -154,12 +173,12 @@ mod tests {
         let bar = String::from("foo");
         let box0 = Err(foo);
         let box1 = Err(bar);
-        let delta: <Result<(), String> as Deltoid>::Delta = box0.delta(&box1)?;
+        let delta: <Result<(), String> as Core>::Delta = box0.delta(&box1)?;
         let json_string = serde_json::to_string(&delta)
             .expect("Could not serialize to json");
         println!("json_string: \"{}\"", json_string);
         assert_eq!(json_string, "\"None\"");
-        let delta1: <Result<(), String> as Deltoid>::Delta = serde_json::from_str(
+        let delta1: <Result<(), String> as Core>::Delta = serde_json::from_str(
             &json_string
         ).expect("Could not deserialize from json");
         assert_eq!(delta, delta1);
@@ -172,12 +191,12 @@ mod tests {
         let bar = String::from("bar");
         let box0 = Err(foo);
         let box1 = Err(bar);
-        let delta: <Result<(), String> as Deltoid>::Delta = box0.delta(&box1)?;
+        let delta: <Result<(), String> as Core>::Delta = box0.delta(&box1)?;
         let json_string = serde_json::to_string(&delta)
             .expect("Could not serialize to json");
         println!("json_string: \"{}\"", json_string);
         assert_eq!(json_string, "{\"ErrDelta\":\"bar\"}");
-        let delta1: <Result<(), String> as Deltoid>::Delta = serde_json::from_str(
+        let delta1: <Result<(), String> as Core>::Delta = serde_json::from_str(
             &json_string
         ).expect("Could not deserialize from json");
         assert_eq!(delta, delta1);
@@ -190,8 +209,8 @@ mod tests {
         let bar = String::from("foo");
         let box0 = Err(foo);
         let box1 = Err(bar);
-        let delta: <Result<(), String> as Deltoid>::Delta = box0.delta(&box1)?;
-        let box2 = box0.apply_delta(&delta)?;
+        let delta: <Result<(), String> as Core>::Delta = box0.delta(&box1)?;
+        let box2 = box0.apply(delta)?;
         assert_eq!(box1, box2);
         Ok(())
     }
@@ -202,8 +221,8 @@ mod tests {
         let bar = String::from("bar");
         let box0 = Err(foo);
         let box1 = Err(bar);
-        let delta: <Result<(), String> as Deltoid>::Delta = box0.delta(&box1)?;
-        let box2 = box0.apply_delta(&delta)?;
+        let delta: <Result<(), String> as Core>::Delta = box0.delta(&box1)?;
+        let box2 = box0.apply(delta)?;
         assert_eq!(box1, box2);
         Ok(())
     }

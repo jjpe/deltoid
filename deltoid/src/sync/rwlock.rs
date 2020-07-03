@@ -3,11 +3,11 @@
 //!
 //! [`RwLock`]: https://doc.rust-lang.org/std/sync/struct.RwLock.html
 
-use crate::{DeltaError, Deltoid, DeltaResult, FromDelta, IntoDelta};
+use crate::{Apply, Core, Delta, DeltaError, DeltaResult, FromDelta, IntoDelta};
 use serde::{Serialize, Serializer, Deserialize, Deserializer};
-use serde::de::{Visitor};
+use serde::de::Visitor;
 use std::cmp::Ordering;
-use std::fmt;
+use std::fmt::{self, Debug};
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 pub use std::sync::{LockResult, RwLockReadGuard, RwLockWriteGuard};
@@ -16,6 +16,7 @@ pub use std::sync::{LockResult, RwLockReadGuard, RwLockWriteGuard};
 #[derive(Debug, Default)]
 pub struct RwLock<T>(std::sync::RwLock<T>);
 
+#[allow(unused)]
 impl<T> RwLock<T> {
     pub fn new(thing: T) -> Self { Self(std::sync::RwLock::new(thing)) }
 
@@ -106,21 +107,33 @@ impl<'de, T: Deserialize<'de>> Deserialize<'de> for RwLock<T> {
 
 
 
-impl<T> Deltoid for RwLock<T>
-where T: Deltoid
+impl<T> Core for RwLock<T>
+where T: Clone + Debug + PartialEq + Core
     + for<'de> Deserialize<'de>
     + Serialize
 {
     type Delta = RwLockDelta<T>;
+}
 
-    fn apply_delta(&self, delta: &Self::Delta) -> DeltaResult<Self> {
+impl<T> Apply for RwLock<T>
+where T: Clone + Debug + PartialEq + Apply
+    + for<'de> Deserialize<'de>
+    + Serialize
+{
+    fn apply(&self, delta: Self::Delta) -> DeltaResult<Self> {
         let lhs: &T = &*self.0.try_read().unwrap(/*TODO*/);
-        match &delta.0 {
-            Some(delta) => lhs.apply_delta(&delta).map(Self::new),
+        match delta.0 {
+            Some(delta) => lhs.apply(delta).map(Self::new),
             None => Ok(Self::new(lhs.clone())),
         }
     }
+}
 
+impl<T> Delta for RwLock<T>
+where T: Clone + Debug + PartialEq + Delta
+    + for<'de> Deserialize<'de>
+    + Serialize
+{
     fn delta(&self, rhs: &Self) -> DeltaResult<Self::Delta> {
         let lhs: &T = &*self.0.try_read().unwrap(/*TODO*/);
         let rhs: &T = &*rhs.0.try_read().unwrap(/*TODO*/);
@@ -128,33 +141,97 @@ where T: Deltoid
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
-#[derive(serde_derive::Deserialize, serde_derive::Serialize)]
-pub struct RwLockDelta<T: Deltoid>(
-    #[doc(hidden)]
-    pub Option<<T as Deltoid>::Delta>
-);
-
-impl<T> IntoDelta for RwLock<T>
-where T: Deltoid + Clone + std::fmt::Debug
+impl<T> FromDelta for RwLock<T>
+where T: Clone + Debug + PartialEq + FromDelta
     + for<'de> Deserialize<'de>
     + Serialize
-    + IntoDelta
 {
-    fn into_delta(self) -> DeltaResult<<Self as Deltoid>::Delta> {
+    fn from_delta(delta: Self::Delta) -> DeltaResult<Self> {
+        let delta = delta.0.ok_or_else(|| ExpectedValue!("RwLockDelta<T>"))?;
+        <T>::from_delta(delta).map(Self::new)
+    }
+}
+
+impl<T> IntoDelta for RwLock<T>
+where T: Clone + Debug + PartialEq + IntoDelta
+    + for<'de> Deserialize<'de>
+    + Serialize
+{
+    fn into_delta(self) -> DeltaResult<Self::Delta> {
         let value: &T = &*self.0.try_read().unwrap(/*TODO*/);
         value.clone().into_delta().map(Some).map(RwLockDelta)
     }
 }
 
-impl<T> FromDelta for RwLock<T>
-where T: Deltoid + Clone + std::fmt::Debug
-    + for<'de> Deserialize<'de>
-    + Serialize
-    + FromDelta
-{
-    fn from_delta(delta: <Self as Deltoid>::Delta) -> DeltaResult<Self> {
-        let inner_delta = delta.0.ok_or_else(|| ExpectedValue!("RwLockDelta<T>"))?;
-        <T>::from_delta(inner_delta).map(Self::new)
+
+
+
+#[derive(Clone, Debug, PartialEq)]
+#[derive(serde_derive::Deserialize, serde_derive::Serialize)]
+pub struct RwLockDelta<T: Core>(
+    #[doc(hidden)] pub Option<<T as Core>::Delta>
+);
+
+
+
+
+#[allow(non_snake_case)]
+#[cfg(test)]
+mod tests {
+    use serde_json;
+    use super::*;
+
+    #[test]
+    fn calculate_delta_for_RwLock__same_values() -> DeltaResult<()> {
+        let s0 = RwLock::new(String::from("foo"));
+        let s1 = RwLock::new(String::from("foo"));
+        let delta: <RwLock<String> as Core>::Delta = s0.delta(&s1)?;
+        let json_string = serde_json::to_string(&delta)
+            .expect("Could not serialize to json");
+        println!("json_string: {}", json_string);
+        assert_eq!(json_string, "\"foo\"");
+        let delta1: <RwLock<String> as Core>::Delta = serde_json::from_str(
+            &json_string
+        ).expect("Could not deserialize from json");
+        assert_eq!(delta, delta1);
+        assert_eq!(delta, RwLock::new(String::from("foo")).into_delta()?);
+        Ok(())
+    }
+
+    #[test]
+    fn calculate_delta_for_RwLock__different_values() -> DeltaResult<()> {
+        let s0 = RwLock::new(String::from("foo"));
+        let s1 = RwLock::new(String::from("bar"));
+        let delta: <RwLock<String> as Core>::Delta = s0.delta(&s1)?;
+        let json_string = serde_json::to_string(&delta)
+            .expect("Could not serialize to json");
+        println!("json_string: {}", json_string);
+        assert_eq!(json_string, "\"bar\"");
+        let delta1: <RwLock<String> as Core>::Delta = serde_json::from_str(
+            &json_string
+        ).expect("Could not deserialize from json");
+        assert_eq!(delta, delta1);
+        assert_eq!(delta, RwLock::new(String::from("bar")).into_delta()?);
+        Ok(())
+    }
+
+    #[test]
+    fn apply_delta_for_RwLock_same_values() -> DeltaResult<()> {
+        let s0 = RwLock::new(String::from("foo"));
+        let s1 = RwLock::new(String::from("foo"));
+        let delta: <RwLock<String> as Core>::Delta = s0.delta(&s1)?;
+        let s2 = s0.apply(delta)?;
+        assert_eq!(s1, s2);
+        Ok(())
+    }
+
+    #[test]
+    fn apply_delta_for_RwLock_different_values() -> DeltaResult<()> {
+        let s0 = RwLock::new(String::from("foo"));
+        let s1 = RwLock::new(String::from("bar"));
+        let delta: <RwLock<String> as Core>::Delta = s0.delta(&s1)?;
+        let s2 = s0.apply(delta)?;
+        assert_eq!(s1, s2);
+        Ok(())
     }
 }

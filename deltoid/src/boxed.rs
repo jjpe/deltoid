@@ -3,30 +3,41 @@
 //!
 //! [`Box`]: https://doc.rust-lang.org/std/boxed/struct.Box.html
 
-use crate::{Deltoid, DeltaResult};
-use crate::convert::{FromDelta, IntoDelta};
+use crate::{Apply, Core, Delta, DeltaResult, FromDelta, IntoDelta};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde::de;
 use serde::ser::SerializeMap;
-use std::fmt;
+use std::fmt::{self, Debug};
 use std::marker::PhantomData;
 
 
-impl<T> Deltoid for Box<T>
-where T: Deltoid + PartialEq + Clone + std::fmt::Debug
-    + for<'de> serde::Deserialize<'de>
-    + serde::Serialize
+impl<T> Core for Box<T>
+where T: Clone + Debug + PartialEq + Core
+    + for<'de> Deserialize<'de>
+    + Serialize
 {
     type Delta = BoxDelta<T>;
+}
 
-    fn apply_delta(&self, delta: &Self::Delta) -> DeltaResult<Self> {
+impl<T> Apply for Box<T>
+where T: Apply
+    + for<'de> Deserialize<'de>
+    + Serialize
+{
+    fn apply(&self, delta: Self::Delta) -> DeltaResult<Self> {
         let lhs: &T = self.as_ref();
-        match &delta.0 {
+        match delta.0 {
             None => Ok(self.clone()),
-            Some(delta) => lhs.apply_delta(delta).map(Box::new),
+            Some(delta) => Ok(Box::new(lhs.apply(*delta)?)),
         }
     }
+}
 
+impl<T> Delta for Box<T>
+where T: Delta
+    + for<'de> Deserialize<'de>
+    + Serialize
+{
     fn delta(&self, rhs: &Self) -> DeltaResult<Self::Delta> {
         let lhs: &T = self.as_ref();
         let rhs: &T = rhs.as_ref();
@@ -38,35 +49,42 @@ where T: Deltoid + PartialEq + Clone + std::fmt::Debug
     }
 }
 
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct BoxDelta<T: Deltoid>(
-    #[doc(hidden)] pub Option<Box<<T as Deltoid>::Delta>>
-);
-
+impl<T> FromDelta for Box<T>
+where T: Clone + Debug + PartialEq + FromDelta
+    + for<'de> Deserialize<'de>
+    + Serialize
+{
+    fn from_delta(delta: Self::Delta) -> DeltaResult<Self> {
+        let delta: T::Delta = *delta.0
+            .ok_or_else(|| ExpectedValue!("BoxDelta<T>"))?;
+        <T>::from_delta(delta).map(Box::new)
+    }
+}
 
 impl<T> IntoDelta for Box<T>
-where T: Deltoid + IntoDelta
-    + for<'de> serde::Deserialize<'de>
-    + serde::Serialize
+where T: Clone + Debug + PartialEq + IntoDelta
+    + for<'de> Deserialize<'de>
+    + Serialize
 {
-    fn into_delta(self) -> DeltaResult<<Self as Deltoid>::Delta> {
-        self.as_ref().clone().into_delta().map(Box::new).map(Some).map(BoxDelta)
+    fn into_delta(self) -> DeltaResult<Self::Delta> {
+        let t: T = *self;
+        Ok(BoxDelta(Some(Box::new(t.into_delta()?))))
     }
 }
 
-impl<T> FromDelta for Box<T>
-where T: Deltoid + FromDelta
-    + for<'de> serde::Deserialize<'de>
-    + serde::Serialize
-{
-    fn from_delta(delta: <Self as Deltoid>::Delta) -> DeltaResult<Self> {
-        let delta = delta.0.ok_or_else(|| ExpectedValue!("BoxDelta<T>"))?;
-        <T>::from_delta(*delta).map(Box::new)
-    }
-}
 
-impl<T: Deltoid + Clone> Serialize for BoxDelta<T> {
+
+
+#[derive(Clone, Debug, PartialEq, Hash)]
+pub struct BoxDelta<T: Core>(
+    #[doc(hidden)] pub Option<Box<T::Delta>>
+);
+
+impl<T> Serialize for BoxDelta<T>
+where T: Core
+    + for<'de> Deserialize<'de>
+    + Serialize
+{
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where S: Serializer {
         let mut num_fields = 0;
@@ -79,16 +97,17 @@ impl<T: Deltoid + Clone> Serialize for BoxDelta<T> {
     }
 }
 
-impl<'de, T: Deltoid + Clone> Deserialize<'de> for BoxDelta<T> {
+impl<'de, T> Deserialize<'de> for BoxDelta<T>
+where T: Core
+    + Deserialize<'de>
+    + Serialize
+{
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where D: Deserializer<'de> {
-
-        struct DeltaVisitor<T2> {
-            _phantom: PhantomData<T2>,
-        }
+        struct DeltaVisitor<T2>(PhantomData<T2>);
 
         impl<'de, T2> de::Visitor<'de> for DeltaVisitor<T2>
-        where T2: Deltoid + Clone {
+        where T2: Core {
             type Value = BoxDelta<T2>;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -111,9 +130,7 @@ impl<'de, T: Deltoid + Clone> Deserialize<'de> for BoxDelta<T> {
             }
         }
 
-        deserializer.deserialize_map(DeltaVisitor {
-            _phantom: PhantomData
-        })
+        deserializer.deserialize_map(DeltaVisitor(PhantomData))
     }
 }
 
@@ -131,12 +148,12 @@ mod tests {
         let bar = String::from("foo");
         let box0 = Box::new(foo);
         let box1 = Box::new(bar);
-        let delta: <Box<String> as Deltoid>::Delta = box0.delta(&box1)?;
+        let delta: <Box<String> as Core>::Delta = box0.delta(&box1)?;
         let json_string = serde_json::to_string(&delta)
             .expect("Could not serialize to json");
         println!("json_string: \"{}\"", json_string);
         assert_eq!(json_string, "{}");
-        let delta1: <Box<String> as Deltoid>::Delta = serde_json::from_str(
+        let delta1: <Box<String> as Core>::Delta = serde_json::from_str(
             &json_string
         ).expect("Could not deserialize from json");
         assert_eq!(delta, delta1);
@@ -149,12 +166,12 @@ mod tests {
         let bar = String::from("bar");
         let box0 = Box::new(foo);
         let box1 = Box::new(bar);
-        let delta: <Box<String> as Deltoid>::Delta = box0.delta(&box1)?;
+        let delta: <Box<String> as Core>::Delta = box0.delta(&box1)?;
         let json_string = serde_json::to_string(&delta)
             .expect("Could not serialize to json");
         println!("json_string: \"{}\"", json_string);
         assert_eq!(json_string, "{\"0\":\"bar\"}");
-        let delta1: <Box<String> as Deltoid>::Delta = serde_json::from_str(
+        let delta1: <Box<String> as Core>::Delta = serde_json::from_str(
             &json_string
         ).expect("Could not deserialize from json");
         assert_eq!(delta, delta1);
@@ -167,8 +184,8 @@ mod tests {
         let bar = String::from("foo");
         let box0 = Box::new(foo);
         let box1 = Box::new(bar);
-        let delta: <Box<String> as Deltoid>::Delta = box0.delta(&box1)?;
-        let box2 = box0.apply_delta(&delta)?;
+        let delta: <Box<String> as Core>::Delta = box0.delta(&box1)?;
+        let box2 = box0.apply(delta)?;
         assert_eq!(box1, box2);
         Ok(())
     }
@@ -179,8 +196,8 @@ mod tests {
         let bar = String::from("bar");
         let box0 = Box::new(foo);
         let box1 = Box::new(bar);
-        let delta: <Box<String> as Deltoid>::Delta = box0.delta(&box1)?;
-        let box2 = box0.apply_delta(&delta)?;
+        let delta: <Box<String> as Core>::Delta = box0.delta(&box1)?;
+        let box2 = box0.apply(delta)?;
         assert_eq!(box1, box2);
         Ok(())
     }

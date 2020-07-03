@@ -1,31 +1,40 @@
 //!
 
-use crate::{Deltoid, DeltaResult};
-use crate::convert::{FromDelta, IntoDelta};
+use crate::{Apply, Core, Delta, DeltaResult, FromDelta, IntoDelta};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde::de;
 use serde::ser::SerializeMap;
-use std::fmt;
+use std::fmt::{self, Debug};
 use std::marker::PhantomData;
 use std::ops::Range;
 
 
-impl<T> Deltoid for Range<T>
-where T: Clone + PartialEq + Deltoid + std::fmt::Debug
-    + Serialize
+impl<T> Core for Range<T>
+where T: Clone + Debug + PartialEq + Core
     + for<'de> Deserialize<'de>
-    + IntoDelta
-    + FromDelta
+    + Serialize
 {
     type Delta = RangeDelta<T>;
+}
 
-    fn apply_delta(&self, delta: &Self::Delta) -> DeltaResult<Self> {
-        match &delta.0 {
-            Some(range) => Ok(range.start.clone() .. range.end.clone()),
+impl<T> Apply for Range<T>
+where T: Apply
+    + for<'de> Deserialize<'de>
+    + Serialize
+{
+    fn apply(&self, delta: Self::Delta) -> DeltaResult<Self> {
+        match delta.0 {
+            Some(range) => Ok(range.start .. range.end),
             None        => Ok(self.start.clone() ..  self.end.clone()),
         }
     }
+}
 
+impl<T> Delta for Range<T>
+where T: Delta
+    + for<'de> Deserialize<'de>
+    + Serialize
+{
     fn delta(&self, rhs: &Self) -> DeltaResult<Self::Delta> {
         Ok(RangeDelta(if self == rhs {
             None
@@ -35,36 +44,36 @@ where T: Clone + PartialEq + Deltoid + std::fmt::Debug
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Hash)]
-pub struct RangeDelta<T>(#[doc(hidden)] pub Option<Range<T>>);
-
-impl<T> IntoDelta for Range<T>
-where T: Clone + PartialEq + Deltoid + std::fmt::Debug
-    + for<'de> serde::Deserialize<'de>
-    + serde::Serialize
-    + IntoDelta
-    + FromDelta
-{
-    fn into_delta(self) -> DeltaResult<<Self as Deltoid>::Delta> {
-        Ok(RangeDelta(Some(self)))
-    }
-}
-
 impl<T> FromDelta for Range<T>
-where T: Clone + PartialEq + Deltoid + std::fmt::Debug
-    + for<'de> serde::Deserialize<'de>
-    + serde::Serialize
-    + IntoDelta
-    + FromDelta
+where T: Clone + Debug + PartialEq + FromDelta
+    + for<'de> Deserialize<'de>
+    + Serialize
 {
-    fn from_delta(delta: <Self as Deltoid>::Delta) -> DeltaResult<Self> {
+    fn from_delta(delta: Self::Delta) -> DeltaResult<Self> {
         Ok(delta.0.ok_or_else(|| ExpectedValue!("RangeDelta<K, V>"))?)
     }
 }
 
+impl<T> IntoDelta for Range<T>
+where T: Clone + Debug + PartialEq + IntoDelta
+    + for<'de> Deserialize<'de>
+    + Serialize
+{
+    fn into_delta(self) -> DeltaResult<Self::Delta> {
+        Ok(RangeDelta(Some(self)))
+    }
+}
 
 
-impl<T: Deltoid + Clone + Serialize> Serialize for RangeDelta<T> {
+
+#[derive(Clone, Debug, PartialEq, Hash)]
+pub struct RangeDelta<T>(#[doc(hidden)] pub Option<Range<T>>);
+
+impl<T> Serialize for RangeDelta<T>
+where T: Core
+    + Clone
+    + Serialize
+{
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where S: Serializer {
         let mut num_fields = 0;
@@ -78,16 +87,19 @@ impl<T: Deltoid + Clone + Serialize> Serialize for RangeDelta<T> {
 }
 
 impl<'de, T> Deserialize<'de> for RangeDelta<T>
-where T: Deltoid + Clone +  Deserialize<'de> {
+where T: Core
+    + Clone
+    + Deserialize<'de>
+{
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where D: Deserializer<'de> {
-
-        struct DeltaVisitor<T2> {
-            _phantom: PhantomData<T2>,
-        }
+        struct DeltaVisitor<T2>(PhantomData<T2>);
 
         impl<'de, T2> de::Visitor<'de> for DeltaVisitor<T2>
-        where T2: Deltoid + Clone + Deserialize<'de> {
+        where T2: Core
+            + Clone
+            + Deserialize<'de>
+        {
             type Value = RangeDelta<T2>;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -110,9 +122,7 @@ where T: Deltoid + Clone +  Deserialize<'de> {
             }
         }
 
-        deserializer.deserialize_map(DeltaVisitor {
-            _phantom: PhantomData
-        })
+        deserializer.deserialize_map(DeltaVisitor(PhantomData))
     }
 }
 
@@ -128,12 +138,12 @@ mod tests {
     fn calculate_delta_for_Range__same_values() -> DeltaResult<()> {
         let range0 = 1..10;
         let range1 = 1..10;
-        let delta: <Range<usize> as Deltoid>::Delta = range0.delta(&range1)?;
+        let delta: <Range<usize> as Core>::Delta = range0.delta(&range1)?;
         let json_string = serde_json::to_string(&delta)
             .expect("Could not serialize to json");
         println!("json_string: \"{}\"", json_string);
         assert_eq!(json_string, "{}");
-        let delta1: <Range<usize> as Deltoid>::Delta = serde_json::from_str(
+        let delta1: <Range<usize> as Core>::Delta = serde_json::from_str(
             &json_string
         ).expect("Could not deserialize from json");
         assert_eq!(delta, delta1);
@@ -144,12 +154,12 @@ mod tests {
     fn calculate_delta_for_Range__different_values() -> DeltaResult<()> {
         let range0 = 1..10;
         let range1 = 1..11;
-        let delta: <Range<usize> as Deltoid>::Delta = range0.delta(&range1)?;
+        let delta: <Range<usize> as Core>::Delta = range0.delta(&range1)?;
         let json_string = serde_json::to_string(&delta)
             .expect("Could not serialize to json");
         println!("json_string: \"{}\"", json_string);
         assert_eq!(json_string, "{\"0\":{\"start\":1,\"end\":11}}");
-        let delta1: <Range<usize> as Deltoid>::Delta = serde_json::from_str(
+        let delta1: <Range<usize> as Core>::Delta = serde_json::from_str(
             &json_string
         ).expect("Could not deserialize from json");
         assert_eq!(delta, delta1);
@@ -160,8 +170,8 @@ mod tests {
     fn apply_delta_for_Range_same_values() -> DeltaResult<()> {
         let range0 = 1..10;
         let range1 = 1..10;
-        let delta: <Range<usize> as Deltoid>::Delta = range0.delta(&range1)?;
-        let range2 = range0.apply_delta(&delta)?;
+        let delta: <Range<usize> as Core>::Delta = range0.delta(&range1)?;
+        let range2 = range0.apply(delta)?;
         assert_eq!(range0, range2);
         Ok(())
     }
@@ -170,8 +180,8 @@ mod tests {
     fn apply_delta_for_Range_different_values() -> DeltaResult<()> {
         let range0 = 1..10;
         let range1 = 1..11;
-        let delta: <Range<usize> as Deltoid>::Delta = range0.delta(&range1)?;
-        let range2 = range0.apply_delta(&delta)?;
+        let delta: <Range<usize> as Core>::Delta = range0.delta(&range1)?;
+        let range2 = range0.apply(delta)?;
         assert_eq!(range1, range2);
         Ok(())
     }

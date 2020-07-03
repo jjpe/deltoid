@@ -1,52 +1,75 @@
 //!
 
-use crate::{DeltaResult, Deltoid};
-use crate::convert::{FromDelta, IntoDelta};
+use crate::{Apply, Core, Delta, DeltaResult, FromDelta, IntoDelta};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde::de;
 use serde::ser::SerializeMap;
 use std::borrow::{Borrow, Cow, ToOwned};
-use std::fmt;
+use std::fmt::{self, Debug};
 use std::marker::PhantomData;
 
 
-impl<'a, B> Deltoid for Cow<'a, B>
-where B: Clone + std::fmt::Debug + PartialEq + Deltoid + ToOwned
-        + Serialize
-        + for<'de> Deserialize<'de>,
-      <B as ToOwned>::Owned: std::fmt::Debug
+impl<'a, B> Core for Cow<'a, B>
+where B: Clone + Debug + PartialEq + Core + ToOwned
+    + for<'de> Deserialize<'de>
+    + Serialize
 {
     type Delta = CowDelta<'a, B>;
+}
 
-    fn apply_delta(&self, delta: &Self::Delta) -> DeltaResult<Self> {
+impl<'a, B> Apply for Cow<'a, B>
+where B: Apply + FromDelta + ToOwned
+    + for<'de> Deserialize<'de>
+    + Serialize,
+      <B as ToOwned>::Owned: Debug
+{
+    fn apply(&self, delta: Self::Delta) -> DeltaResult<Self> {
         let lhs: &B = self.borrow();
-        if let Some(delta) = delta.inner.as_ref() {
-            lhs.apply_delta(delta)
-                .map(|new| new.to_owned())
-                .map(Cow::Owned)
+        Ok(if let Some(delta) = delta.inner {
+            Cow::Owned(lhs.apply(delta)?.to_owned())
         } else {
-            Ok(self.clone())
-        }
+            self.clone()
+        })
     }
+}
 
+impl<'a, B> Delta for Cow<'a, B>
+where B: Delta + ToOwned
+    + for<'de> Deserialize<'de>
+    + Serialize,
+      <B as ToOwned>::Owned: Debug
+{
     fn delta(&self, other: &Self) -> DeltaResult<Self::Delta> {
         let (lhs, rhs): (&B, &B) = (self.borrow(), other.borrow());
         Ok(CowDelta {
-            inner: if self != other {
-                Some(lhs.delta(rhs)?)
-            } else {
+            inner: if self == other {
                 None
+            } else {
+                Some(lhs.delta(rhs)?)
             },
             _phantom: PhantomData,
         })
     }
 }
 
-
+impl<'a, B> FromDelta for Cow<'a, B>
+where B: Clone + Debug + PartialEq + FromDelta
+    + for<'de> Deserialize<'de>
+    + Serialize
+{
+    fn from_delta(delta: Self::Delta) -> DeltaResult<Self> {
+        let delta: B::Delta = delta.inner
+            .ok_or_else(|| ExpectedValue!("CowDelta<'a, B>"))?;
+        Ok(Cow::Owned(<B>::from_delta(delta)?.to_owned()))
+    }
+}
 
 impl<'a, B> IntoDelta for Cow<'a, B>
-where B: IntoDelta + Serialize + for<'de> Deserialize<'de> {
-    fn into_delta(self) -> DeltaResult<<Self as Deltoid>::Delta> {
+where B: Clone + Debug + PartialEq + IntoDelta
+    + for<'de> Deserialize<'de>
+    + Serialize
+{
+    fn into_delta(self) -> DeltaResult<Self::Delta> {
         Ok(CowDelta {
             inner: Some((self.borrow() as &B).clone().into_delta()?),
             _phantom: PhantomData,
@@ -54,25 +77,17 @@ where B: IntoDelta + Serialize + for<'de> Deserialize<'de> {
     }
 }
 
-impl<'a, B> FromDelta for Cow<'a, B>
-where B: FromDelta + Serialize + for<'de> Deserialize<'de> {
-    fn from_delta(delta: <Self as Deltoid>::Delta) -> DeltaResult<Self> {
-        let delta: <B as Deltoid>::Delta = delta.inner
-            .ok_or_else(|| ExpectedValue!("CowDelta<'a, B>"))?;
-        B::from_delta(delta)
-            .map(|b: B| b.to_owned())
-            .map(Cow::Owned)
-    }
-}
 
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct CowDelta<'a, B: Deltoid + Clone> {
-    #[doc(hidden)] pub inner: Option<<B as Deltoid>::Delta>,
+// #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
+pub struct CowDelta<'a, B: Core> {
+    #[doc(hidden)] pub inner: Option<B::Delta>,
     #[doc(hidden)] pub _phantom: PhantomData<&'a B>
 }
 
-impl<'a, B: Deltoid + Clone> Serialize for CowDelta<'a, B> {
+impl<'a, B> Serialize for CowDelta<'a, B>
+where B: Core + for<'de> Deserialize<'de> + Serialize {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where S: Serializer {
         let mut num_fields = 0;
@@ -85,16 +100,14 @@ impl<'a, B: Deltoid + Clone> Serialize for CowDelta<'a, B> {
     }
 }
 
-impl<'de, 'a, B: Deltoid + Clone> Deserialize<'de> for CowDelta<'a, B> {
+impl<'de, 'a, B> Deserialize<'de> for CowDelta<'a, B>
+where B: Core + Deserialize<'de> + Serialize {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where D: Deserializer<'de> {
-
-        struct DeltaVisitor<'a2, B2> {
-            _phantom: PhantomData<&'a2 B2>,
-        }
+        struct DeltaVisitor<'a2, B2>(PhantomData<&'a2 B2>);
 
         impl<'de, 'a2, B2> de::Visitor<'de> for DeltaVisitor<'a2, B2>
-        where B2: Deltoid + Clone {
+        where B2: Core + Deserialize<'de> + Serialize {
             type Value = CowDelta<'a2, B2>;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -120,9 +133,7 @@ impl<'de, 'a, B: Deltoid + Clone> Deserialize<'de> for CowDelta<'a, B> {
             }
         }
 
-        deserializer.deserialize_map(DeltaVisitor {
-            _phantom: PhantomData
-        })
+        deserializer.deserialize_map(DeltaVisitor(PhantomData))
     }
 }
 
@@ -139,12 +150,12 @@ mod tests {
         let bar = String::from("foo");
         let cow:  Cow<String> = Cow::Borrowed(&foo);
         let cow2: Cow<String> = Cow::Borrowed(&bar);
-        let delta: <Cow<String> as Deltoid>::Delta = cow.delta(&cow2)?;
+        let delta: <Cow<String> as Core>::Delta = cow.delta(&cow2)?;
         let json_string = serde_json::to_string(&delta)
             .expect("Could not serialize to json");
-        println!("json_string: \"{}\"", json_string);
+        println!("json_string: {}", json_string);
         assert_eq!(json_string, "{}");
-        let delta1: <Cow<String> as Deltoid>::Delta = serde_json::from_str(
+        let delta1: <Cow<String> as Core>::Delta = serde_json::from_str(
             &json_string
         ).expect("Could not deserialize from json");
         assert_eq!(delta, delta1);
@@ -157,12 +168,12 @@ mod tests {
         let bar = String::from("bar");
         let cow:  Cow<String> = Cow::Borrowed(&foo);
         let cow2: Cow<String> = Cow::Borrowed(&bar);
-        let delta: <Cow<String> as Deltoid>::Delta = cow.delta(&cow2)?;
+        let delta: <Cow<String> as Core>::Delta = cow.delta(&cow2)?;
         let json_string = serde_json::to_string(&delta)
             .expect("Could not serialize to json");
-        println!("json_string: \"{}\"", json_string);
+        println!("json_string: {}", json_string);
         assert_eq!(json_string, "{\"inner\":\"bar\"}");
-        let delta1: <Cow<String> as Deltoid>::Delta = serde_json::from_str(
+        let delta1: <Cow<String> as Core>::Delta = serde_json::from_str(
             &json_string
         ).expect("Could not deserialize from json");
         assert_eq!(delta, delta1);
