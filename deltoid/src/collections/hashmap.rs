@@ -131,7 +131,7 @@ where K: Clone + Debug + PartialEq + Ord + Hash + IntoDelta
 
 #[derive(Clone, Debug, PartialEq)]
 #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
-pub struct HashMapDelta<K, V: Core>(
+pub struct HashMapDelta<K: Core, V: Core>(
     #[doc(hidden)]
     pub Option<Vec<EntryDelta<K, V>>>,
 );

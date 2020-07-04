@@ -132,7 +132,7 @@ where K: Clone + Debug + PartialEq + Ord + IntoDelta
 
 #[derive(Clone, Debug, PartialEq)]
 #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
-pub struct BTreeMapDelta<K, V: Core>(
+pub struct BTreeMapDelta<K: Core, V: Core>(
     #[doc(hidden)] pub Option<Vec<EntryDelta<K, V>>>,
 );
 
