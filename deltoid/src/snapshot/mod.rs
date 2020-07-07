@@ -14,8 +14,9 @@ macro_rules! snapshot {
         [$($origin:ident)::*] $new:expr => $context:expr
     ) => { loop {
         #[cfg(feature = "snapshot")]
-        #[allow(redundant_semicolons)] {
-            use deltoid::Deltoid;
+        #[allow(redundant_semicolons)]
+        #[allow(unused)] {
+            use deltoid::{Core, Apply, Delta, FromDelta, IntoDelta};
             use deltoid::snapshot::DeltaSnapshot;
             let mut origin = String::new();
             $(
