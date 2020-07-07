@@ -2,7 +2,9 @@
 #![allow(non_snake_case)]
 
 use std::rc::Rc;
-use deltoid::{Deltoid, DeltaResult, RcDelta, StringDelta};
+#[allow(unused)] use deltoid::{
+    Apply, Delta, DeltaResult, FromDelta, IntoDelta, RcDelta, StringDelta
+};
 use deltoid_derive::Delta;
 use serde_derive::{Deserialize, Serialize};
 
@@ -25,7 +27,7 @@ fn Rc__calculate_delta() -> DeltaResult<()> {
     })));
     assert_eq!(delta0, expected, "{:#?}\n    !=\n{:#?}", delta0, expected);
 
-    let v2 = v0.apply_delta(&delta0)?;
+    let v2 = v0.apply(delta0)?;
     println!("v2: {:#?}", v2);
     assert_eq!(v1, v2);
 
@@ -35,7 +37,7 @@ fn Rc__calculate_delta() -> DeltaResult<()> {
         s: Some(StringDelta(Some("hello world".to_string()))),
         i: None,
     }))));
-    let v3 = v1.apply_delta(&delta1)?;
+    let v3 = v1.apply(delta1)?;
     println!("v3: {:#?}", v3);
     assert_eq!(v0, v3);
 
@@ -43,13 +45,13 @@ fn Rc__calculate_delta() -> DeltaResult<()> {
 }
 
 #[test]
-fn Rc__apply_delta() -> DeltaResult<()> {
+fn Rc__apply() -> DeltaResult<()> {
     let v0 = Rc::new(Foo1 { s: "hello world".to_string(), i: 42 });
     let delta = RcDelta(Some(Box::new(Foo1Delta {
         s: Some(StringDelta(Some("hello world!!".to_string()))),
         i: None,
     })));
-    let v1 = v0.apply_delta(&delta)?;
+    let v1 = v0.apply(delta)?;
     let expected = Rc::new(Foo1 { s: "hello world!!".to_string(), i: 42 });
     assert_eq!(expected, v1);
 

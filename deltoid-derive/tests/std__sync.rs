@@ -3,8 +3,9 @@
 
 #![allow(non_snake_case)]
 
-use deltoid::{
-    ArcDelta, DeltaResult, Deltoid, IntoDelta, RwLock, RwLockDelta, StringDelta
+#[allow(unused)] use deltoid::{
+    Apply, Delta, DeltaResult, FromDelta, IntoDelta,
+    ArcDelta, RwLock, RwLockDelta, StringDelta
 };
 use deltoid_derive::Delta;
 use serde_json;
@@ -54,7 +55,7 @@ fn RwLock__deserialize() {
 }
 
 #[test]
-fn RwLock__apply_delta() {
+fn RwLock__apply() {
     let value0: RwLock<Foo> = RwLock::new(Foo {
         field0: "flapjacks are fun".to_string(),
         field1: 42,
@@ -69,7 +70,7 @@ fn RwLock__apply_delta() {
     }));
     println!("delta: {:#?}", delta);
 
-    let value1: RwLock<Foo> = value0.apply_delta(&delta).unwrap();
+    let value1: RwLock<Foo> = value0.apply(delta).unwrap();
     println!("value1: {:#?}", value1);
 
     let expected: RwLock<Foo> = RwLock::new(Foo {
@@ -125,7 +126,7 @@ fn Arc__calculate_delta() -> DeltaResult<()> {
     })));
     assert_eq!(delta0, expected, "{:#?}\n    !=\n{:#?}", delta0, expected);
 
-    let v2 = v0.apply_delta(&delta0)?;
+    let v2 = v0.apply(delta0)?;
     println!("v2: {:#?}", v2);
     assert_eq!(v1, v2);
 
@@ -135,7 +136,7 @@ fn Arc__calculate_delta() -> DeltaResult<()> {
         field0: Some(StringDelta(Some("hello world".to_string()))),
         field1: None,
     }))));
-    let v3 = v1.apply_delta(&delta1)?;
+    let v3 = v1.apply(delta1)?;
     println!("v3: {:#?}", v3);
     assert_eq!(v0, v3);
 
@@ -143,13 +144,13 @@ fn Arc__calculate_delta() -> DeltaResult<()> {
 }
 
 #[test]
-fn Arc__apply_delta() -> DeltaResult<()> {
+fn Arc__apply() -> DeltaResult<()> {
     let v0 = Arc::new(Foo { field0: "hello world".to_string(), field1: 42 });
     let delta = ArcDelta(Some(Box::new(FooDelta {
         field0: Some(StringDelta(Some("hello world!!".to_string()))),
         field1: None,
     })));
-    let v1 = v0.apply_delta(&delta)?;
+    let v1 = v0.apply(delta)?;
     let expected = Arc::new(Foo {
         field0: "hello world!!".to_string(),
         field1: 42

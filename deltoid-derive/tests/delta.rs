@@ -1,17 +1,19 @@
 //!
 #![allow(non_snake_case)]
 
-use deltoid::{Deltoid, DeltaResult, IntoDelta};
+#[allow(unused)] use deltoid::{
+    Core, Apply, Delta, DeltaResult, FromDelta, IntoDelta
+};
 use deltoid_derive::Delta;
 
 
 #[derive(
-    Debug, PartialEq, Clone, Delta,
+    Clone, Debug, PartialEq, Delta,
     serde_derive::Deserialize, serde_derive::Serialize
 )]
 pub enum Qux1<T: Default> {
-    Floof(u8, #[delta(ignore_field)] T),
-    Blah { one: u8, two: () },
+    Blah { #[delta(ignore_field)] one: u8, two: () },
+    Floof(u8, T),
     Flah { one: Box<Qux2<(), ()>> },
     Gah,
 }
@@ -45,8 +47,7 @@ enum Corge<Tx, U: Copy> {
     },
 }
 
-#[derive(Clone, Debug, PartialEq)]
-#[derive(Delta)]
+#[derive(Clone, Debug, PartialEq, Delta)]
 pub struct Foo0<F: Copy> where F: Copy {
     #[delta(ignore_field)]
     f0: (),
@@ -55,8 +56,7 @@ pub struct Foo0<F: Copy> where F: Copy {
     f2: String,
 }
 
-#[derive(Clone, Debug, PartialEq)]
-#[derive(Delta)]
+#[derive(Clone, Debug, PartialEq, Delta)]
 pub struct Bar<S: Copy>(u8, #[delta(ignore_field)] S)
 where S: std::fmt::Debug + Default;
 
@@ -96,7 +96,7 @@ pub fn generic_struct__calculate_delta() -> DeltaResult<()> {
 }
 
 #[test]
-pub fn generic_struct__apply_delta() -> DeltaResult<()>  {
+pub fn generic_struct__apply() -> DeltaResult<()>  {
     let val0: Foo0<u16> = Foo0 {
         f0: (),
         f1: 42 as u16,
@@ -107,7 +107,7 @@ pub fn generic_struct__apply_delta() -> DeltaResult<()>  {
         f1: Some(300u16.into_delta()?),
         f2: Some("hello world!!!".to_string().into_delta()?),
     };
-    let val1 = val0.apply_delta(&delta)?;
+    let val1 = val0.apply(delta)?;
     let expected: Foo0<u16> = Foo0 {
         f0: (),
         f1: 300,
@@ -133,13 +133,13 @@ pub fn generic_tuple_struct__calculate_delta() -> DeltaResult<()> {
 }
 
 #[test]
-pub fn generic_tuple_struct__apply_delta() -> DeltaResult<()>  {
+pub fn generic_tuple_struct__apply() -> DeltaResult<()>  {
     let val0: Bar<u16> = Bar(42u8, 300u16);
     let delta: BarDelta<u16> = BarDelta(
         Some(100u8.into_delta()?),
         std::marker::PhantomData
     );
-    let val1: Bar<u16> = val0.apply_delta(&delta)?;
+    let val1: Bar<u16> = val0.apply(delta)?;
     let expected: Bar<u16> = Bar(100u8, 300u16);
     assert_eq!(val1, expected, "{:#?} != {:#?}", val1, expected);
     Ok(())
@@ -156,10 +156,10 @@ pub fn generic_unit_struct__calculate_delta() -> DeltaResult<()> {
 }
 
 #[test]
-pub fn generic_unit_struct__apply_delta() -> DeltaResult<()>  {
+pub fn generic_unit_struct__apply() -> DeltaResult<()>  {
     let val0 = Baz;
     let delta: BazDelta = BazDelta;
-    let val1: Baz = val0.apply_delta(&delta)?;
+    let val1: Baz = val0.apply(delta)?;
     let expected = Baz;
     assert_eq!(val1, expected, "{:#?} != {:#?}", val1, expected);
     Ok(())
