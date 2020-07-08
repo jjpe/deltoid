@@ -1,28 +1,31 @@
 # Deltoid
 
-A rust library (the `deltoid` crate) and derive macro (the `deltoid-derive`
-crate) that can be used to calculate a delta `Δ` between 2 values `a` and `b`
-of the same type.  Once calculated, `Δ` can then be applied to the first value
-`a` to obtain a new value `c` that is equivalent to the second value `b`.
+## Synopsis
 
-A primary use case for calculating delta's is to keep track of a series of
-deeply-nested data trees while making sure to keep consumption of resources
-(e.g. RAM, network bandwidth) reasonable. Since such a series of trees may be
-exported for further processing, delta's are by definition de/serializable.
+**Deltoid** is a rust library that can be used to calculate a [delta] `Δ`
+between 2 values `a` and `b` of the same type.  Once calculated, `Δ` can
+then be applied to the first value `a` to obtain a new value `c` that is
+equivalent to the second value `b`.
+
+A primary use case for calculating delta's is to keep track of a sequence of
+related deeply-nested data trees while making sure to keep consumption of
+resources (e.g. RAM, network bandwidth) reasonable. Since such a sequence may
+be exported for further processing, delta's are by definition de/serializable.
 This allows you to collect the data in once place as a sequence of delta's,
 export it (perhaps over a network connection), and then reconstruct the series
 on the receiving side by successively applying the delta's in the sequence.
 
+[delta]: https://en.wikipedia.org/wiki/Delta_encoding
 
-### Usage
+## Usage
 
 Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
 deltoid = "0.5"
+deltoid-derive = "0.5"
 ```
-
 
 Computing a delta, then applying it:
 
@@ -44,14 +47,13 @@ fn main() {
     // Calculate the delta between them
     let delta = point0.delta(&point1).unwrap();
 
+    // Apply  the delta to `point0`
     let point2 = point0.apply(delta).unwrap();
     assert_eq!(point1, point2);
 }
 ```
 
-
-
-### Limitations
+## Limitations
 
 There are some limitations to this library:
 
