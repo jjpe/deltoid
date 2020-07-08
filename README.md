@@ -4,20 +4,21 @@
 
 ## Synopsis
 
-**Deltoid** is a rust library that can be used to calculate a [delta] `Δ`
-between 2 values `a` and `b` of the same type.  Once calculated, `Δ` can
-then be applied to the first value `a` to obtain a new value `c` that is
-equivalent to the second value `b`.
+**Deltoid** is a type-driven rust library that can be used to calculate [deltas].
+A delta `Δ` can be calculated between 2 values `a` and `b` of the same type.
+Once calculated, `Δ` can then be applied to the first value `a` to obtain a new
+value `c` that is equivalent to the second value `b`.
 
 A primary use case for calculating delta's is to keep track of a sequence of
-related deeply-nested data trees while making sure to keep consumption of
-resources (e.g. RAM, network bandwidth) reasonable. Since such a sequence may
-be exported for further processing, delta's are by definition de/serializable.
-This allows you to collect the data in once place as a sequence of delta's,
-export it (perhaps over a network connection), and then reconstruct the series
-on the receiving side by successively applying the delta's in the sequence.
+related and potentially deeply-nested data trees while making sure to keep
+resource consumption (e.g. RAM, network bandwidth) reasonable.  Since such a
+sequence may be exported for further processing, delta's are by definition
+de/serializable.  This allows you to collect the data in once place as a
+sequence of delta's, export it (perhaps over a network connection), and then
+reconstruct the series on the receiving side by successively applying the
+delta's in the sequence.
 
-[delta]: https://en.wikipedia.org/wiki/Delta_encoding
+[deltas]: https://en.wikipedia.org/wiki/Delta_encoding
 
 ## Usage
 
