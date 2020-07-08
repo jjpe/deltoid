@@ -108,7 +108,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn calculate_delta_for_Ok_Result__same_values() -> DeltaResult<()> {
+    fn Result_Ok__delta__same_values() -> DeltaResult<()> {
         let foo = String::from("foo");
         let bar = String::from("foo");
         let box0 = Ok(foo);
@@ -126,7 +126,7 @@ mod tests {
     }
 
     #[test]
-    fn calculate_delta_for_Ok_Result__different_values() -> DeltaResult<()> {
+    fn Result_Ok__delta__different_values() -> DeltaResult<()> {
         let foo = String::from("foo");
         let bar = String::from("bar");
         let box0 = Ok(foo);
@@ -144,7 +144,7 @@ mod tests {
     }
 
     #[test]
-    fn apply_delta_for_Ok_Result_same_values() -> DeltaResult<()> {
+    fn Result_Ok__apply__same_values() -> DeltaResult<()> {
         let foo = String::from("foo");
         let bar = String::from("foo");
         let box0 = Ok(foo);
@@ -156,7 +156,7 @@ mod tests {
     }
 
     #[test]
-    fn apply_delta_for_Ok_Result_different_values() -> DeltaResult<()> {
+    fn Result_Ok__apply__different_values() -> DeltaResult<()> {
         let foo = String::from("foo");
         let bar = String::from("bar");
         let box0 = Ok(foo);
@@ -168,7 +168,7 @@ mod tests {
     }
 
     #[test]
-    fn calculate_delta_for_Err_Result__same_values() -> DeltaResult<()> {
+    fn Result_Err__delta__same_values() -> DeltaResult<()> {
         let foo = String::from("foo");
         let bar = String::from("foo");
         let box0 = Err(foo);
@@ -186,7 +186,7 @@ mod tests {
     }
 
     #[test]
-    fn calculate_delta_for_Err_Result__different_values() -> DeltaResult<()> {
+    fn Result_Err__delta__different_values() -> DeltaResult<()> {
         let foo = String::from("foo");
         let bar = String::from("bar");
         let box0 = Err(foo);
@@ -204,7 +204,7 @@ mod tests {
     }
 
     #[test]
-    fn apply_delta_for_Err_Result_same_values() -> DeltaResult<()> {
+    fn Result_Err__apply__same_values() -> DeltaResult<()> {
         let foo = String::from("foo");
         let bar = String::from("foo");
         let box0 = Err(foo);
@@ -216,7 +216,7 @@ mod tests {
     }
 
     #[test]
-    fn apply_delta_for_Err_Result_different_values() -> DeltaResult<()> {
+    fn Result_Err__apply__different_values() -> DeltaResult<()> {
         let foo = String::from("foo");
         let bar = String::from("bar");
         let box0 = Err(foo);

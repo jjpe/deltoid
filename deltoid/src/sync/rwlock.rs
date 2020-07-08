@@ -182,7 +182,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn calculate_delta_for_RwLock__same_values() -> DeltaResult<()> {
+    fn RwLock__delta__same_values() -> DeltaResult<()> {
         let s0 = RwLock::new(String::from("foo"));
         let s1 = RwLock::new(String::from("foo"));
         let delta: <RwLock<String> as Core>::Delta = s0.delta(&s1)?;
@@ -199,7 +199,7 @@ mod tests {
     }
 
     #[test]
-    fn calculate_delta_for_RwLock__different_values() -> DeltaResult<()> {
+    fn RwLock__delta__different_values() -> DeltaResult<()> {
         let s0 = RwLock::new(String::from("foo"));
         let s1 = RwLock::new(String::from("bar"));
         let delta: <RwLock<String> as Core>::Delta = s0.delta(&s1)?;
@@ -216,7 +216,7 @@ mod tests {
     }
 
     #[test]
-    fn apply_delta_for_RwLock_same_values() -> DeltaResult<()> {
+    fn RwLock__apply_same_values() -> DeltaResult<()> {
         let s0 = RwLock::new(String::from("foo"));
         let s1 = RwLock::new(String::from("foo"));
         let delta: <RwLock<String> as Core>::Delta = s0.delta(&s1)?;
@@ -226,7 +226,7 @@ mod tests {
     }
 
     #[test]
-    fn apply_delta_for_RwLock_different_values() -> DeltaResult<()> {
+    fn RwLock__apply_different_values() -> DeltaResult<()> {
         let s0 = RwLock::new(String::from("foo"));
         let s1 = RwLock::new(String::from("bar"));
         let delta: <RwLock<String> as Core>::Delta = s0.delta(&s1)?;

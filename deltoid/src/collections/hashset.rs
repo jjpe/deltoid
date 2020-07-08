@@ -168,64 +168,111 @@ mod tests {
     }
 
     #[test]
-    fn calculate_delta_for_HashSet() -> DeltaResult<()> {
-        let v0: HashSet<String> = set! {
+    fn HashSet__delta__same_values() -> DeltaResult<()> {
+        let set0: HashSet<String> = set! {
             "bar".into(),
             "foo".into(),
             "floozie".into(),
             "quux".into(),
         };
-        let v1: HashSet<String> = set! {
+        let set1: HashSet<String> = set! {
             "bar".into(),
-            "baz".into(),
             "foo".into(),
+            "floozie".into(),
             "quux".into(),
         };
-        let delta0 = v0.delta(&v1)?;
-        println!("delta0: {:#?}", delta0);
-        let expected = HashSetDelta(Some(vec![
-            EntryDelta::Add { item: "baz".to_string().into_delta()? },
-            EntryDelta::Remove { item: "floozie".to_string().into_delta()? },
-        ]));
-        assert_eq!(delta0, expected, "{:#?}\n    !=\n{:#?}", delta0, expected);
-        let v2 = v0.apply(delta0)?;
-        println!("v2: {:#?}", v2);
-        assert_eq!(v1, v2);
+        let delta = set0.delta(&set1)?;
+        let expected = HashSetDelta(None);
+        assert_eq!(delta, expected);
+        let set2 = set0.apply(delta)?;
+        assert_eq!(set0, set2);
+        assert_eq!(set1, set2);
 
-        let delta1 = v1.delta(&v0)?;
-        println!("delta1: {:#?}", delta1);
-        assert_eq!(delta1, HashSetDelta(Some(vec![
-            EntryDelta::Add { item: "floozie".to_string().into_delta()? },
-            EntryDelta::Remove { item: "baz".to_string().into_delta()? },
-        ])));
-        let v3 = v1.apply(delta1)?;
-        println!("v3: {:#?}", v3);
-        assert_eq!(v0, v3);
+        let delta = set1.delta(&set0)?;
+        assert_eq!(delta, HashSetDelta(None));
+        let set3 = set1.apply(delta)?;
+        assert_eq!(set0, set3);
+        assert_eq!(set1, set3);
 
         Ok(())
     }
 
     #[test]
-    fn apply_delta_to_HashSet() -> DeltaResult<()> {
-        let v0: HashSet<String> = set! {
+    fn HashSet__delta__different_values() -> DeltaResult<()> {
+        let set0: HashSet<String> = set! {
             "bar".into(),
             "foo".into(),
             "floozie".into(),
             "quux".into(),
         };
-        let delta = HashSetDelta(Some(vec![
-            EntryDelta::Add  { item: "baz".to_string().into_delta()? },
-            EntryDelta::Remove { item: "floozie".to_string().into_delta()? },
-        ]));
-        let v1 = v0.apply(delta)?;
-        let expected: HashSet<String> = set! {
+        let set1: HashSet<String> = set! {
             "bar".into(),
             "baz".into(),
             "foo".into(),
             "quux".into(),
         };
-        assert_eq!(expected, v1);
+        let delta0 = set0.delta(&set1)?;
+        let expected = HashSetDelta(Some(vec![
+            EntryDelta::Add { item: "baz".to_string().into_delta()? },
+            EntryDelta::Remove { item: "floozie".to_string().into_delta()? },
+        ]));
+        assert_eq!(delta0, expected);
+        let set2 = set0.apply(delta0)?;
+        assert_eq!(set1, set2);
+
+        let delta1 = set1.delta(&set0)?;
+        assert_eq!(delta1, HashSetDelta(Some(vec![
+            EntryDelta::Add { item: "floozie".to_string().into_delta()? },
+            EntryDelta::Remove { item: "baz".to_string().into_delta()? },
+        ])));
+        let set3 = set1.apply(delta1)?;
+        assert_eq!(set0, set3);
+
         Ok(())
     }
 
+    #[test]
+    fn HashSet__apply__same_values() -> DeltaResult<()> {
+        let set0: HashSet<String> = set! {
+            "bar".into(),
+            "foo".into(),
+            "floozie".into(),
+            "quux".into(),
+        };
+        let set1: HashSet<String> = set! {
+            "bar".into(),
+            "foo".into(),
+            "floozie".into(),
+            "quux".into(),
+        };
+        let delta = set0.delta(&set1)?;
+        assert_eq!(delta, HashSetDelta(None));
+        let set2 = set0.apply(delta)?;
+        assert_eq!(set1, set2);
+        Ok(())
+    }
+
+    #[test]
+    fn HashSet__apply__different_values() -> DeltaResult<()> {
+        let set0: HashSet<String> = set! {
+            "bar".into(),
+            "foo".into(),
+            "floozie".into(),
+            "quux".into(),
+        };
+        let set1: HashSet<String> = set! {
+            "bar".into(),
+            "baz".into(),
+            "foo".into(),
+            "quux".into(),
+        };
+        let delta = set0.delta(&set1)?;
+        assert_eq!(delta, HashSetDelta(Some(vec![
+            EntryDelta::Add { item: "baz".to_string().into_delta()? },
+            EntryDelta::Remove { item: "floozie".to_string().into_delta()? },
+        ])));
+        let set2 = set0.apply(delta)?;
+        assert_eq!(set1, set2);
+        Ok(())
+    }
 }

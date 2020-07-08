@@ -145,7 +145,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn calculate_delta_for_Cow__same_values() -> DeltaResult<()> {
+    fn Cow__delta___same_values() -> DeltaResult<()> {
         let foo = String::from("foo");
         let bar = String::from("foo");
         let cow:  Cow<String> = Cow::Borrowed(&foo);
@@ -163,7 +163,7 @@ mod tests {
     }
 
     #[test]
-    fn calculate_delta_for_Cow__different_values() -> DeltaResult<()> {
+    fn Cow__delta___different_values() -> DeltaResult<()> {
         let foo = String::from("foo");
         let bar = String::from("bar");
         let cow:  Cow<String> = Cow::Borrowed(&foo);
@@ -177,6 +177,30 @@ mod tests {
             &json_string
         ).expect("Could not deserialize from json");
         assert_eq!(delta, delta1);
+        Ok(())
+    }
+
+    #[test]
+    fn Cow__apply__same_values() -> DeltaResult<()> {
+        let foo = String::from("foo");
+        let bar = String::from("foo");
+        let cow0: Cow<String> = Cow::Owned(foo);
+        let cow1: Cow<String> = Cow::Owned(bar);
+        let delta: <Cow<String> as Core>::Delta = cow0.delta(&cow1)?;
+        let cow2 = cow0.apply(delta)?;
+        assert_eq!(cow1, cow2);
+        Ok(())
+    }
+
+    #[test]
+    fn Cow__apply__different_values() -> DeltaResult<()> {
+        let foo = String::from("foo");
+        let bar = String::from("bar");
+        let cow0: Cow<String> = Cow::Owned(foo);
+        let cow1: Cow<String> = Cow::Owned(bar);
+        let delta: <Cow<String> as Core>::Delta = cow0.delta(&cow1)?;
+        let cow2 = cow0.apply(delta)?;
+        assert_eq!(cow1, cow2);
         Ok(())
     }
 }

@@ -151,7 +151,6 @@ pub enum EntryDelta<T: Core> {
 
 
 
-
 #[allow(non_snake_case)]
 #[cfg(test)]
 mod tests {
@@ -167,64 +166,111 @@ mod tests {
     }
 
     #[test]
-    fn calculate_delta_for_BTreeSet() -> DeltaResult<()> {
-        let v0: BTreeSet<String> = set! {
+    fn BTreeSet__delta__same_values() -> DeltaResult<()> {
+        let set0: BTreeSet<String> = set! {
             "bar".into(),
             "foo".into(),
             "floozie".into(),
             "quux".into(),
         };
-        let v1: BTreeSet<String> = set! {
+        let set1: BTreeSet<String> = set! {
             "bar".into(),
-            "baz".into(),
             "foo".into(),
+            "floozie".into(),
             "quux".into(),
         };
-        let delta0 = v0.delta(&v1)?;
-        println!("delta0: {:#?}", delta0);
-        let expected = BTreeSetDelta(Some(vec![
-            EntryDelta::Add { item: "baz".to_string().into_delta()? },
-            EntryDelta::Remove { item: "floozie".to_string().into_delta()? },
-        ]));
-        assert_eq!(delta0, expected, "{:#?}\n    !=\n{:#?}", delta0, expected);
-        let v2 = v0.apply(delta0)?;
-        println!("v2: {:#?}", v2);
-        assert_eq!(v1, v2);
+        let delta = set0.delta(&set1)?;
+        let expected = BTreeSetDelta(None);
+        assert_eq!(delta, expected);
+        let set2 = set0.apply(delta)?;
+        assert_eq!(set0, set2);
+        assert_eq!(set1, set2);
 
-        let delta1 = v1.delta(&v0)?;
-        println!("delta1: {:#?}", delta1);
-        assert_eq!(delta1, BTreeSetDelta(Some(vec![
-            EntryDelta::Add { item: "floozie".to_string().into_delta()? },
-            EntryDelta::Remove { item: "baz".to_string().into_delta()? },
-        ])));
-        let v3 = v1.apply(delta1)?;
-        println!("v3: {:#?}", v3);
-        assert_eq!(v0, v3);
+        let delta = set1.delta(&set0)?;
+        assert_eq!(delta, BTreeSetDelta(None));
+        let set3 = set1.apply(delta)?;
+        assert_eq!(set0, set3);
+        assert_eq!(set1, set3);
 
         Ok(())
     }
 
     #[test]
-    fn apply_delta_to_BTreeSet() -> DeltaResult<()> {
-        let v0: BTreeSet<String> = set! {
+    fn BTreeSet__delta__different_values() -> DeltaResult<()> {
+        let set0: BTreeSet<String> = set! {
             "bar".into(),
             "foo".into(),
             "floozie".into(),
             "quux".into(),
         };
-        let delta = BTreeSetDelta(Some(vec![
-            EntryDelta::Add  { item: "baz".to_string().into_delta()? },
-            EntryDelta::Remove { item: "floozie".to_string().into_delta()? },
-        ]));
-        let v1 = v0.apply(delta)?;
-        let expected: BTreeSet<String> = set! {
+        let set1: BTreeSet<String> = set! {
             "bar".into(),
             "baz".into(),
             "foo".into(),
             "quux".into(),
         };
-        assert_eq!(expected, v1);
+        let delta0 = set0.delta(&set1)?;
+        let expected = BTreeSetDelta(Some(vec![
+            EntryDelta::Add { item: "baz".to_string().into_delta()? },
+            EntryDelta::Remove { item: "floozie".to_string().into_delta()? },
+        ]));
+        assert_eq!(delta0, expected);
+        let set2 = set0.apply(delta0)?;
+        assert_eq!(set1, set2);
+
+        let delta1 = set1.delta(&set0)?;
+        assert_eq!(delta1, BTreeSetDelta(Some(vec![
+            EntryDelta::Add { item: "floozie".to_string().into_delta()? },
+            EntryDelta::Remove { item: "baz".to_string().into_delta()? },
+        ])));
+        let set3 = set1.apply(delta1)?;
+        assert_eq!(set0, set3);
+
         Ok(())
     }
 
+    #[test]
+    fn BTreeSet__apply__same_values() -> DeltaResult<()> {
+        let set0: BTreeSet<String> = set! {
+            "bar".into(),
+            "foo".into(),
+            "floozie".into(),
+            "quux".into(),
+        };
+        let set1: BTreeSet<String> = set! {
+            "bar".into(),
+            "foo".into(),
+            "floozie".into(),
+            "quux".into(),
+        };
+        let delta = set0.delta(&set1)?;
+        assert_eq!(delta, BTreeSetDelta(None));
+        let set2 = set0.apply(delta)?;
+        assert_eq!(set1, set2);
+        Ok(())
+    }
+
+    #[test]
+    fn BTreeSet__apply__different_values() -> DeltaResult<()> {
+        let set0: BTreeSet<String> = set! {
+            "bar".into(),
+            "foo".into(),
+            "floozie".into(),
+            "quux".into(),
+        };
+        let set1: BTreeSet<String> = set! {
+            "bar".into(),
+            "baz".into(),
+            "foo".into(),
+            "quux".into(),
+        };
+        let delta = set0.delta(&set1)?;
+        assert_eq!(delta, BTreeSetDelta(Some(vec![
+            EntryDelta::Add { item: "baz".to_string().into_delta()? },
+            EntryDelta::Remove { item: "floozie".to_string().into_delta()? },
+        ])));
+        let set2 = set0.apply(delta)?;
+        assert_eq!(set1, set2);
+        Ok(())
+    }
 }

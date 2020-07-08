@@ -135,7 +135,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn calculate_delta_for_Range__same_values() -> DeltaResult<()> {
+    fn Range__delta___same_values() -> DeltaResult<()> {
         let range0 = 1..10;
         let range1 = 1..10;
         let delta: <Range<usize> as Core>::Delta = range0.delta(&range1)?;
@@ -151,7 +151,7 @@ mod tests {
     }
 
     #[test]
-    fn calculate_delta_for_Range__different_values() -> DeltaResult<()> {
+    fn Range__delta___different_values() -> DeltaResult<()> {
         let range0 = 1..10;
         let range1 = 1..11;
         let delta: <Range<usize> as Core>::Delta = range0.delta(&range1)?;
@@ -167,7 +167,7 @@ mod tests {
     }
 
     #[test]
-    fn apply_delta_for_Range_same_values() -> DeltaResult<()> {
+    fn Range__apply__same_values() -> DeltaResult<()> {
         let range0 = 1..10;
         let range1 = 1..10;
         let delta: <Range<usize> as Core>::Delta = range0.delta(&range1)?;
@@ -177,7 +177,7 @@ mod tests {
     }
 
     #[test]
-    fn apply_delta_for_Range_different_values() -> DeltaResult<()> {
+    fn Range__apply__different_values() -> DeltaResult<()> {
         let range0 = 1..10;
         let range1 = 1..11;
         let delta: <Range<usize> as Core>::Delta = range0.delta(&range1)?;

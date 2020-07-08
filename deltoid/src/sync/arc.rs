@@ -131,8 +131,6 @@ impl<'de, T: Core + Clone> Deserialize<'de> for ArcDelta<T> {
     }
 }
 
-
-
 #[allow(non_snake_case)]
 #[cfg(test)]
 mod tests {
@@ -140,7 +138,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn calculate_delta_for_Arc__same_values() -> DeltaResult<()> {
+    fn Arc__delta___same_values() -> DeltaResult<()> {
         let foo = String::from("foo");
         let bar = String::from("foo");
         let box0 = Arc::new(foo);
@@ -158,7 +156,7 @@ mod tests {
     }
 
     #[test]
-    fn calculate_delta_for_Arc__different_values() -> DeltaResult<()> {
+    fn Arc__delta___different_values() -> DeltaResult<()> {
         let foo = String::from("foo");
         let bar = String::from("bar");
         let box0 = Arc::new(foo);
@@ -176,7 +174,7 @@ mod tests {
     }
 
     #[test]
-    fn apply_delta_for_Arc_same_values() -> DeltaResult<()> {
+    fn Arc__apply__same_values() -> DeltaResult<()> {
         let foo = String::from("foo");
         let bar = String::from("foo");
         let box0 = Arc::new(foo);
@@ -188,7 +186,7 @@ mod tests {
     }
 
     #[test]
-    fn apply_delta_for_Arc_different_values() -> DeltaResult<()> {
+    fn Arc__apply__different_values() -> DeltaResult<()> {
         let foo = String::from("foo");
         let bar = String::from("bar");
         let box0 = Arc::new(foo);

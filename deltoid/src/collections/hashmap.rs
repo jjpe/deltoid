@@ -181,7 +181,6 @@ pub enum EntryDelta<K, V: Core> {
 
 
 
-
 #[allow(non_snake_case)]
 #[cfg(test)]
 mod tests {
@@ -197,67 +196,114 @@ mod tests {
     }
 
     #[test]
-    fn calculate_delta_for_HashMap() -> DeltaResult<()> {
-        let v0: HashMap<String, usize> = map! {
+    fn HashMap__delta__same_values() -> DeltaResult<()> {
+        let map0: HashMap<String, usize> = map! {
             "bar".into()     => 300usize,
             "foo".into()     =>  42usize,
             "floozie".into() =>  0usize,
             "quux".into()    => 16000usize,
         };
-        let v1: HashMap<String, usize> = map! {
-            "bar".into()  =>   350usize,
-            "baz".into()  =>  9000usize,
-            "foo".into()  =>    42usize,
-            "quux".into() => 16000usize,
+        let map1: HashMap<String, usize> = map! {
+            "bar".into()     => 300usize,
+            "foo".into()     =>  42usize,
+            "floozie".into() =>  0usize,
+            "quux".into()    => 16000usize,
         };
-        let delta0 = v0.delta(&v1)?;
-        println!("delta0: {:#?}", delta0);
-        let expected = HashMapDelta(Some(vec![
-            EntryDelta::Edit { key: "bar".into(),  value:   350usize.into_delta()? },
-            EntryDelta::Add  { key: "baz".into(),  value:  9000usize.into_delta()? },
-            EntryDelta::Remove { key: "floozie".into() },
-        ]));
-        assert_eq!(delta0, expected, "{:#?}\n    !=\n{:#?}", delta0, expected);
-        let v2 = v0.apply(delta0)?;
-        println!("v2: {:#?}", v2);
-        assert_eq!(v1, v2);
+        let delta = map0.delta(&map1)?;
+        let expected = HashMapDelta(None);
+        assert_eq!(delta, expected);
+        let map2 = map0.apply(delta)?;
+        assert_eq!(map0, map2);
+        assert_eq!(map1, map2);
 
-        let delta1 = v1.delta(&v0)?;
-        println!("delta1: {:#?}", delta1);
-        assert_eq!(delta1, HashMapDelta(Some(vec![
-            EntryDelta::Edit { key: "bar".into(),     value: 300usize.into_delta()? },
-            EntryDelta::Add  { key: "floozie".into(), value:   0usize.into_delta()? },
-            EntryDelta::Remove { key: "baz".into() },
-        ])));
-        let v3 = v1.apply(delta1)?;
-        println!("v3: {:#?}", v3);
-        assert_eq!(v0, v3);
+        let delta = map1.delta(&map0)?;
+        assert_eq!(delta, HashMapDelta(None));
+        let map3 = map1.apply(delta)?;
+        assert_eq!(map0, map3);
+        assert_eq!(map1, map3);
 
         Ok(())
     }
 
     #[test]
-    fn apply_delta_to_HashMap() -> DeltaResult<()> {
-        let v0: HashMap<String, usize> = map! {
+    fn HashMap__delta__different_values() -> DeltaResult<()> {
+        let map0: HashMap<String, usize> = map! {
             "bar".into()     => 300usize,
             "foo".into()     =>  42usize,
             "floozie".into() =>  0usize,
             "quux".into()    => 16000usize,
         };
-        let delta = HashMapDelta(Some(vec![
-            EntryDelta::Edit { key: "bar".into(),  value:   350usize.into_delta()? },
-            EntryDelta::Add  { key: "baz".into(),  value:  9000usize.into_delta()? },
-            EntryDelta::Remove { key: "floozie".into() },
-        ]));
-        let v1 = v0.apply(delta)?;
-        let expected: HashMap<String, usize> = map! {
+        let map1: HashMap<String, usize> = map! {
             "bar".into()  =>   350usize,
             "baz".into()  =>  9000usize,
             "foo".into()  =>    42usize,
             "quux".into() => 16000usize,
         };
-        assert_eq!(expected, v1);
+        let delta0 = map0.delta(&map1)?;
+        let expected = HashMapDelta(Some(vec![
+            EntryDelta::Edit { key: "bar".into(),  value:   350usize.into_delta()? },
+            EntryDelta::Add  { key: "baz".into(),  value:  9000usize.into_delta()? },
+            EntryDelta::Remove { key: "floozie".into() },
+        ]));
+        assert_eq!(delta0, expected);
+        let map2 = map0.apply(delta0)?;
+        assert_eq!(map1, map2);
+
+        let delta1 = map1.delta(&map0)?;
+        assert_eq!(delta1, HashMapDelta(Some(vec![
+            EntryDelta::Edit { key: "bar".into(),     value: 300usize.into_delta()? },
+            EntryDelta::Add  { key: "floozie".into(), value:   0usize.into_delta()? },
+            EntryDelta::Remove { key: "baz".into() },
+        ])));
+        let map3 = map1.apply(delta1)?;
+        assert_eq!(map0, map3);
+
         Ok(())
     }
 
+    #[test]
+    fn HashMap__apply__same_values() -> DeltaResult<()> {
+        let map0: HashMap<String, usize> = map! {
+            "bar".into()     => 300usize,
+            "foo".into()     =>  42usize,
+            "floozie".into() =>  0usize,
+            "quux".into()    => 16000usize,
+        };
+        let map1: HashMap<String, usize> = map! {
+            "bar".into()     => 300usize,
+            "foo".into()     =>  42usize,
+            "floozie".into() =>  0usize,
+            "quux".into()    => 16000usize,
+        };
+        let delta = map0.delta(&map1)?;
+        assert_eq!(delta, HashMapDelta(None));
+        let map2 = map0.apply(delta)?;
+        assert_eq!(map1, map2);
+        Ok(())
+    }
+
+    #[test]
+    fn HashMap__apply__different_values() -> DeltaResult<()> {
+        let map0: HashMap<String, usize> = map! {
+            "bar".into()     => 300usize,
+            "foo".into()     =>  42usize,
+            "floozie".into() =>  0usize,
+            "quux".into()    => 16000usize,
+        };
+        let map1: HashMap<String, usize> = map! {
+            "bar".into()  =>   350usize,
+            "baz".into()  =>  9000usize,
+            "foo".into()  =>    42usize,
+            "quux".into() => 16000usize,
+        };
+        let delta = map0.delta(&map1)?;
+        assert_eq!(delta, HashMapDelta(Some(vec![
+            EntryDelta::Edit { key: "bar".into(),  value:   350usize.into_delta()? },
+            EntryDelta::Add  { key: "baz".into(),  value:  9000usize.into_delta()? },
+            EntryDelta::Remove { key: "floozie".into() },
+        ])));
+        let map2 = map0.apply(delta)?;
+        assert_eq!(map1, map2);
+        Ok(())
+    }
 }

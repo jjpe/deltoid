@@ -45,7 +45,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn calculate_delta_for_String__same_values() -> DeltaResult<()> {
+    fn String__delta__same_values() -> DeltaResult<()> {
         let s0 = String::from("foo");
         let s1 = String::from("foo");
         let delta: <String as Core>::Delta = s0.delta(&s1)?;
@@ -62,7 +62,7 @@ mod tests {
     }
 
     #[test]
-    fn calculate_delta_for_String__different_values() -> DeltaResult<()> {
+    fn String__delta__different_values() -> DeltaResult<()> {
         let s0 = String::from("foo");
         let s1 = String::from("bar");
         let delta: <String as Core>::Delta = s0.delta(&s1)?;
@@ -79,7 +79,7 @@ mod tests {
     }
 
     #[test]
-    fn apply_delta_for_String_same_values() -> DeltaResult<()> {
+    fn String__apply__same_values() -> DeltaResult<()> {
         let s0 = String::from("foo");
         let s1 = String::from("foo");
         let delta: <String as Core>::Delta = s0.delta(&s1)?;
@@ -89,7 +89,7 @@ mod tests {
     }
 
     #[test]
-    fn apply_delta_for_String_different_values() -> DeltaResult<()> {
+    fn String__apply__different_values() -> DeltaResult<()> {
         let s0 = String::from("foo");
         let s1 = String::from("bar");
         let delta: <String as Core>::Delta = s0.delta(&s1)?;

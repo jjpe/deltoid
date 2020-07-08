@@ -143,56 +143,93 @@ mod tests {
     use super::*;
 
     #[test]
-    fn calculate_delta_for_Vec() -> DeltaResult<()> {
-        let v0: Vec<i32> = vec![1, 3, 10, 30];
-        let v1: Vec<i32> = vec![1, 3, 10, 49, 30, 500];
-        let delta0 = v0.delta(&v1)?;
-        println!("delta0: {:#?}", delta0);
-        assert_eq!(delta0, VecDelta(vec![
-            EltDelta::Edit { index: 3, item:  49.into_delta()?, },
-            EltDelta::Add(30.into_delta()?),
-            EltDelta::Add(500.into_delta()?),
-        ]));
-        let v2 = v0.apply(delta0)?;
-        println!("v2: {:#?}", v2);
-        assert_eq!(v1, v2);
+    fn Vec__delta__same_values() -> DeltaResult<()> {
+        let vec0: Vec<i32> = vec![1, 3, 10, 30];
+        let vec1: Vec<i32> = vec![1, 3, 10, 30];
+        assert_eq!(vec0, vec1);
 
-        let delta1 = v1.delta(&v0)?;
-        println!("delta1: {:#?}", delta1);
-        assert_eq!(delta1, VecDelta(vec![
-            EltDelta::Edit { index: 3, item: 30.into_delta()?, },
-            EltDelta::Remove  { count: 2, },
-        ]));
-        let v3 = v1.apply(delta1)?;
-        println!("v3: {:#?}", v3);
-        assert_eq!(v0, v3);
+        let delta = vec0.delta(&vec1)?;
+        assert_eq!(delta, VecDelta(vec![]));
+        let vec2 = vec0.apply(delta)?;
+        assert_eq!(vec1, vec2);
 
-        let v0 = vec![1, 3, 10, 49, 30, 500];
-        let v1 = vec![1, 3, 10, 30, 500, 49];
-        let delta0 = v0.delta(&v1)?;
-        println!("delta0: {:#?}", delta0);
-        assert_eq!(delta0, VecDelta(vec![
-            EltDelta::Edit { index: 3, item:  30i32.into_delta()?, },
-            EltDelta::Edit { index: 4, item: 500i32.into_delta()?, },
-            EltDelta::Edit { index: 5, item:  49i32.into_delta()?, },
-        ]));
-        let v2 = v0.apply(delta0)?;
-        println!("v2: {:#?}", v2);
-        assert_eq!(v1, v2);
+        let delta = vec1.delta(&vec0)?;
+        assert_eq!(delta, VecDelta(vec![]));
+        let vec3 = vec1.apply(delta)?;
+        assert_eq!(vec0, vec3);
 
         Ok(())
     }
 
     #[test]
-    fn apply_delta_to_Vec() -> DeltaResult<()> {
-        let v0 = vec![1,3,10,30, 30];
-        let delta = VecDelta(vec![
+    fn Vec__delta__different_values__same_length() -> DeltaResult<()> {
+        let vec0 = vec![1, 3, 10, 49, 30, 500];
+        let vec1 = vec![1, 3, 10, 30, 500, 49];
+
+        let delta0 = vec0.delta(&vec1)?;
+        assert_eq!(delta0, VecDelta(vec![
+            EltDelta::Edit { index: 3, item:  30i32.into_delta()?, },
+            EltDelta::Edit { index: 4, item: 500i32.into_delta()?, },
+            EltDelta::Edit { index: 5, item:  49i32.into_delta()?, },
+        ]));
+        let vec2 = vec0.apply(delta0)?;
+        assert_eq!(vec1, vec2);
+
+        let delta = vec1.delta(&vec0)?;
+        assert_eq!(delta, VecDelta(vec![
             EltDelta::Edit { index: 3, item:  49i32.into_delta()?, },
-            EltDelta::Add(500i32.into_delta()?),
-        ]);
-        let v1 = v0.apply(delta)?;
-        let expected = vec![1,3,10,49, 30, 500];
-        assert_eq!(expected, v1);
+            EltDelta::Edit { index: 4, item:  30i32.into_delta()?, },
+            EltDelta::Edit { index: 5, item: 500i32.into_delta()?, },
+        ]));
+        let vec3 = vec1.apply(delta)?;
+        assert_eq!(vec0, vec3);
+
         Ok(())
     }
+
+    #[test]
+    fn Vec__delta__different_values__different_length() -> DeltaResult<()> {
+        let vec0: Vec<i32> = vec![1, 3, 10, 30];
+        let vec1: Vec<i32> = vec![1, 3, 10, 49, 30, 500];
+
+        let delta0 = vec0.delta(&vec1)?;
+        assert_eq!(delta0, VecDelta(vec![
+            EltDelta::Edit { index: 3, item:  49.into_delta()?, },
+            EltDelta::Add(30.into_delta()?),
+            EltDelta::Add(500.into_delta()?),
+        ]));
+        let vec2 = vec0.apply(delta0)?;
+        assert_eq!(vec1, vec2);
+
+        let delta = vec1.delta(&vec0)?;
+        assert_eq!(delta, VecDelta(vec![
+            EltDelta::Edit { index: 3, item: 30.into_delta()?, },
+            EltDelta::Remove  { count: 2, },
+        ]));
+        let vec3 = vec1.apply(delta)?;
+        assert_eq!(vec0, vec3);
+
+        Ok(())
+    }
+
+    #[test]
+    fn Vec__apply__different_values__same_length() -> DeltaResult<()> {
+        let vec0 = vec![1, 3, 10, 30, 30];
+        let vec1 = vec![1, 3, 10, 30, 40];
+        let delta = vec0.delta(&vec1)?;
+        let vec2 = vec0.apply(delta)?;
+        assert_eq!(vec1, vec2);
+        Ok(())
+    }
+
+    #[test]
+    fn Vec__apply__different_values__different_length() -> DeltaResult<()> {
+        let vec0 = vec![1, 3, 10, 30, 30];
+        let vec1 = vec![1, 3, 10, 30, 30, 40];
+        let delta = vec0.delta(&vec1)?;
+        let vec2 = vec0.apply(delta)?;
+        assert_eq!(vec1, vec2);
+        Ok(())
+    }
+
 }

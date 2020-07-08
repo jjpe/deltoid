@@ -143,7 +143,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn calculate_delta_for_Box__same_values() -> DeltaResult<()> {
+    fn Box__delta__same_values() -> DeltaResult<()> {
         let foo = String::from("foo");
         let bar = String::from("foo");
         let box0 = Box::new(foo);
@@ -161,7 +161,7 @@ mod tests {
     }
 
     #[test]
-    fn calculate_delta_for_Box__different_values() -> DeltaResult<()> {
+    fn Box__delta__different_values() -> DeltaResult<()> {
         let foo = String::from("foo");
         let bar = String::from("bar");
         let box0 = Box::new(foo);
@@ -179,7 +179,7 @@ mod tests {
     }
 
     #[test]
-    fn apply_delta_for_Box_same_values() -> DeltaResult<()> {
+    fn Box__apply__same_values() -> DeltaResult<()> {
         let foo = String::from("foo");
         let bar = String::from("foo");
         let box0 = Box::new(foo);
@@ -191,7 +191,7 @@ mod tests {
     }
 
     #[test]
-    fn apply_delta_for_Box_different_values() -> DeltaResult<()> {
+    fn Box__apply__different_values() -> DeltaResult<()> {
         let foo = String::from("foo");
         let bar = String::from("bar");
         let box0 = Box::new(foo);

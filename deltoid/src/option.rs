@@ -79,3 +79,71 @@ pub enum OptionDelta<T: Core> {
     None,
     Some(<T as Core>::Delta),
 }
+
+
+#[allow(non_snake_case)]
+#[cfg(test)]
+mod tests {
+    use serde_json;
+    use super::*;
+
+    #[test]
+    fn Option__delta__same_values() -> DeltaResult<()> {
+        let foo = String::from("foo");
+        let bar = String::from("foo");
+        let option0 = Some(foo);
+        let option1 = Some(bar);
+        let delta: <Option<String> as Core>::Delta = option0.delta(&option1)?;
+        let json_string = serde_json::to_string(&delta)
+            .expect("Could not serialize to json");
+        println!("json_string: \"{}\"", json_string);
+        assert_eq!(json_string, "{\"Some\":\"foo\"}");
+        let delta1: <Option<String> as Core>::Delta = serde_json::from_str(
+            &json_string
+        ).expect("Could not deserialize from json");
+        assert_eq!(delta, delta1);
+        Ok(())
+    }
+
+    #[test]
+    fn Option__delta__different_values() -> DeltaResult<()> {
+        let foo = String::from("foo");
+        let bar = String::from("bar");
+        let option0 = Some(foo);
+        let option1 = Some(bar);
+        let delta: <Option<String> as Core>::Delta = option0.delta(&option1)?;
+        let json_string = serde_json::to_string(&delta)
+            .expect("Could not serialize to json");
+        println!("json_string: \"{}\"", json_string);
+        assert_eq!(json_string, "{\"Some\":\"bar\"}");
+        let delta1: <Option<String> as Core>::Delta = serde_json::from_str(
+            &json_string
+        ).expect("Could not deserialize from json");
+        assert_eq!(delta, delta1);
+        Ok(())
+    }
+
+    #[test]
+    fn Option__apply__same_values() -> DeltaResult<()> {
+        let foo = String::from("foo");
+        let bar = String::from("foo");
+        let option0 = Some(foo);
+        let option1 = Some(bar);
+        let delta: <Option<String> as Core>::Delta = option0.delta(&option1)?;
+        let option2 = option0.apply(delta)?;
+        assert_eq!(option1, option2);
+        Ok(())
+    }
+
+    #[test]
+    fn Option__apply__different_values() -> DeltaResult<()> {
+        let foo = String::from("foo");
+        let bar = String::from("bar");
+        let option0 = Some(foo);
+        let option1 = Some(bar);
+        let delta: <Option<String> as Core>::Delta = option0.delta(&option1)?;
+        let option2 = option0.apply(delta)?;
+        assert_eq!(option1, option2);
+        Ok(())
+    }
+}
