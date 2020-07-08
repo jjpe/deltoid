@@ -16,7 +16,13 @@ jobs:
     # - name: Run tests
     #   run: cargo test --verbose
 
-    - name: Print PD
+    - name: Print PWD
+      run: echo "pwd=$(pwd)"
+
+    - name: Change PWD
+      run: echo "cd .."
+
+    - name: Print PWD
       run: echo "pwd=$(pwd)"
 
 
