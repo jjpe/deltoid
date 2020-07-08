@@ -15,8 +15,8 @@ resource consumption (e.g. RAM, network bandwidth) reasonable.  Since such a
 sequence may be exported for further processing, delta's are by definition
 de/serializable.  This allows you to collect the data in once place as a
 sequence of delta's, export it (perhaps over a network connection), and then
-reconstruct the series on the receiving side by successively applying the
-delta's in the sequence.
+reconstruct original sequence on the receiving side by successively applying
+the delta's in the sequence.
 
 [deltas]: https://en.wikipedia.org/wiki/Delta_encoding
 
