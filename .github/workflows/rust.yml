@@ -27,26 +27,34 @@ jobs:
 
 
     - name: Build deltoid
-      run: cargo build --manifest-path /home/runner/work/deltoid//deltoid/Cargo.toml --verbose
+      working-directory: deltoid
+      run: cargo build --verbose
 
     - name: Run tests for deltoid
-      run: cargo test --manifest-path /home/runner/work/deltoid//deltoid/Cargo.toml --verbose
+      working-directory: deltoid
+      run: cargo test  --verbose
 
     - name: Build deltoid (--features="snapshot")
-      run: cargo build --manifest-path /home/runner/work/deltoid//deltoid/Cargo.toml --verbose --features="snapshot"
+      working-directory: deltoid
+      run: cargo build --verbose --features="snapshot"
 
     - name: Run tests for deltoid (--features="snapshot")
-      run: cargo test --manifest-path /home/runner/work/deltoid//deltoid/Cargo.toml --verbose --features="snapshot"
+      working-directory: deltoid
+      run: cargo test --verbose --features="snapshot"
 
 
     - name: Build deltoid-derive
-      run: cargo build --manifest-path /home/runner/work/deltoid//deltoid-derive/Cargo.toml --verbose
+      working-directory: deltoid-derive
+      run: cargo build --verbose
 
     - name: Run tests for deltoid-derive
-      run: cargo test --manifest-path /home/runner/work/deltoid//deltoid-derive/Cargo.toml --verbose
+      working-directory: deltoid-derive
+      run: cargo test --verbose
 
     - name: Build deltoid-derive (--features="snapshot")
-      run: cargo build --manifest-path /home/runner/work/deltoid//deltoid-derive/Cargo.toml --verbose --features="snapshot"
+      working-directory: deltoid-derive
+      run: cargo build --verbose --features="snapshot"
 
     - name: Run tests for deltoid-derive (--features="snapshot")
-      run: cargo test --manifest-path /home/runner/work/deltoid//deltoid-derive/Cargo.toml --verbose --features="snapshot"
+      working-directory: deltoid-derive
+      run: cargo test --verbose --features="snapshot"
