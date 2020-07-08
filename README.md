@@ -1,5 +1,7 @@
 # Deltoid
 
+![Rust](https://github.com/jjpe/deltoid/workflows/Rust/badge.svg)
+
 ## Synopsis
 
 **Deltoid** is a rust library that can be used to calculate a [delta] `Δ`
