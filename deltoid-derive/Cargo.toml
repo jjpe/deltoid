@@ -1,6 +1,6 @@
 [package]
 name = "deltoid-derive"
-version = "0.4.0"
+version = "0.5.0"
 authors = ["Joey Ezechiels <joey.ezechiels@gmail.com>"]
 edition = "2018"
 description = "Derive macro that generates code to calculate and apply deltas to structs and enums"
@@ -10,7 +10,7 @@ license = "MIT OR Apache-2.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-deltoid = "0.4"
+deltoid = "0.5"
 itertools = "0.9"
 proc-macro2 = "1.0"
 quote = "1.0"
