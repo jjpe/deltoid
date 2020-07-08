@@ -1,20 +1,17 @@
 # Deltoid
 
-> The little things make all the difference
+A rust library (the `deltoid` crate) and derive macro (the `deltoid-derive`
+crate) that can be used to calculate a delta `Δ` between 2 values `a` and `b`
+of the same type.  Once calculated, `Δ` can then be applied to the first value
+`a` to obtain a new value `c` that is equivalent to the second value `b`.
 
-A rust library and derive macro that can be used to calculate a delta `Δ`
-between 2 values of the same type, `a` and `b`.  Once calculated, `Δ` can
-then be applied to the first value `a` to obtain a new value `c` that is
-equivalent to the second value `b`.
-
-A main use case for calculating delta's is to keep track of a history of
-composed values (i.e. defined with `struct` or `enum`) while making sure
-to keep consumption of resources (e.g. RAM, network bandwidth) reasonable.
-Since a history may be exported for further processing, delta's are by
-definition de/serializable. This allows gathering the data in once place
-as a sequence of delta's, export it (perhaps over a network connection),
-and then reconstruct the history on the receiving side by successively
-applying the delta's in the sequence.
+A primary use case for calculating delta's is to keep track of a series of
+deeply-nested data trees while making sure to keep consumption of resources
+(e.g. RAM, network bandwidth) reasonable. Since such a series of trees may be
+exported for further processing, delta's are by definition de/serializable.
+This allows you to collect the data in once place as a sequence of delta's,
+export it (perhaps over a network connection), and then reconstruct the series
+on the receiving side by successively applying the delta's in the sequence.
 
 
 ### Usage
@@ -23,7 +20,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-deltoid = "0.3"
+deltoid = "0.5"
 ```
 
 
@@ -47,7 +44,7 @@ fn main() {
     // Calculate the delta between them
     let delta = point0.delta(&point1).unwrap();
 
-    let point2 = point0.apply_delta(&delta).unwrap();
+    let point2 = point0.apply(delta).unwrap();
     assert_eq!(point1, point2);
 }
 ```
@@ -58,9 +55,8 @@ fn main() {
 
 There are some limitations to this library:
 
-1. Unions are not supported. Only `struct`s and `enum`s are supported.
+1. Unions are not supported. Only `struct`s and `enum`s are currently supported.
 
-2. The derive macro can be used on simple generic types, but
-      types making use of advanced generics are not supported.
-      In such cases, it is better to manually implement the
-      `Deltoid` trait for your type.
+2. The derive macro tries to accommodate generic types, but for types making
+   use of advanced generics a manual implementation is generally recommended
+   because it allows for finer control.
