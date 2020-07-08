@@ -10,22 +10,6 @@ jobs:
     steps:
     - uses: actions/checkout@v1
 
-    # - name: Build
-    #   run: cargo build --verbose
-
-    # - name: Run tests
-    #   run: cargo test --verbose
-
-    # - name: Print PWD
-    #   run: echo "pwd=$(pwd)"
-
-    # - name: Change PWD
-    #   run: echo "cd .."
-
-    # - name: Print PWD
-    #   run: echo "pwd=$(pwd)"
-
-
     - name: Build deltoid
       working-directory: deltoid
       run: cargo build --verbose
@@ -42,7 +26,6 @@ jobs:
       working-directory: deltoid
       run: cargo test --verbose --features="snapshot"
 
-
     - name: Build deltoid-derive
       working-directory: deltoid-derive
       run: cargo build --verbose
@@ -51,10 +34,5 @@ jobs:
       working-directory: deltoid-derive
       run: cargo test --verbose
 
-    - name: Build deltoid-derive (--features="snapshot")
-      working-directory: deltoid-derive
-      run: cargo build --verbose --features="snapshot"
-
-    - name: Run tests for deltoid-derive (--features="snapshot")
-      working-directory: deltoid-derive
-      run: cargo test --verbose --features="snapshot"
+      # NOTE: Don't perform "snapshot" builds for the `deltoid-derive` crate,
+      #       as that feature is only available for the `deltoid` crate.
