@@ -65,3 +65,8 @@ There are some limitations to this library:
 2. The derive macro tries to accommodate generic types, but for types making
    use of advanced generics a manual implementation is generally recommended
    because it allows for finer control.
+
+3. Types that have fields that have a borrow type (i.e. `&T` and `&mut T`
+   for some type `T`) are not currently supported.  This limitation *may*
+   be lifted in the future for mutable borrows, but is pretty fundamental
+   for immutable borrows.
