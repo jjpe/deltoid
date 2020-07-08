@@ -9,11 +9,38 @@ jobs:
 
     steps:
     - uses: actions/checkout@v1
-    - name: Build
-      run: cargo build --verbose
-    - name: Run tests
-      run: cargo test --verbose
-    - name: Build (--features="snapshot")
-      run: cargo build --verbose --features="snapshot"
-    - name: Run tests (--features="snapshot")
-      run: cargo test --verbose --features="snapshot"
+
+    # - name: Build
+    #   run: cargo build --verbose
+
+    # - name: Run tests
+    #   run: cargo test --verbose
+
+    - name: Print PD
+      run: echo "pwd=$(pwd)"
+
+
+    - name: Build deltoid
+      run: cargo build --manifest-path ./deltoid/Cargo.toml --verbose
+
+    - name: Run tests for deltoid
+      run: cargo test --verbose ./deltoid/Cargo.toml
+
+    - name: Build deltoid (--features="snapshot")
+      run: cargo build --manifest-path ./deltoid/Cargo.toml --verbose --features="snapshot"
+
+    - name: Run tests for deltoid (--features="snapshot")
+      run: cargo test --verbose ./deltoid/Cargo.toml --features="snapshot"
+
+
+    - name: Build deltoid-derive
+      run: cargo build --manifest-path ./deltoid-derive/Cargo.toml --verbose
+
+    - name: Run tests for deltoid-derive
+      run: cargo test --verbose ./deltoid-derive/Cargo.toml
+
+    - name: Build deltoid-derive (--features="snapshot")
+      run: cargo build --manifest-path ./deltoid-derive/Cargo.toml --verbose --features="snapshot"
+
+    - name: Run tests for deltoid-derive (--features="snapshot")
+      run: cargo test --verbose ./deltoid-derive/Cargo.toml --features="snapshot"
