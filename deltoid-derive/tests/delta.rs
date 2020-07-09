@@ -74,7 +74,7 @@ pub struct Plow(std::borrow::Cow<'static, String>);
 
 
 #[test]
-pub fn generic_struct__calculate_delta() -> DeltaResult<()> {
+pub fn struct__delta() -> DeltaResult<()> {
     let val0: Foo0<u16> = Foo0 {
         f0: (),
         f1: 42 as u16,
@@ -96,7 +96,7 @@ pub fn generic_struct__calculate_delta() -> DeltaResult<()> {
 }
 
 #[test]
-pub fn generic_struct__apply() -> DeltaResult<()>  {
+pub fn struct__apply() -> DeltaResult<()>  {
     let val0: Foo0<u16> = Foo0 {
         f0: (),
         f1: 42 as u16,
@@ -120,7 +120,7 @@ pub fn generic_struct__apply() -> DeltaResult<()>  {
 
 
 #[test]
-pub fn generic_tuple_struct__calculate_delta() -> DeltaResult<()> {
+pub fn tuple_struct__delta() -> DeltaResult<()> {
     let val0: Bar<u16> = Bar(42u8, 300u16);
     let val1: Bar<u16> = Bar(100u8, 300u16);
     let delta: BarDelta<u16> = val0.delta(&val1)?;
@@ -133,7 +133,7 @@ pub fn generic_tuple_struct__calculate_delta() -> DeltaResult<()> {
 }
 
 #[test]
-pub fn generic_tuple_struct__apply() -> DeltaResult<()>  {
+pub fn tuple_struct__apply() -> DeltaResult<()>  {
     let val0: Bar<u16> = Bar(42u8, 300u16);
     let delta: BarDelta<u16> = BarDelta(
         Some(100u8.into_delta()?),
@@ -146,7 +146,7 @@ pub fn generic_tuple_struct__apply() -> DeltaResult<()>  {
 }
 
 #[test]
-pub fn generic_unit_struct__calculate_delta() -> DeltaResult<()> {
+pub fn unit_struct__delta() -> DeltaResult<()> {
     let val0 = Baz;
     let val1 = Baz;
     let delta: BazDelta = val0.delta(&val1)?;
@@ -156,7 +156,7 @@ pub fn generic_unit_struct__calculate_delta() -> DeltaResult<()> {
 }
 
 #[test]
-pub fn generic_unit_struct__apply() -> DeltaResult<()>  {
+pub fn unit_struct__apply() -> DeltaResult<()>  {
     let val0 = Baz;
     let delta: BazDelta = BazDelta;
     let val1: Baz = val0.apply(delta)?;

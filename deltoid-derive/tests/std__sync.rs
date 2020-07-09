@@ -83,7 +83,7 @@ fn RwLock__apply() {
 }
 
 #[test]
-fn RwLock__calculate_delta() {
+fn RwLock__delta() {
     let value0: RwLock<Foo> = RwLock::new(Foo {
         field0: "flapjacks are fun".to_string(),
         field1: 42,
@@ -115,7 +115,7 @@ fn RwLock__calculate_delta() {
 
 
 #[test]
-fn Arc__calculate_delta() -> DeltaResult<()> {
+fn Arc__delta() -> DeltaResult<()> {
     let v0 = Arc::new(Foo { field0: "hello world".to_string(),   field1: 42 });
     let v1 = Arc::new(Foo { field0: "hello world!!".to_string(), field1: 42 });
     let delta0 = v0.delta(&v1)?;

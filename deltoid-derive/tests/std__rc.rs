@@ -16,7 +16,7 @@ struct Foo1 {
 }
 
 #[test]
-fn Rc__calculate_delta() -> DeltaResult<()> {
+fn Rc__delta() -> DeltaResult<()> {
     let v0 = Rc::new(Foo1 { s: "hello world".to_string(), i: 42 });
     let v1 = Rc::new(Foo1 { s: "hello world!!".to_string(), i: 42 });
     let delta0 = v0.delta(&v1)?;
