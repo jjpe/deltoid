@@ -815,10 +815,19 @@ mod tests {
         let array0: [u16; 2] = [10,  20];
         let array1: [u16; 2] = [42, 300];
         let delta: <[u16; 2] as Core>::Delta = array0.delta(&array1)?;
-        let json_string = serde_json::to_string(&delta)
+        let json_string = serde_json::to_string_pretty(&delta)
             .expect("Could not serialize to json");
         println!("json_string: \"{}\"", json_string);
-        assert_eq!(json_string, "[{\"delta\":42,\"index\":0},{\"delta\":300,\"index\":1}]");
+        assert_eq!(json_string, "[
+  {
+    \"delta\": 42,
+    \"index\": 0
+  },
+  {
+    \"delta\": 300,
+    \"index\": 1
+  }
+]");
         let delta1: <[u16; 2] as Core>::Delta = serde_json::from_str(
             &json_string
         ).expect("Could not deserialize from json");
@@ -869,10 +878,23 @@ mod tests {
         let array0: [u16; 3] = [10,  20, 9000];
         let array1: [u16; 3] = [42, 300, 89];
         let delta: <[u16; 3] as Core>::Delta = array0.delta(&array1)?;
-        let json_string = serde_json::to_string(&delta)
+        let json_string = serde_json::to_string_pretty(&delta)
             .expect("Could not serialize to json");
         println!("json_string: \"{}\"", json_string);
-        assert_eq!(json_string, "[{\"delta\":42,\"index\":0},{\"delta\":300,\"index\":1},{\"delta\":89,\"index\":2}]");
+        assert_eq!(json_string, "[
+  {
+    \"delta\": 42,
+    \"index\": 0
+  },
+  {
+    \"delta\": 300,
+    \"index\": 1
+  },
+  {
+    \"delta\": 89,
+    \"index\": 2
+  }
+]");
         let delta1: <[u16; 3] as Core>::Delta = serde_json::from_str(
             &json_string
         ).expect("Could not deserialize from json");
@@ -923,10 +945,27 @@ mod tests {
         let array0: [u16; 4] = [10,  20, 9000, 28];
         let array1: [u16; 4] = [42, 300, 89, 1];
         let delta: <[u16; 4] as Core>::Delta = array0.delta(&array1)?;
-        let json_string = serde_json::to_string(&delta)
+        let json_string = serde_json::to_string_pretty(&delta)
             .expect("Could not serialize to json");
         println!("json_string: \"{}\"", json_string);
-        assert_eq!(json_string, "[{\"delta\":42,\"index\":0},{\"delta\":300,\"index\":1},{\"delta\":89,\"index\":2},{\"delta\":1,\"index\":3}]");
+        assert_eq!(json_string, "[
+  {
+    \"delta\": 42,
+    \"index\": 0
+  },
+  {
+    \"delta\": 300,
+    \"index\": 1
+  },
+  {
+    \"delta\": 89,
+    \"index\": 2
+  },
+  {
+    \"delta\": 1,
+    \"index\": 3
+  }
+]");
         let delta1: <[u16; 4] as Core>::Delta = serde_json::from_str(
             &json_string
         ).expect("Could not deserialize from json");
@@ -977,10 +1016,31 @@ mod tests {
         let array0: [u16; 5] = [10,  20, 9000, 28,  17];
         let array1: [u16; 5] = [42, 300,   89,  1, 456];
         let delta: <[u16; 5] as Core>::Delta = array0.delta(&array1)?;
-        let json_string = serde_json::to_string(&delta)
+        let json_string = serde_json:: to_string_pretty(&delta)
             .expect("Could not serialize to json");
         println!("json_string: \"{}\"", json_string);
-        assert_eq!(json_string, "[{\"delta\":42,\"index\":0},{\"delta\":300,\"index\":1},{\"delta\":89,\"index\":2},{\"delta\":1,\"index\":3},{\"delta\":456,\"index\":4}]");
+        assert_eq!(json_string, "[
+  {
+    \"delta\": 42,
+    \"index\": 0
+  },
+  {
+    \"delta\": 300,
+    \"index\": 1
+  },
+  {
+    \"delta\": 89,
+    \"index\": 2
+  },
+  {
+    \"delta\": 1,
+    \"index\": 3
+  },
+  {
+    \"delta\": 456,
+    \"index\": 4
+  }
+]");
         let delta1: <[u16; 5] as Core>::Delta = serde_json::from_str(
             &json_string
         ).expect("Could not deserialize from json");
