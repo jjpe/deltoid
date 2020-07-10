@@ -8,6 +8,8 @@
 #[macro_use] pub mod error;
 #[macro_use] pub mod snapshot;
 pub mod core;
+
+pub mod arrays;
 pub mod borrow;
 pub mod boxed;
 pub mod collections;
