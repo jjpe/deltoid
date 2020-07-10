@@ -70,3 +70,6 @@ There are some limitations to this library:
    for some type `T`) are not currently supported.  This limitation *may*
    be lifted in the future for mutable borrows, but is pretty fundamental
    for immutable borrows.
+
+4. There is support for arrays, but support is currently implemented only for
+   a arrays with length <= 5.
