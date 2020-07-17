@@ -198,7 +198,13 @@ pub(crate) fn define_Debug_impl(input: &InputType) -> DeriveResult<TokenStream2>
                     1 => quote! {
                         // NOTE: the input type is a newtype
                         const NAME: &str = stringify!(#delta_type_name);
-                        write!(f, "{}({:?})", NAME, self.0)
+                        if let Some(field) = &self.0 {
+                            // NOTE: don't format the `Some()` wrapper
+                            write!(f, "{}({:?})", NAME, field)
+                        } else {
+                            let field = &None as &Option<(/*HACK*/)>;
+                            write!(f, "{}({:?})", NAME, field)
+                        }
                     },
                     _ => quote! {
                         const NAME: &str = stringify!(#delta_type_name);

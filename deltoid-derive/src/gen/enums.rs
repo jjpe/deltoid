@@ -199,7 +199,13 @@ pub(crate) fn define_Debug_impl(input: &InputType) -> DeriveResult<TokenStream2>
                             + stringify!(#delta_type_name)
                             + "::"
                             + stringify!(#variant_name);
-                        write!(f, "{}({:?})", type_name, field_0)
+                        if let Some(field) = &field_0 {
+                            // NOTE: don't format the `Some()` wrapper
+                            write!(f, "{}({:?})", type_name, field)
+                        } else {
+                            let field = &None as &Option<(/*HACK*/)>;
+                            write!(f, "{}({:?})", type_name, field)
+                        }
                     }},
                     _ => quote! {{
                         let type_name = String::new()
