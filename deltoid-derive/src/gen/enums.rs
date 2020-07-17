@@ -4,7 +4,6 @@
 
 use crate::DeriveResult;
 use crate::gen::{EnumVariant, FieldDesc, InputType, StructVariant};
-use crate::gen::where_clause;
 use itertools::iproduct;
 use proc_macro2::{
     Ident as Ident2, Literal as Literal2, TokenStream as TokenStream2

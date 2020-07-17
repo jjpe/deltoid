@@ -3,7 +3,6 @@
 
 use crate::DeriveResult;
 use crate::gen::{FieldDesc, InputType, StructVariant};
-use crate::gen::where_clause;
 use proc_macro2::{
     Ident as Ident2, Literal as Literal2, TokenStream as TokenStream2
 };

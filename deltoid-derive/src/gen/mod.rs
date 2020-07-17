@@ -1,15 +1,14 @@
 //! Code generation module
 #![allow(unused)]
 
-#[macro_use] mod trait_bounds;
 pub(crate) mod enums;
 pub(crate) mod markers;
 pub(crate) mod structs;
-pub(crate) mod where_clause;
 
 use crate::{DeriveError, DeriveResult};
 use proc_macro2::{
-    Ident as Ident2, Literal as Literal2, TokenStream as TokenStream2
+    Ident as Ident2, Literal as Literal2, Span as Span2,
+    TokenStream as TokenStream2
 };
 use syn::*;
 use syn::punctuated::*;
@@ -161,7 +160,10 @@ impl InputType {
                 .map(|type_param| type_param.ident.clone())
                 .collect(),
             where_clause: input.generics.where_clause.clone()
-                .unwrap_or_else(where_clause::empty),
+                .unwrap_or_else(|| WhereClause {
+                    where_token: Token![where](Span2::call_site()),
+                    predicates: Punctuated::new(),
+                }),
         }
     }
 
@@ -176,7 +178,10 @@ impl InputType {
                 .map(|type_param| type_param.ident.clone())
                 .collect(),
             where_clause: input.generics.where_clause.clone()
-                .unwrap_or_else(where_clause::empty),
+                .unwrap_or_else(|| WhereClause {
+                    where_token: Token![where](Span2::call_site()),
+                    predicates: Punctuated::new(),
+                }),
         }
     }
 
