@@ -21,12 +21,11 @@ pub enum Qux1<T: Default> {
 #[derive(Clone, Debug, PartialEq, Delta, Deserialize, Serialize)]
 pub enum Qux2<T, U: Default> {
     Floof(#[delta(ignore_field)] u8, T),
-    Blah { one: u8, two: U },
+    Blah { #[delta(ignore_field)] one: u8, two: U },
     Flah { one: Box<Qux1<()>> },
     Gah,
 }
 
-#[allow(unused)]
 #[derive(Clone, Debug, PartialEq, Delta, Deserialize, Serialize)]
 enum Corge<T, U: Debug> {
     Quux,
@@ -38,7 +37,7 @@ enum Corge<T, U: Debug> {
     },
 }
 
-#[derive(Clone, Debug, PartialEq, Delta, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Default, Delta, Deserialize, Serialize)]
 pub struct Foo0<F: Copy> where F: Copy {
     #[delta(ignore_field)]
     f0: (),
@@ -46,14 +45,14 @@ pub struct Foo0<F: Copy> where F: Copy {
     f2: String,
 }
 
-#[derive(Clone, Debug, PartialEq, Delta, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Default, Delta, Deserialize, Serialize)]
 pub struct Bar<S: Copy>(u8, S)
 where S: std::fmt::Debug + Default;
 
-#[derive(Clone, Debug, PartialEq, Delta, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Default, Delta, Deserialize, Serialize)]
 pub struct Baz;
 
-#[derive(Clone, Debug, PartialEq, Delta, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Default, Delta, Deserialize, Serialize)]
 pub struct Plow(std::borrow::Cow<'static, String>);
 
 
@@ -66,7 +65,7 @@ pub fn enum_struct_variant__delta__same_values() -> DeltaResult<()> {
     let val0: Qux2<String, ()> = Qux2::Blah { one: 42u8, two: () };
     let val1: Qux2<String, ()> = Qux2::Blah { one: 42u8, two: () };
     let delta = val0.delta(&val1)?;
-    let expected = Qux2Delta::Blah { one: None, two: None };
+    let expected = Qux2Delta::Blah { one: std::marker::PhantomData, two: None };
     assert_eq!(delta, expected, "{:#?} != {:#?}", delta, expected);
     Ok(())
 }
@@ -74,7 +73,7 @@ pub fn enum_struct_variant__delta__same_values() -> DeltaResult<()> {
 #[test]
 pub fn enum_struct_variant__apply__same_values() -> DeltaResult<()> {
     let val0: Qux2<String, ()> = Qux2::Blah { one: 42u8, two: () };
-    let delta = Qux2Delta::Blah { one: None, two: None };
+    let delta = Qux2Delta::Blah { one: std::marker::PhantomData, two: None };
     let val1 = val0.apply(delta)?;
     let expected: Qux2<String, ()> = Qux2::Blah { one: 42u8, two: () };
     assert_eq!(val1, expected, "{:#?} != {:#?}", val1, expected);
@@ -87,7 +86,7 @@ pub fn enum_struct_variant__delta__different_values() -> DeltaResult<()> {
     let val1: Qux2<String, ()> = Qux2::Blah { one: 100u8, two: () };
     let delta = val0.delta(&val1)?;
     let expected = Qux2Delta::Blah {
-        one: Some(U8Delta(Some(100u8))),
+        one: std::marker::PhantomData,
         two: None
     };
     assert_eq!(delta, expected, "{:#?} != {:#?}", delta, expected);
@@ -98,11 +97,11 @@ pub fn enum_struct_variant__delta__different_values() -> DeltaResult<()> {
 pub fn enum_struct_variant__apply__different_values() -> DeltaResult<()> {
     let val0: Qux2<String, ()> = Qux2::Blah { one: 42u8, two: () };
     let delta = Qux2Delta::Blah {
-        one: Some(U8Delta(Some(100u8))),
+        one: std::marker::PhantomData,
         two: None
     };
     let val1 = val0.apply(delta)?;
-    let expected: Qux2<String, ()> = Qux2::Blah { one: 100u8, two: () };
+    let expected: Qux2<String, ()> = Qux2::Blah { one: 42u8, two: () };
     assert_eq!(val1, expected, "{:#?} != {:#?}", val1, expected);
     Ok(())
 }

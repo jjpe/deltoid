@@ -31,11 +31,21 @@ impl IntoDelta for String {
 }
 
 
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
 pub struct StringDelta( // TODO: Improve delta space efficiency
     #[doc(hidden)] pub Option<String>
 );
+
+impl std::fmt::Debug for StringDelta {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        match &self.0 {
+            Some(field) => write!(f, "StringDelta({:#?})", field),
+            None        => write!(f, "StringDelta(None)"),
+        }
+    }
+}
+
 
 
 #[allow(non_snake_case)]

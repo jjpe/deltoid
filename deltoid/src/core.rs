@@ -84,28 +84,41 @@ macro_rules! impl_delta_trait_for_primitive_types {
                     Ok($delta(Some(self)))
                 }
             }
+
+            impl std::fmt::Debug for $delta {
+                fn fmt(&self, f: &mut std::fmt::Formatter)
+                       -> Result<(), std::fmt::Error>
+                {
+                    match self.0 {
+                        None =>
+                            write!(f, "{}(None)", stringify!($delta)),
+                        Some(prim) =>
+                            write!(f, "{}({:#?})", stringify!($delta), prim),
+                    }
+                }
+            }
         )*
     };
 }
 
 impl_delta_trait_for_primitive_types! {
-    i8    => I8Delta:    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash;
-    i16   => I16Delta:   Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash;
-    i32   => I32Delta:   Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash;
-    i64   => I64Delta:   Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash;
-    i128  => I128Delta:  Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash;
-    isize => IsizeDelta: Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash;
+    i8    => I8Delta:    Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash;
+    i16   => I16Delta:   Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash;
+    i32   => I32Delta:   Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash;
+    i64   => I64Delta:   Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash;
+    i128  => I128Delta:  Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash;
+    isize => IsizeDelta: Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash;
 
-    u8    => U8Delta:    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash;
-    u16   => U16Delta:   Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash;
-    u32   => U32Delta:   Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash;
-    u64   => U64Delta:   Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash;
-    u128  => U128Delta:  Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash;
-    usize => UsizeDelta: Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash;
+    u8    => U8Delta:    Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash;
+    u16   => U16Delta:   Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash;
+    u32   => U32Delta:   Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash;
+    u64   => U64Delta:   Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash;
+    u128  => U128Delta:  Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash;
+    usize => UsizeDelta: Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash;
 
-    f32   => F32Delta:   Clone, Copy, Debug, PartialEq,     PartialOrd           ;
-    f64   => F64Delta:   Clone, Copy, Debug, PartialEq,     PartialOrd           ;
-    bool  => BoolDelta:  Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash;
-    char  => CharDelta:  Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash;
-    ()    => UnitDelta:  Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash;
+    f32   => F32Delta:   Clone, Copy, PartialEq,     PartialOrd           ;
+    f64   => F64Delta:   Clone, Copy, PartialEq,     PartialOrd           ;
+    bool  => BoolDelta:  Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash;
+    char  => CharDelta:  Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash;
+    ()    => UnitDelta:  Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash;
 }

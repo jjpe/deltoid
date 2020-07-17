@@ -73,11 +73,20 @@ where T: Clone + Debug + PartialEq + IntoDelta
 
 
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, PartialEq)]
 #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
 pub enum OptionDelta<T: Core> {
     None,
     Some(<T as Core>::Delta),
+}
+
+impl<T: Core> std::fmt::Debug for OptionDelta<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        match &self {
+            Self::Some(d) => write!(f, "OptionDelta::Some({:#?})", d),
+            Self::None    => write!(f, "OptionDelta::None"),
+        }
+    }
 }
 
 

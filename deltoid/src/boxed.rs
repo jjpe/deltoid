@@ -75,10 +75,19 @@ where T: Clone + Debug + PartialEq + IntoDelta
 
 
 
-#[derive(Clone, Debug, PartialEq, Hash)]
+#[derive(Clone, PartialEq, Hash)]
 pub struct BoxDelta<T: Core>(
     #[doc(hidden)] pub Option<Box<T::Delta>>
 );
+
+impl<T: Core> std::fmt::Debug for BoxDelta<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        match &self.0 {
+            Some(d) => write!(f, "BoxDelta({:#?})", d),
+            None    => write!(f, "BoxDelta(None)"),
+        }
+    }
+}
 
 impl<T> Serialize for BoxDelta<T>
 where T: Core

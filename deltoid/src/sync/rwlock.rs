@@ -166,11 +166,20 @@ where T: Clone + Debug + PartialEq + IntoDelta
 
 
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, PartialEq)]
 #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
 pub struct RwLockDelta<T: Core>(
     #[doc(hidden)] pub Option<<T as Core>::Delta>
 );
+
+impl<T: Core> std::fmt::Debug for RwLockDelta<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        match &self.0 {
+            Some(d) => write!(f, "RwLockDelta({:#?})", d),
+            None    => write!(f, "RwLockDelta(None)"),
+        }
+    }
+}
 
 
 

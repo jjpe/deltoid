@@ -74,12 +74,20 @@ where T: Clone + Debug + PartialEq + IntoDelta
 
 
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct RcDelta<T: Core>(
     #[doc(hidden)] pub Option<Box<<T as Core>::Delta>>
 );
 
-// impl<T: Core + Clone> Serialize for RcDelta<T> {
+impl<T: Core> std::fmt::Debug for RcDelta<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        match &self.0 {
+            Some(d) => write!(f, "RcDelta({:#?})", d),
+            None    => write!(f, "RcDelta(None)"),
+        }
+    }
+}
+
 impl<T: Core> Serialize for RcDelta<T> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where S: Serializer {

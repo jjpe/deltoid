@@ -33,6 +33,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
 fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
     let input_type: InputType = InputType::parse(&input)?;
     let delta_type_definition = input_type.define_delta_type()?;
+    let impl_Debug = input_type.define_Debug_impl()?;
     let impl_Core = input_type.define_Core_impl()?;
     let impl_Apply = input_type.define_Apply_impl()?;
     let impl_Delta = input_type.define_Delta_impl()?;
@@ -40,6 +41,7 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
     let impl_IntoDelta = input_type.define_IntoDelta_impl()?;
     let output: TokenStream2 = quote! {
         #delta_type_definition
+        #impl_Debug
         #impl_Core
         #impl_Apply
         #impl_Delta
@@ -50,6 +52,7 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
     #[cfg(feature = "print-expansions--unstable")]
     print_generated_code(
         &delta_type_definition,
+        &impl_Debug,
         &impl_Core,
         &impl_Apply,
         &impl_Delta,
@@ -61,6 +64,7 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
     write_generated_code_to_file(
         input_type.type_name(),
         &delta_type_definition,
+        &impl_Debug,
         &impl_Core,
         &impl_Apply,
         &impl_Delta,
@@ -75,6 +79,7 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
 #[allow(unused, non_snake_case)]
 fn print_generated_code(
     delta_type_definition: &TokenStream2,
+    impl_Debug: &TokenStream2,
     impl_Core: &TokenStream2,
     impl_Apply: &TokenStream2,
     impl_Delta: &TokenStream2,
@@ -82,6 +87,7 @@ fn print_generated_code(
     impl_IntoDelta: &TokenStream2,
 ) {
     println!("{}\n", delta_type_definition);
+    println!("{}\n", impl_Debug);
     println!("{}\n", impl_Core);
     println!("{}\n", impl_Apply);
     println!("{}\n", impl_Delta);
@@ -95,6 +101,7 @@ fn print_generated_code(
 fn write_generated_code_to_file(
     type_name: &Ident2,
     delta_type_definition: &TokenStream2,
+    impl_Debug: &TokenStream2,
     impl_Core: &TokenStream2,
     impl_Apply: &TokenStream2,
     impl_Delta: &TokenStream2,
@@ -112,6 +119,10 @@ fn write_generated_code_to_file(
 
     file.write_all(format!("{}", delta_type_definition).as_bytes())
         .expect("Failed to write delta_type_definition");
+    file.write_all("\n\n".as_bytes()).expect("Failed to write newlines");
+
+    file.write_all(format!("{}", impl_Debug).as_bytes())
+        .expect("Failed to write impl_Debug");
     file.write_all("\n\n".as_bytes()).expect("Failed to write newlines");
 
     file.write_all(format!("{}", impl_Core).as_bytes())

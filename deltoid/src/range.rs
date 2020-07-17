@@ -66,8 +66,20 @@ where T: Clone + Debug + PartialEq + IntoDelta
 
 
 
-#[derive(Clone, Debug, PartialEq, Hash)]
+#[derive(Clone, PartialEq, Hash)]
 pub struct RangeDelta<T>(#[doc(hidden)] pub Option<Range<T>>);
+
+impl<T> std::fmt::Debug for RangeDelta<T>
+where T: Core + std::fmt::Debug {
+    fn fmt(&self, f: &mut std::fmt::Formatter)
+           -> Result<(), std::fmt::Error>
+    {
+        match &self.0 {
+            Some(field) => write!(f, "RangeDelta({:#?})", field),
+            None        => write!(f, "RangeDelta(None)"),
+        }
+    }
+}
 
 impl<T> Serialize for RangeDelta<T>
 where T: Core

@@ -130,7 +130,7 @@ where K: Clone + Debug + PartialEq + Ord + IntoDelta
 
 
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, PartialEq)]
 #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
 pub struct BTreeMapDelta<K: Core, V: Core>(
     #[doc(hidden)] pub Option<Vec<EntryDelta<K, V>>>,
@@ -167,8 +167,25 @@ where K: Clone + Debug + PartialEq + Ord + Core
     }
 }
 
+impl<K, V> std::fmt::Debug for BTreeMapDelta<K, V>
+where K: std::fmt::Debug + Core,
+      V: std::fmt::Debug + Core
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        write!(f, "BTreeMapDelta ")?;
+        let mut buf = f.debug_list();
+        if let Some(d) = &self.0 {
+            buf.entries(d.iter());
+        } else {
+            buf.entries(std::iter::empty::<Vec<EntryDelta<K, V>>>());
+        }
+        buf.finish()
+    }
+}
 
-#[derive(Clone, Debug, PartialEq)]
+
+
+#[derive(Clone, PartialEq)]
 #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
 pub enum EntryDelta<K, V: Core> {
     /// Edit a `value` of a given `key`
@@ -178,6 +195,28 @@ pub enum EntryDelta<K, V: Core> {
     /// Remove the entry with a given `key` from the map.
     Remove { key: K },
 }
+
+impl<K, V> std::fmt::Debug for EntryDelta<K, V>
+where K: std::fmt::Debug,
+      V: std::fmt::Debug + Core
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        match &self {
+            Self::Edit { key, value } => f.debug_struct("Edit")
+                .field("key", key)
+                .field("value", value)
+                .finish(),
+            Self::Add { key, value } => f.debug_struct("Add")
+                .field("key", key)
+                .field("value", value)
+                .finish(),
+            Self::Remove { key } => f.debug_struct("Remove")
+                .field("key", key)
+                .finish(),
+        }
+    }
+}
+
 
 
 

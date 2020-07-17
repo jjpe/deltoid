@@ -100,7 +100,7 @@ where T: Clone + Debug + PartialEq + IntoDelta
 
 
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, PartialEq)]
 #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
 pub enum EltDelta<T: Core> {
     /// Edit a value at a given `index`.
@@ -116,7 +116,23 @@ pub enum EltDelta<T: Core> {
     Add(<T as Core>::Delta),
 }
 
-#[derive(Clone, Debug, PartialEq)]
+impl<T: Core> std::fmt::Debug for EltDelta<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        match &self {
+            Self::Edit { index, item } => f.debug_struct("Edit")
+                .field("index", index)
+                .field("item", item)
+                .finish(),
+            Self::Remove { count } => f.debug_struct("Remove")
+                .field("count", count)
+                .finish(),
+            Self::Add(delta) => write!(f, "Add({:#?})", delta),
+        }
+    }
+}
+
+
+#[derive(Clone, PartialEq)]
 #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
 pub struct VecDelta<T: Core>(#[doc(hidden)] pub Vec<EltDelta<T>>);
 
@@ -131,6 +147,13 @@ impl<T: Core> VecDelta<T> {
     }
 
     pub fn len(&self) -> usize { self.0.len() }
+}
+
+impl<T: Core> std::fmt::Debug for VecDelta<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        write!(f, "VecDelta ")?;
+        f.debug_list().entries(self.0.iter()).finish()
+    }
 }
 
 

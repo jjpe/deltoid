@@ -228,6 +228,15 @@ impl InputType {
     // }
 
     #[allow(non_snake_case)]
+    pub fn define_Debug_impl(&self) -> DeriveResult<TokenStream2> {
+        Ok(match self {
+            Self::Struct { .. } => structs::define_Debug_impl(self)?,
+            Self::Enum   { .. } => enums::define_Debug_impl(self)?,
+            Self::Union => panic!("Unions are not supported."),
+        })
+    }
+
+    #[allow(non_snake_case)]
     pub fn define_Core_impl(&self) -> DeriveResult<TokenStream2> {
         Ok(match self {
             Self::Struct { .. } => structs::define_Core_impl(self)?,

@@ -92,12 +92,23 @@ where T: Clone + Debug + PartialEq + IntoDelta
 
 
 
-#[derive(Clone, Debug, PartialEq,)]
+#[derive(Clone, PartialEq)]
 #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
 pub enum ResultDelta<T: Core, E: Core> {
     OkDelta(<T as Core>::Delta),
     ErrDelta(<E as Core>::Delta),
     None
+}
+
+impl<T, E> std::fmt::Debug for ResultDelta<T, E>
+where T: Core, E: Core {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        match &self {
+            Self::OkDelta(ok)   => write!(f, "ResultDelta::Ok({:#?})",  ok),
+            Self::ErrDelta(err) => write!(f, "ResultDelta::Err({:#?})", err),
+            Self::None          => write!(f, "ResultDelta::None"),
+        }
+    }
 }
 
 

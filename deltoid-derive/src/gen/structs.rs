@@ -4,7 +4,9 @@
 use crate::DeriveResult;
 use crate::gen::{FieldDesc, InputType, StructVariant};
 use crate::gen::where_clause;
-use proc_macro2::{Ident as Ident2, TokenStream as TokenStream2};
+use proc_macro2::{
+    Ident as Ident2, Literal as Literal2, TokenStream as TokenStream2
+};
 use syn::*;
 use syn::punctuated::Punctuated;
 use syn::token::{Add, Comma};
@@ -46,7 +48,7 @@ pub(crate) fn define_delta_struct(input: &InputType) -> DeriveResult<TokenStream
                     .map(|field: &FieldDesc| field.name_ref())
                     .collect::<DeriveResult<_>>()?;
                 Ok(quote! {
-                    #[derive(Clone, Debug, PartialEq)]
+                    #[derive(Clone, PartialEq)]
                     #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
                     pub struct #delta_type_name<#(#type_param_decls),*>
                         #where_clause
@@ -59,7 +61,7 @@ pub(crate) fn define_delta_struct(input: &InputType) -> DeriveResult<TokenStream
                 })
             },
             StructVariant::TupleStruct => Ok(quote! {
-                #[derive(Clone, Debug, PartialEq)]
+                #[derive(Clone, PartialEq)]
                 #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
                 pub struct #delta_type_name<#(#type_param_decls),*> (
                     #( #[doc(hidden)] pub(self) #field_types, )*
@@ -69,11 +71,171 @@ pub(crate) fn define_delta_struct(input: &InputType) -> DeriveResult<TokenStream
                 // where `T: {Eq, Hash}` for every generic type arg `T`.
             }),
             StructVariant::UnitStruct => Ok(quote! {
-                #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+                #[derive(Clone, PartialEq, Eq, Hash)]
                 #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
                 pub struct #delta_type_name<#(#type_param_decls),*>
                     #where_clause ;
             }),
+        }
+    } else {
+        bug_detected!()
+    }
+}
+
+pub(crate) fn define_Debug_impl(input: &InputType) -> DeriveResult<TokenStream2> {
+    if let InputType::Struct {
+        struct_variant,
+        type_name,
+        delta_type_name,
+        fields,
+        type_param_decls: in_type_param_decls,
+        type_params,
+        where_clause: in_where_clause,
+        ..
+    } = input {
+        let type_param_decls: Vec<TokenStream2> = in_type_param_decls.iter()
+            .map(|type_param_decl| match type_param_decl {
+                GenericParam::Lifetime(lifetime_def) => quote! { #lifetime_def },
+                GenericParam::Const(const_param)     => quote! { #const_param  },
+                GenericParam::Type(type_param) => {
+                    let T: &Ident2 = &type_param.ident;
+                    // NOTE: `bounds` defines trait bounds on the corresponding
+                    // type parameter `T` in `InputType::Struct#type_param`:
+                    let bounds: Vec<TokenStream2> = type_param.bounds.iter()
+                        .map(|trait_bound| quote! { #trait_bound })
+                        .collect();
+                    quote! {
+                        #T: deltoid::Core
+                            + std::fmt::Debug
+                            #(+ #bounds)* // Copy user-specified type/lifetime bounds
+                    }
+                },
+            })
+            .collect();
+        let predicates: Vec<TokenStream2> = in_where_clause.predicates.iter()
+            .map(|where_predicate| quote! { #where_predicate })
+            .collect();
+        let where_clause = quote! { where #(#predicates),* };
+        match struct_variant {
+            StructVariant::NamedStruct => {
+                let field_names: Vec<&Ident2> = fields.iter()
+                    .map(|field: &FieldDesc| field.name_ref().unwrap())
+                    .collect();
+                let field_types: Vec<&Type> = fields.iter()
+                    .map(|field: &FieldDesc| field.type_ref())
+                    .collect();
+                let mut body = TokenStream2::new();
+                let buf: Ident2 = format_ident!("buf");
+                for field in fields.iter() {
+                    let (fname, ftype) = (field.name_ref()?, field.type_ref());
+                    body.extend(if field.ignore_field() {
+                        quote! {
+                            // NOTE: format the PhantomData field itself
+                            #buf.field(stringify!(#fname), &self.#fname);
+                        }
+                    } else {
+                        quote! {
+                            let fname: &'static str = stringify!(#fname);
+                            if let Some(#fname) =  &self.#fname {
+                                // NOTE: don't format the `Some()` wrapper
+                                #buf.field(fname, #fname);
+                            } else {
+                                #buf.field(fname, &None as &Option<#ftype>);
+                            }
+                        }
+                    });
+                }
+                Ok(quote! {
+                    impl<#(#type_param_decls),*> std::fmt::Debug
+                        for #delta_type_name<#type_params>
+                        #where_clause
+                    {
+                        fn fmt(&self, f: &mut std::fmt::Formatter)
+                               -> Result<(), std::fmt::Error>
+                        {
+                            const NAME: &str = stringify!(#delta_type_name);
+                            let mut #buf = f.debug_struct(NAME);
+                            #body
+                            #buf.finish()
+                        }
+                    }
+                })
+            },
+            StructVariant::TupleStruct => {
+                let field_types: Vec<&Type> = fields.iter()
+                    .map(|field: &FieldDesc| field.type_ref())
+                    .collect();
+                let field_count = field_types.len();
+                let field_names: Vec<Ident2> = (0 .. field_count)
+                    .map(|ident| format_ident!("field_{}", ident))
+                    .collect();
+                let field_nums: Vec<Literal2> = (0 .. field_count)
+                    .map(Literal2::usize_unsuffixed)
+                    .collect();
+                let mut field_tokens = TokenStream2::new();
+                let buf: Ident2 = format_ident!("buf");
+                for field in fields.iter() {
+                    let (fpos, ftype) = (field.pos_ref()?, field.type_ref());
+                    let fname = format_ident!("field");
+                    field_tokens.extend(match field_count {
+                        1 => quote! { /* NOTE: the input is a newtype; NOP*/ },
+                        _ if field.ignore_field() => quote! {
+                            // NOTE: the input is a regular tuple struct
+                            // NOTE: format the PhantomData field itself
+                            #buf.field(&self.#fpos);
+                        },
+                        _ => quote! {
+                            // NOTE: the input is a regular tuple struct
+                            if let Some(#fname) = &self.#fpos {
+                                // NOTE: don't format the `Some()` wrapper
+                                #buf.field(#fname);
+                            } else {
+                                #buf.field(&None as &Option<#ftype>);
+                            }
+                        },
+                    });
+                }
+                let body = match field_count {
+                    1 => quote! {
+                        // NOTE: the input type is a newtype
+                        const NAME: &str = stringify!(#delta_type_name);
+                        write!(f, "{}({:?})", NAME, self.0)
+                    },
+                    _ => quote! {
+                        const NAME: &str = stringify!(#delta_type_name);
+                        let mut #buf = f.debug_tuple(NAME);
+                        #field_tokens
+                        #buf.finish()
+                    },
+                };
+                Ok(quote! {
+                    impl<#(#type_param_decls),*> std::fmt::Debug
+                        for #delta_type_name<#type_params>
+                        #where_clause
+                    {
+                        fn fmt(&self, f: &mut std::fmt::Formatter)
+                               -> Result<(), std::fmt::Error>
+                        {
+                            #body
+                        }
+                    }
+                })
+            },
+            StructVariant::UnitStruct => {
+                Ok(quote! {
+                    impl<#(#type_param_decls),*> std::fmt::Debug
+                        for #delta_type_name<#type_params>
+                        #where_clause
+                    {
+                        fn fmt(&self, f: &mut std::fmt::Formatter)
+                               -> Result<(), std::fmt::Error>
+                        {
+                            f.debug_struct(stringify!(#delta_type_name))
+                                .finish()
+                        }
+                    }
+                })
+            },
         }
     } else {
         bug_detected!()

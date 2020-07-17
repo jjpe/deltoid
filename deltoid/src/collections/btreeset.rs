@@ -107,7 +107,7 @@ where T: Clone + Debug + PartialEq + Ord + IntoDelta
 
 
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, PartialEq)]
 #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
 pub struct BTreeSetDelta<T: Core>(
     #[doc(hidden)] pub Option<Vec<EntryDelta<T>>>,
@@ -141,12 +141,41 @@ where T: Clone + Debug + PartialEq + Ord + Core
     }
 }
 
+impl<T> std::fmt::Debug for BTreeSetDelta<T>
+where T: std::fmt::Debug + Core {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        write!(f, "BTreeSetDelta ")?;
+        let mut buf = f.debug_list();
+        if let Some(d) = &self.0 {
+            buf.entries(d.iter());
+        } else {
+            buf.entries(std::iter::empty::<Vec<EntryDelta<T>>>());
+        }
+        buf.finish()
+    }
+}
 
-#[derive(Clone, Debug, PartialEq)]
+
+
+#[derive(Clone, PartialEq)]
 #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
 pub enum EntryDelta<T: Core> {
     Add { item: <T as Core>::Delta },
     Remove { item: <T as Core>::Delta },
+}
+
+impl<T> std::fmt::Debug for EntryDelta<T>
+where T: std::fmt::Debug + Core {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        match &self {
+            Self::Add { item } => f.debug_struct("Add")
+                .field("item", item)
+                .finish(),
+            Self::Remove { item } => f.debug_struct("Remove")
+                .field("item", item)
+                .finish(),
+        }
+    }
 }
 
 

@@ -79,11 +79,19 @@ where B: Clone + Debug + PartialEq + IntoDelta
 
 
 
-#[derive(Clone, Debug, PartialEq)]
-// #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
+#[derive(Clone, PartialEq)]
 pub struct CowDelta<'a, B: Core> {
     #[doc(hidden)] pub inner: Option<B::Delta>,
     #[doc(hidden)] pub _phantom: PhantomData<&'a B>
+}
+
+impl<'a, B: Core> std::fmt::Debug for CowDelta<'a, B> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        match &self.inner {
+            Some(d) => write!(f, "CowDelta({:#?})", d),
+            None    => write!(f, "CowDelta(None)"),
+        }
+    }
 }
 
 impl<'a, B> Serialize for CowDelta<'a, B>

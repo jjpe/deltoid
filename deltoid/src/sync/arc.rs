@@ -79,10 +79,19 @@ where T: Clone + Debug + PartialEq + IntoDelta
 
 
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct ArcDelta<T: Core>(
     #[doc(hidden)] pub Option<Box<<T as Core>::Delta>>
 );
+
+impl<T: Core> std::fmt::Debug for ArcDelta<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        match &self.0 {
+            Some(d) => write!(f, "ArcDelta({:#?})", d),
+            None    => write!(f, "ArcDelta(None)"),
+        }
+    }
+}
 
 impl<T: Core + Clone> Serialize for ArcDelta<T> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
