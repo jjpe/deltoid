@@ -9,7 +9,7 @@ use proc_macro::TokenStream;
 use proc_macro2::{TokenStream as TokenStream2};
 #[cfg(feature = "dump-expansions--unstable")]
 use proc_macro2::{Ident as Ident2};
-use quote::{quote};
+use quote::quote;
 #[cfg(feature = "dump-expansions--unstable")]
 use std::fs::{remove_file, File, OpenOptions};
 #[cfg(feature = "dump-expansions--unstable")]
