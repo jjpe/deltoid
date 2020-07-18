@@ -85,7 +85,7 @@ impl<T: Core + Default> Default for FullSnapshot<T> {
     }
 }
 
-impl<T: Core> PartialEq for FullSnapshot<T> {
+impl<T: Core + PartialEq> PartialEq for FullSnapshot<T> {
     fn eq(&self, rhs: &Self) -> bool {
         if self.timestamp != rhs.timestamp { return false; }
         if self.origin != rhs.origin { return false; }
@@ -93,9 +93,9 @@ impl<T: Core> PartialEq for FullSnapshot<T> {
     }
 }
 
-impl<T: Core> Eq for FullSnapshot<T> {}
+impl<T: Core + Eq> Eq for FullSnapshot<T> {}
 
-impl<T: Core> PartialOrd for FullSnapshot<T> {
+impl<T: Core + PartialOrd> PartialOrd for FullSnapshot<T> {
     fn partial_cmp(&self, rhs: &Self) -> Option<Ordering> {
         let timestamp_cmp = self.timestamp.partial_cmp(&rhs.timestamp);
         if timestamp_cmp != Some(Ordering::Equal) { return timestamp_cmp }
@@ -105,7 +105,7 @@ impl<T: Core> PartialOrd for FullSnapshot<T> {
     }
 }
 
-impl<T: Core> Ord for FullSnapshot<T> {
+impl<T: Core + Ord> Ord for FullSnapshot<T> {
     fn cmp(&self, rhs: &Self) -> Ordering {
         let timestamp_cmp = self.timestamp.cmp(&rhs.timestamp);
         if timestamp_cmp != Ordering::Equal { return timestamp_cmp }
