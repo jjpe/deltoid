@@ -1,12 +1,15 @@
 //!
 
+use proc_macro2::{
+    Delimiter as Delimiter2,
+    TokenTree as TokenTree2
+};
 use syn::*;
 
 
 /// A `field` in the input struct or input enum variant
-/// is marked as #[delta(ignore_field)].
+/// is marked with #[delta(ignore_field)].
 pub(crate) fn ignore_field(field: &Field) -> bool {
-    use proc_macro2::{Delimiter as Delimiter2, TokenTree as TokenTree2};
     let mut ignore = false;
     for attr in field.attrs.iter() {
         let attr_segments: Vec<String> = attr.path.segments.iter()

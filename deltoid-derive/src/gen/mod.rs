@@ -1,11 +1,13 @@
 //! Code generation module
 #![allow(unused)]
+#![allow(non_snake_case)]
 
 pub(crate) mod enums;
 pub(crate) mod markers;
 pub(crate) mod structs;
 
 use crate::{DeriveError, DeriveResult};
+use crate::gen::markers::*;
 use proc_macro2::{
     Ident as Ident2, Literal as Literal2, Span as Span2,
     TokenStream as TokenStream2
@@ -88,14 +90,14 @@ impl InputType {
                     fields.push(FieldDesc::Named {
                         name: field_ident.clone(),
                         ty: field.ty.clone(),
-                        ignore_field: markers::ignore_field(field),
+                        ignore_field: ignore_field(field),
                     });
                 } else {
                     *struct_variant = StructVariant::TupleStruct;
                     fields.push(FieldDesc::Positional {
                         position: Literal2::usize_unsuffixed(fidx),
                         ty: field.ty.clone(),
-                        ignore_field: markers::ignore_field(field),
+                        ignore_field: ignore_field(field),
                     });
                 }
             }
@@ -129,14 +131,14 @@ impl InputType {
                         variant.add_field(FieldDesc::Named {
                             name: field_ident.clone(),
                             ty: field.ty.clone(),
-                            ignore_field: markers::ignore_field(field),
+                            ignore_field: ignore_field(field),
                         });
                     } else {
                         variant.struct_variant = StructVariant::TupleStruct;
                         variant.add_field(FieldDesc::Positional {
                             position: Literal2::usize_unsuffixed(fidx),
                             ty: field.ty.clone(),
-                            ignore_field: markers::ignore_field(field),
+                            ignore_field: ignore_field(field),
                         });
                     }
                 }
@@ -189,30 +191,72 @@ impl InputType {
 
     pub fn is_struct(&self) -> bool { matches!(self, Self::Struct { .. }) }
 
-    #[cfg(feature = "dump-expansions--unstable")]
-    pub fn type_name(&self) -> &Ident2 {
-        match self {
+    pub fn struct_variant(&self) -> DeriveResult<&StructVariant> {
+        Ok(match self {
+            Self::Enum { type_name, .. } =>
+                panic!("Enum {} doesn't have a struct variant", type_name),
+            Self::Struct { struct_variant, .. } => struct_variant,
+            Self::Union => panic!("Unions are not supported."),
+        })
+    }
+
+    pub fn enum_variants(&self) -> DeriveResult<&[EnumVariant]> {
+        Ok(match self {
+            Self::Enum { enum_variants, .. } => enum_variants,
+            Self::Struct { type_name, .. } =>
+                panic!("Struct {} doesn't have enum variants", type_name),
+            Self::Union => panic!("Unions are not supported."),
+        })
+    }
+
+    pub fn type_name(&self) -> DeriveResult<&Ident2> {
+        Ok(match self {
             Self::Enum   { type_name, .. } => type_name,
             Self::Struct { type_name, .. } => type_name,
             Self::Union => panic!("Unions are not supported."),
-        }
+        })
     }
 
-    pub fn type_param_decls(&self) -> &Punctuated<GenericParam, Comma> {
-        match self {
+    pub fn delta_type_name(&self) -> DeriveResult<&Ident2> {
+        Ok(match self {
+            Self::Enum   { delta_type_name, .. } => delta_type_name,
+            Self::Struct { delta_type_name, .. } => delta_type_name,
+            Self::Union => panic!("Unions are not supported."),
+        })
+    }
+
+    pub fn type_params(&self) -> DeriveResult<&Punctuated<Ident2, Comma>> {
+        Ok(match self {
+            Self::Enum   { type_params, .. } => type_params,
+            Self::Struct { type_params, .. } => type_params,
+            Self::Union => panic!("Unions are not supported."),
+        })
+    }
+
+    pub fn type_param_decls(&self) -> DeriveResult<&Punctuated<GenericParam, Comma>> {
+        Ok(match self {
             Self::Enum   { type_param_decls, .. } => type_param_decls,
             Self::Struct { type_param_decls, .. } => type_param_decls,
             Self::Union => panic!("Unions are not supported."),
-        }
+        })
+    }
+
+    pub fn fields(&self) -> DeriveResult<&[FieldDesc]> {
+        Ok(match self {
+            Self::Enum   { type_name, .. } =>
+                panic!("Enum {} doesn't have fields", type_name),
+            Self::Struct { fields, .. } => fields,
+            Self::Union => panic!("Unions are not supported."),
+        })
     }
 
     /// Return the input type's `WhereClause`.
-    pub fn where_clause(&self) -> &WhereClause {
-        match self {
+    pub fn where_clause(&self) -> DeriveResult<&WhereClause> {
+        Ok(match self {
             Self::Enum   { where_clause, .. } => where_clause,
             Self::Struct { where_clause, .. } => where_clause,
             Self::Union => panic!("Unions are not supported."),
-        }
+        })
     }
 
     pub fn define_delta_type(&self) -> DeriveResult<TokenStream2> {
@@ -222,15 +266,6 @@ impl InputType {
             Self::Union => panic!("Unions are not supported."),
         })
     }
-
-    // #[allow(non_snake_case)]
-    // pub fn define_Deltoid_impl(&self) -> DeriveResult<TokenStream2> {
-    //     Ok(match self {
-    //         Self::Struct { .. } => structs::define_Deltoid_impl(self)?,
-    //         Self::Enum   { .. } => enums::define_Deltoid_impl(self)?,
-    //         Self::Union => panic!("Unions are not supported."),
-    //     })
-    // }
 
     #[allow(non_snake_case)]
     pub fn define_Debug_impl(&self) -> DeriveResult<TokenStream2> {
@@ -346,7 +381,6 @@ pub enum FieldDesc {
     }
 }
 
-#[allow(non_snake_case)]
 impl FieldDesc {
     pub fn is_named(&self) -> bool {
         matches!(self, Self::Named { .. })

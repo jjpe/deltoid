@@ -62,7 +62,7 @@ fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
 
     #[cfg(feature = "dump-expansions--unstable")]
     write_generated_code_to_file(
-        input_type.type_name(),
+        input_type.type_name()?,
         &delta_type_definition,
         &impl_Debug,
         &impl_Core,
