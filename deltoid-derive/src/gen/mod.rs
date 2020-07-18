@@ -250,15 +250,6 @@ impl InputType {
         })
     }
 
-    pub fn fields(&self) -> DeriveResult<&[FieldDesc]> {
-        Ok(match self {
-            Self::Enum   { type_name, .. } =>
-                panic!("Enum {} doesn't have fields", type_name),
-            Self::Struct { fields, .. } => fields,
-            Self::Union => panic!("Unions are not supported."),
-        })
-    }
-
     /// Return the input type's `WhereClause`.
     pub fn where_clause(&self) -> DeriveResult<&WhereClause> {
         Ok(match self {
