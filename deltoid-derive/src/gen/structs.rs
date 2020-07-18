@@ -3,13 +3,11 @@
 
 use crate::DeriveResult;
 use crate::gen::{FieldDesc, InputType, StructVariant};
-use proc_macro2::{
-    Ident as Ident2, Literal as Literal2, TokenStream as TokenStream2
-};
+use proc_macro2::{Ident as Ident2, TokenStream as TokenStream2};
+use quote::{format_ident, quote};
 use syn::*;
 use syn::punctuated::Punctuated;
 use syn::token::{Add, Comma};
-use quote::{format_ident, quote};
 
 pub(crate) fn define_delta_struct(input: &InputType) -> DeriveResult<TokenStream2> {
     if let InputType::Struct {
@@ -54,7 +52,6 @@ pub(crate) fn define_delta_struct(input: &InputType) -> DeriveResult<TokenStream
                     {
                         #( #[doc(hidden)] pub(self) #field_names: #field_types, )*
                     }
-
                     // TODO: Add a {Eq, Hash} impl for `#delta_type_name`
                     // where `T: {Eq, Hash}` for every generic type arg `T`.
                 })
@@ -65,7 +62,6 @@ pub(crate) fn define_delta_struct(input: &InputType) -> DeriveResult<TokenStream
                 pub struct #delta_type_name<#(#type_param_decls),*> (
                     #( #[doc(hidden)] pub(self) #field_types, )*
                 ) #where_clause ;
-
                 // TODO: Add a {Eq, Hash} impl for `#delta_type_name`
                 // where `T: {Eq, Hash}` for every generic type arg `T`.
             }),
@@ -84,7 +80,6 @@ pub(crate) fn define_delta_struct(input: &InputType) -> DeriveResult<TokenStream
 pub(crate) fn define_Debug_impl(input: &InputType) -> DeriveResult<TokenStream2> {
     if let InputType::Struct {
         struct_variant,
-        type_name,
         delta_type_name,
         fields,
         type_param_decls: in_type_param_decls,
@@ -117,12 +112,6 @@ pub(crate) fn define_Debug_impl(input: &InputType) -> DeriveResult<TokenStream2>
         let where_clause = quote! { where #(#predicates),* };
         match struct_variant {
             StructVariant::NamedStruct => {
-                let field_names: Vec<&Ident2> = fields.iter()
-                    .map(|field: &FieldDesc| field.name_ref().unwrap())
-                    .collect();
-                let field_types: Vec<&Type> = fields.iter()
-                    .map(|field: &FieldDesc| field.type_ref())
-                    .collect();
                 let mut body = TokenStream2::new();
                 let buf: Ident2 = format_ident!("buf");
                 for field in fields.iter() {
@@ -165,12 +154,6 @@ pub(crate) fn define_Debug_impl(input: &InputType) -> DeriveResult<TokenStream2>
                     .map(|field: &FieldDesc| field.type_ref())
                     .collect();
                 let field_count = field_types.len();
-                let field_names: Vec<Ident2> = (0 .. field_count)
-                    .map(|ident| format_ident!("field_{}", ident))
-                    .collect();
-                let field_nums: Vec<Literal2> = (0 .. field_count)
-                    .map(Literal2::usize_unsuffixed)
-                    .collect();
                 let mut field_tokens = TokenStream2::new();
                 let buf: Ident2 = format_ident!("buf");
                 for field in fields.iter() {
@@ -252,7 +235,6 @@ pub(crate) fn define_Core_impl(input: &InputType) -> DeriveResult<TokenStream2> 
         struct_variant,
         type_name,
         delta_type_name,
-        fields,
         type_param_decls: in_type_param_decls,
         type_params,
         where_clause: in_where_clause,
@@ -320,7 +302,6 @@ pub(crate) fn define_Apply_impl(input: &InputType) -> DeriveResult<TokenStream2>
     if let InputType::Struct {
         struct_variant,
         type_name,
-        delta_type_name,
         fields,
         type_param_decls: in_type_param_decls,
         type_params,
@@ -504,10 +485,7 @@ pub(crate) fn define_Delta_impl(input: &InputType) -> DeriveResult<TokenStream2>
                         for #type_name<#type_params>
                         #where_clause
                     {
-                        #[allow(unused)]
-                        fn delta(&self, rhs: &Self) ->
-                            deltoid::DeltaResult<Self::Delta>
-                        {
+                        fn delta(&self, rhs: &Self) -> deltoid::DeltaResult<Self::Delta> {
                             use deltoid::IntoDelta;
                             Ok(#delta_type_name { #(#field_assignments),* })
                         }
@@ -536,29 +514,24 @@ pub(crate) fn define_Delta_impl(input: &InputType) -> DeriveResult<TokenStream2>
                         for #type_name<#type_params>
                         #where_clause
                     {
-                        #[allow(unused)]
-                        fn delta(&self,rhs: &Self) ->
-                            deltoid::DeltaResult<Self::Delta>
-                        {
+                        fn delta(&self,rhs: &Self) -> deltoid::DeltaResult<Self::Delta> {
                             use deltoid::IntoDelta;
                             Ok(#delta_type_name( #(#field_assignments),* ))
                         }
                     }
                 })
             },
-            StructVariant::UnitStruct => Ok(quote! {
-                impl<#(#type_param_decls),*> deltoid::Delta
-                    for #type_name<#type_params>
-                    #where_clause
-                {
-                    #[allow(unused)]
-                    fn delta(&self,rhs: &Self) ->
-                        deltoid::DeltaResult<Self::Delta>
+            StructVariant::UnitStruct =>
+                Ok(quote! {
+                    impl<#(#type_param_decls),*> deltoid::Delta
+                        for #type_name<#type_params>
+                        #where_clause
                     {
-                        Ok(#delta_type_name)
+                        fn delta(&self,rhs: &Self) -> deltoid::DeltaResult<Self::Delta> {
+                            Ok(#delta_type_name)
+                        }
                     }
-                }
-            }),
+                }),
         }
     } else {
         bug_detected!()

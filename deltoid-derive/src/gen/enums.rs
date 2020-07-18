@@ -4,10 +4,7 @@
 
 use crate::DeriveResult;
 use crate::gen::{EnumVariant, FieldDesc, InputType, StructVariant};
-use itertools::iproduct;
-use proc_macro2::{
-    Ident as Ident2, Literal as Literal2, TokenStream as TokenStream2
-};
+use proc_macro2::{Ident as Ident2, TokenStream as TokenStream2};
 use syn::*;
 use quote::{format_ident, quote};
 
@@ -82,7 +79,6 @@ pub(crate) fn define_delta_enum(input: &InputType) -> DeriveResult<TokenStream2>
 
 pub(crate) fn define_Debug_impl(input: &InputType) -> DeriveResult<TokenStream2> {
     if let InputType::Enum {
-        type_name,
         delta_type_name,
         enum_variants: variants,
         type_param_decls: in_type_param_decls,
@@ -218,7 +214,7 @@ pub(crate) fn define_Debug_impl(input: &InputType) -> DeriveResult<TokenStream2>
                     }},
                 });
             },
-            (StructVariant::UnitStruct, variant_name, variant_fields) => {
+            (StructVariant::UnitStruct, variant_name, _variant_fields) => {
                 field_patterns.push(quote! {
                     Self::#variant_name
                 });
@@ -259,7 +255,6 @@ pub(crate) fn define_Core_impl(input: &InputType) -> DeriveResult<TokenStream2> 
     if let InputType::Enum {
         type_name,
         delta_type_name,
-        enum_variants,
         type_param_decls: in_type_param_decls,
         type_params,
         where_clause: in_where_clause,
@@ -308,7 +303,6 @@ pub(crate) fn define_Core_impl(input: &InputType) -> DeriveResult<TokenStream2> 
 pub(crate) fn define_Apply_impl(input: &InputType) -> DeriveResult<TokenStream2> {
     if let InputType::Enum {
         type_name,
-        delta_type_name,
         enum_variants: variants,
         type_param_decls: in_type_param_decls,
         type_params,
@@ -446,7 +440,7 @@ pub(crate) fn define_Apply_impl(input: &InputType) -> DeriveResult<TokenStream2>
                     Self::from_delta(delta.clone(/*TODO*/))
                 });
             },
-            (StructVariant::UnitStruct, variant_name, variant_fields) => {
+            (StructVariant::UnitStruct, variant_name, _variant_fields) => {
                 // NOTE: first, push the pairwise-equal patterns:
                 lhs_patterns.push(quote! { Self::#variant_name });
                 delta_patterns.push(quote! { Self::Delta::#variant_name });
@@ -485,7 +479,6 @@ pub(crate) fn define_Apply_impl(input: &InputType) -> DeriveResult<TokenStream2>
 pub(crate) fn define_Delta_impl(input: &InputType) -> DeriveResult<TokenStream2> {
     if let InputType::Enum {
         type_name,
-        delta_type_name,
         enum_variants: variants,
         type_param_decls: in_type_param_decls,
         type_params,
@@ -614,7 +607,7 @@ pub(crate) fn define_Delta_impl(input: &InputType) -> DeriveResult<TokenStream2>
                     rhs.clone().into_delta()
                 });
             },
-            (StructVariant::UnitStruct, variant_name, variant_fields) => {
+            (StructVariant::UnitStruct, variant_name, _variant_fields) => {
                 // NOTE: first, push the pairwise-equal patterns:
                 lhs_patterns.push(quote! { Self::#variant_name });
                 rhs_patterns.push(quote! { Self::#variant_name });
@@ -878,7 +871,6 @@ pub(crate) fn define_IntoDelta_impl(input: &InputType) -> DeriveResult<TokenStre
                 },
             });
         }
-
         Ok(quote! {
             impl<#(#type_param_decls),*> deltoid::IntoDelta
                 for #type_name<#type_params>

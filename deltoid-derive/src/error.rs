@@ -1,5 +1,7 @@
 //! Defines error infrastructure.
 
+use serde_derive::{Deserialize, Serialize};
+
 #[allow(unused)]
 macro_rules! ensure {
     ($predicate:expr) => {
@@ -32,8 +34,7 @@ macro_rules! bug_detected {
 pub type DeriveResult<T> = Result<T, DeriveError>;
 
 
-#[derive(Clone, Copy, Debug)]
-#[derive(serde_derive::Serialize, serde_derive::Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum DeriveError {
     BugDetected {
         file: &'static str,
