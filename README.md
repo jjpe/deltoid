@@ -26,8 +26,8 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-deltoid = "0.6"
-deltoid-derive = "0.6"
+deltoid = "0.7"
+deltoid-derive = "0.7"
 ```
 
 Computing a delta, then applying it:
@@ -64,7 +64,7 @@ There are some limitations to this library:
 
 2. The derive macro tries to accommodate generic types, but for types making
    use of advanced generics a manual implementation is generally recommended
-   because it allows for finer control.
+   over using `deltoid-derive` because it allows for finer control.
 
 3. Types that have fields that have a borrow type (i.e. `&T` and `&mut T`
    for some type `T`) are not currently supported.  This limitation *may*
@@ -73,3 +73,8 @@ There are some limitations to this library:
 
 4. There is support for arrays, but support is currently implemented only for
    a arrays with length <= 5.
+
+5. It's possible that while developing you notice that a set of impls is missing
+   for a type in Rust's `stdlib`.  If so, this is because support for types that
+   are a part of `stdlib` must be added manually and simply hasn't been done yet.
+   You can file an issue for that, or even better, send a PR :)
