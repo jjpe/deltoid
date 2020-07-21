@@ -17,7 +17,7 @@ macro_rules! snapshot {
         #[allow(redundant_semicolons)]
         #[allow(unused)] {
             use deltoid::{Core, Apply, Delta, FromDelta, IntoDelta};
-            use deltoid::snapshot::DeltaSnapshot;
+            use deltoid::snapshot::{DeltaSnapshot, DeltaSnapshots};
             let mut origin = String::new();
             $(
                 if !origin.is_empty() { origin.push_str("::"); }
