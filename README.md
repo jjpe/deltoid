@@ -82,3 +82,8 @@ There are some limitations to this library:
    for a type in Rust's `stdlib`.  If so, this is because support for types that
    are a part of `stdlib` must be added manually and simply hasn't been done yet.
    You can file an issue for that, or even better, send a PR :)
+
+
+## Special Thanks
+
+A special thanks to [Accept B.V.](https://www.acc.nl/) for sponsoring this project.
