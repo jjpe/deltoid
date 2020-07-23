@@ -33,12 +33,12 @@ pub fn derive(input: TokenStream) -> TokenStream {
 fn derive_internal(input: DeriveInput) -> DeriveResult<TokenStream2> {
     let input_type: InputType = InputType::parse(&input)?;
     let delta_type_definition = input_type.define_delta_type()?;
-    let impl_Debug = input_type.define_Debug_impl()?;
-    let impl_Core = input_type.define_Core_impl()?;
-    let impl_Apply = input_type.define_Apply_impl()?;
-    let impl_Delta = input_type.define_Delta_impl()?;
-    let impl_FromDelta = input_type.define_FromDelta_impl()?;
-    let impl_IntoDelta = input_type.define_IntoDelta_impl()?;
+    let impl_Debug            = input_type.define_Debug_impl()?;
+    let impl_Core             = input_type.define_Core_impl()?;
+    let impl_Apply            = input_type.define_Apply_impl()?;
+    let impl_Delta            = input_type.define_Delta_impl()?;
+    let impl_FromDelta        = input_type.define_FromDelta_impl()?;
+    let impl_IntoDelta        = input_type.define_IntoDelta_impl()?;
     let output: TokenStream2 = quote! {
         #delta_type_definition
         #impl_Debug
