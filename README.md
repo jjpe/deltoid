@@ -3,8 +3,8 @@
 ![Rust](https://github.com/jjpe/deltoid/workflows/Rust/badge.svg)
 [![](https://img.shields.io/crates/v/deltoid?label=deltoid)](https://crates.io/crates/deltoid)
 [![](https://img.shields.io/crates/v/deltoid-derive?label=deltoid-derive)](https://crates.io/crates/deltoid-derive)
-[![](https://img.shields.io/badge/rustc-1.43+-darkcyan.svg)](-)
-[![](https://img.shields.io/crates/l/deltoid)](-)
+![](https://img.shields.io/badge/rustc-1.43+-darkcyan.svg)
+![](https://img.shields.io/crates/l/deltoid)
 
 ## Synopsis
 
