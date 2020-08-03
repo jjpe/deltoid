@@ -12,6 +12,7 @@ macro_rules! snapshot {
     (
         use result type $result_type:ty;
         [$($origin:ident)::*] $new:expr => $context:expr
+        $(; $fmt:expr $(, $arg:expr)* )?
     ) => { loop {
         #[cfg(feature = "snapshot")]
         #[allow(redundant_semicolons)]
@@ -23,6 +24,10 @@ macro_rules! snapshot {
                 if !origin.is_empty() { origin.push_str("::"); }
                 origin.push_str(stringify!($origin));
             )* ;
+            let mut msg: Option<String> = None;
+            $(
+                msg = Some(format!($fmt $(, $arg)*));
+            )?
             let mut history_guard = match $context.history() {
                 Ok(guard) => guard,
                 Err(err) => break Err(err.into()) as $result_type,
@@ -39,13 +44,20 @@ macro_rules! snapshot {
                 history.add_snapshot(DeltaSnapshot {
                     timestamp: history.current().timestamp.clone(),
                     origin:    history.current().origin.clone(),
-                    delta:     delta,
+                    msg,
+                    delta,
                 });
             }
         }
         #[cfg(not(feature = "snapshot"))] {
             let _ = $new;
             let _ = $context;
+            $(
+                let _ = $fmt;
+                $(
+                    let _ = $arg;
+                )*
+            )?
         }
         break Ok(()) as $result_type;
     }}

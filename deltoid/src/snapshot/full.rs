@@ -20,9 +20,14 @@ impl<T: Apply + Delta + Default> FullSnapshots<T> {
 
     pub fn is_empty(&self) -> bool { self.0.is_empty() }
 
-    pub fn push_snapshot(&mut self, origin: String, state: T) -> DeltaResult<()> {
+    pub fn push_snapshot(
+        &mut self,
+        origin: String,
+        msg: Option<String>,
+        state: T
+    ) -> DeltaResult<()> {
         let timestamp = Utc::now();
-        self.add_snapshot(FullSnapshot { timestamp, origin, state });
+        self.add_snapshot(FullSnapshot { timestamp, origin, msg, state });
         Ok(())
     }
 
@@ -45,6 +50,7 @@ impl<T: Apply + Delta + Default> FullSnapshots<T> {
             deltas.push(DeltaSnapshot {
                 timestamp: snapshot.timestamp.clone(),
                 origin:    snapshot.origin.clone(),
+                msg:       snapshot.msg.clone(),
                 delta:     old.delta(new)?,
             });
         }
@@ -66,12 +72,17 @@ impl<T: Apply + Delta + Default> Default for FullSnapshots<T> {
 pub struct FullSnapshot<T: Core> {
     pub timestamp: DateTime<Utc>,
     pub origin: String,
+    pub msg: Option<String>,
     pub state: T,
 }
 
 impl<T: Core> FullSnapshot<T> {
-    pub fn new(origin: String, state: T) -> Self {
-        Self { timestamp: Utc::now(), origin, state }
+    pub fn new(
+        origin: String,
+        msg: Option<String>,
+        state: T
+    ) -> Self {
+        Self { timestamp: Utc::now(), origin, msg, state }
     }
 }
 
@@ -80,6 +91,7 @@ impl<T: Core + Default> Default for FullSnapshot<T> {
         Self {
             timestamp: Utc::now(),
             origin: "default".to_string(),
+            msg: None,
             state: Default::default(),
         }
     }
