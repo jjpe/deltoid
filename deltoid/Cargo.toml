@@ -1,6 +1,6 @@
 [package]
 name = "deltoid"
-version = "0.7.2"
+version = "0.7.3"
 authors = ["Joey Ezechiels <joey.ezechiels@gmail.com>"]
 edition = "2018"
 description = "A library to calculate and apply deltas to structs and enums"
