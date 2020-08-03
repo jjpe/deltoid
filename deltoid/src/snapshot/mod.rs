@@ -35,19 +35,17 @@ macro_rules! snapshot {
             let history: &mut DeltaSnapshots<_> = &mut *history_guard;
             let old: &_ = &history.current().state;
             let new: &_ = &$new;
-            if &*old != &**new {
-                let delta = match old.delta(new) {
-                    Ok(delta) => delta,
-                    Err(derr) => break Err(derr.into()) as $result_type,
-                };
-                history.update_current(origin, new);
-                history.add_snapshot(DeltaSnapshot {
-                    timestamp: history.current().timestamp.clone(),
-                    origin:    history.current().origin.clone(),
-                    msg,
-                    delta,
-                });
-            }
+            let delta = match old.delta(new) {
+                Ok(delta) => delta,
+                Err(derr) => break Err(derr.into()) as $result_type,
+            };
+            history.update_current(origin, new);
+            history.add_snapshot(DeltaSnapshot {
+                timestamp: history.current().timestamp.clone(),
+                origin:    history.current().origin.clone(),
+                msg,
+                delta,
+            });
         }
         #[cfg(not(feature = "snapshot"))] {
             let _ = $new;
