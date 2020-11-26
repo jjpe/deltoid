@@ -50,6 +50,7 @@ impl std::fmt::Debug for StringDelta {
 
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(serde_derive::Deserialize, serde_derive::Serialize)]
 pub struct Str<'s>(pub Cow<'s, str>);
 
 impl<'s> std::ops::Deref for Str<'s> {
