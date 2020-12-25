@@ -59,6 +59,10 @@ impl<'s> std::ops::Deref for Str<'s> {
     fn deref(&self) -> &Self::Target { &self.0 }
 }
 
+impl<'s> Default for Str<'s> {
+    fn default() -> Self { Self(Cow::Borrowed("")) }
+}
+
 impl<'s> std::clone::Clone for Str<'s> {
     fn clone(&self) -> Self { Self(self.0.to_owned()) }
 }
