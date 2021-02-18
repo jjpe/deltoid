@@ -160,11 +160,11 @@ impl<T: Core> std::fmt::Debug for VecDelta<T> {
 
 
 
-#[allow(non_snake_case)]
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    #[allow(non_snake_case)]
     #[test]
     fn Vec__delta__same_values() -> DeltaResult<()> {
         let vec0: Vec<i32> = vec![1, 3, 10, 30];
@@ -184,6 +184,7 @@ mod tests {
         Ok(())
     }
 
+    #[allow(non_snake_case)]
     #[test]
     fn Vec__delta__different_values__same_length() -> DeltaResult<()> {
         let vec0 = vec![1, 3, 10, 49, 30, 500];
@@ -210,6 +211,7 @@ mod tests {
         Ok(())
     }
 
+    #[allow(non_snake_case)]
     #[test]
     fn Vec__delta__different_values__different_length() -> DeltaResult<()> {
         let vec0: Vec<i32> = vec![1, 3, 10, 30];
@@ -235,6 +237,7 @@ mod tests {
         Ok(())
     }
 
+    #[allow(non_snake_case)]
     #[test]
     fn Vec__apply__different_values__same_length() -> DeltaResult<()> {
         let vec0 = vec![1, 3, 10, 30, 30];
@@ -245,6 +248,7 @@ mod tests {
         Ok(())
     }
 
+    #[allow(non_snake_case)]
     #[test]
     fn Vec__apply__different_values__different_length() -> DeltaResult<()> {
         let vec0 = vec![1, 3, 10, 30, 30];
