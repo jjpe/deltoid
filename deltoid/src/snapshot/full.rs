@@ -14,10 +14,13 @@ pub struct FullSnapshots<T: Core>(pub(crate) Vec<FullSnapshot<T>>);
 impl<T: Apply + Delta + Default> FullSnapshots<T> {
     pub fn new() -> Self { Self(vec![]) }
 
+    #[inline(always)]
     pub fn clear(&mut self) { self.0.clear(); }
 
+    #[inline(always)]
     pub fn len(&self) -> usize { self.0.len() }
 
+    #[inline(always)]
     pub fn is_empty(&self) -> bool { self.0.is_empty() }
 
     pub fn push_snapshot(
@@ -31,10 +34,12 @@ impl<T: Apply + Delta + Default> FullSnapshots<T> {
         Ok(())
     }
 
+    #[inline(always)]
     pub fn add_snapshot(&mut self, snapshot: FullSnapshot<T>) {
         self.0.push(snapshot);
     }
 
+    #[inline(always)]
     pub fn snapshot_ref(&self, idx: usize) -> DeltaResult<&FullSnapshot<T>> {
         self.0.get(idx).ok_or_else(|| ExpectedValue!("FullSnapshot<T>"))
     }

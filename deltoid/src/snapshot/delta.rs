@@ -21,6 +21,7 @@ impl<T: Apply + Delta + Default> DeltaSnapshots<T> {
         }
     }
 
+    #[inline(always)]
     pub fn current(&self) -> &FullSnapshot<T> { &self.current }
 
     pub fn update_current(&mut self, origin: String, state: &T) {
@@ -34,8 +35,10 @@ impl<T: Apply + Delta + Default> DeltaSnapshots<T> {
         self.current = Default::default();
     }
 
+    #[inline(always)]
     pub fn len(&self) -> usize { self.snapshots.len() }
 
+    #[inline(always)]
     pub fn is_empty(&self) -> bool { self.snapshots.is_empty() }
 
     pub fn push_snapshot(
@@ -57,10 +60,12 @@ impl<T: Apply + Delta + Default> DeltaSnapshots<T> {
         Ok(())
     }
 
+    #[inline(always)]
     pub fn add_snapshot(&mut self, snapshot: DeltaSnapshot<T>) {
         self.snapshots.push(snapshot);
     }
 
+    #[inline(always)]
     pub fn take_snapshots(&mut self) -> Vec<DeltaSnapshot<T>> {
         self.snapshots.drain(..).collect()
     }
