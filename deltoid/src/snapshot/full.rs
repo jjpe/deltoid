@@ -12,8 +12,6 @@ use std::cmp::Ordering;
 pub struct FullSnapshots<T: Core>(pub(crate) Vec<FullSnapshot<T>>);
 
 impl<T: Apply + Delta + Default> FullSnapshots<T> {
-    pub fn new() -> Self { Self(vec![]) }
-
     #[inline(always)]
     pub fn clear(&mut self) { self.0.clear(); }
 
@@ -67,7 +65,7 @@ impl<T: Apply + Delta + Default> FullSnapshots<T> {
 }
 
 impl<T: Apply + Delta + Default> Default for FullSnapshots<T> {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self { Self(vec![]) }
 }
 
 

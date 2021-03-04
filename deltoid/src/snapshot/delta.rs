@@ -14,13 +14,6 @@ pub struct DeltaSnapshots<T: Core> {
 }
 
 impl<T: Apply + Delta + Default> DeltaSnapshots<T> {
-    pub fn new() -> Self {
-        Self {
-            snapshots: vec![],
-            current: FullSnapshot::default(),
-        }
-    }
-
     #[inline(always)]
     pub fn current(&self) -> &FullSnapshot<T> { &self.current }
 
@@ -88,7 +81,12 @@ impl<T: Apply + Delta + Default> DeltaSnapshots<T> {
 }
 
 impl<T: Apply + Delta + Default> Default for DeltaSnapshots<T> {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self {
+            snapshots: vec![],
+            current: FullSnapshot::default(),
+        }
+    }
 }
 
 
