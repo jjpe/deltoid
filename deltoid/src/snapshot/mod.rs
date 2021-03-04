@@ -11,12 +11,11 @@
 macro_rules! snapshot {
     (
         use result type $result_type:ty;
-        [$($origin:ident)::*] $new:expr => $context:expr
+        [$($origin:ident)::*] $new_state:expr => $context:expr
         $(; $fmt:expr $(, $arg:expr)* )?
-    ) => { loop {
+    ) => { loop/* used as a do-block rather than a loop */ {
         #[cfg(feature = "snapshot")]
-        #[allow(redundant_semicolons)]
-        #[allow(unused)] {
+        #[allow(redundant_semicolons, unused)] {
             use deltoid::{Core, Apply, Delta, FromDelta, IntoDelta};
             use deltoid::snapshot::{DeltaSnapshot, DeltaSnapshots};
             let mut origin = String::new();
@@ -33,13 +32,13 @@ macro_rules! snapshot {
                 Err(err) => break Err(err.into()) as $result_type,
             };
             let history: &mut DeltaSnapshots<_> = &mut *history_guard;
-            let old: &_ = &history.current().state;
-            let new: &_ = &$new;
-            let delta = match old.delta(new) {
+            let old_state: &_ = &history.current().state;
+            let new_state: &_ = &$new_state;
+            let delta = match old_state.delta(new_state) {
                 Ok(delta) => delta,
                 Err(derr) => break Err(derr.into()) as $result_type,
             };
-            history.update_current(origin, new);
+            history.update_current(origin, new_state);
             history.add_snapshot(DeltaSnapshot {
                 timestamp: history.current().timestamp.clone(),
                 origin:    history.current().origin.clone(),
@@ -48,7 +47,7 @@ macro_rules! snapshot {
             });
         }
         #[cfg(not(feature = "snapshot"))] {
-            let _ = $new;
+            let _ = $new_state;
             let _ = $context;
             $(
                 let _ = $fmt;
