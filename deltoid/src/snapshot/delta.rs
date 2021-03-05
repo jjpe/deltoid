@@ -80,7 +80,7 @@ impl<T: Apply + Delta + Default> DeltaSnapshots<T> {
     }
 }
 
-impl<T: Apply + Delta + Default> Default for DeltaSnapshots<T> {
+impl<T: Core + Default> Default for DeltaSnapshots<T> {
     fn default() -> Self {
         Self {
             snapshots: vec![],
