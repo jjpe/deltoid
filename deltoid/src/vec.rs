@@ -137,22 +137,25 @@ impl<T: Core> std::fmt::Debug for EltDelta<T> {
 pub struct VecDelta<T: Core>(#[doc(hidden)] pub Vec<EltDelta<T>>);
 
 impl<T: Core> VecDelta<T> {
-    pub fn iter<'d>(&'d self) -> Box<dyn Iterator<Item = &EltDelta<T>> + 'd> {
-        Box::new(self.0.iter())
+    #[inline(always)]
+    pub fn iter<'d>(&'d self) -> impl Iterator<Item = &EltDelta<T>> + 'd {
+        self.0.iter()
     }
 
-    pub fn into_iter<'d>(self) -> Box<dyn Iterator<Item = EltDelta<T>> + 'd>
+    #[inline(always)]
+    pub fn into_iter<'d>(self) -> impl Iterator<Item = EltDelta<T>> + 'd
     where Self: 'd {
-        Box::new(self.0.into_iter())
+        self.0.into_iter()
     }
 
+    #[inline(always)]
     pub fn len(&self) -> usize { self.0.len() }
 }
 
 impl<T: Core> std::fmt::Debug for VecDelta<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
         write!(f, "VecDelta ")?;
-        f.debug_list().entries(self.0.iter()).finish()
+        f.debug_list().entries(self.iter()).finish()
     }
 }
 
