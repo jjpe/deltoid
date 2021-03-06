@@ -70,7 +70,7 @@ macro_rules! snapshot {
                     $new_state
                 );
                 if let Err(err) = result {
-                    break Err(err);
+                    break Err(err) as $result_type;
                 }
             )+ ;
         }
