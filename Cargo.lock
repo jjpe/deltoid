@@ -34,9 +34,9 @@ dependencies = [
 
 [[package]]
 name = "deltoid"
-version = "0.9.0"
+version = "0.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4af5ae23b77ef15d334ef5061e5503fdb2ccfc6593dce2f4f3b37e8b84e2521f"
+checksum = "30bf2b8efb8aae102bb4bf9f493246f42fc9136762de5eb99a6268ec80f67a40"
 dependencies = [
  "js-sys",
  "serde",
@@ -47,7 +47,7 @@ dependencies = [
 
 [[package]]
 name = "deltoid"
-version = "0.9.1"
+version = "0.9.3"
 dependencies = [
  "chrono",
  "js-sys",
@@ -60,9 +60,9 @@ dependencies = [
 
 [[package]]
 name = "deltoid-derive"
-version = "0.9.1"
+version = "0.9.3"
 dependencies = [
- "deltoid 0.9.0",
+ "deltoid 0.9.2",
  "itertools",
  "proc-macro2",
  "quote",
@@ -110,9 +110,9 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
 name = "libc"
-version = "0.2.87"
+version = "0.2.88"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "265d751d31d6780a3f956bb5b8022feba2d94eeee5a84ba64f4212eedca42213"
+checksum = "03b07a082330a35e43f63177cc01689da34fbffa0105e1246cf0311472cac73a"
 
 [[package]]
 name = "log"
@@ -168,15 +168,15 @@ checksum = "71d301d4193d031abdd79ff7e3dd721168a9572ef3fe51a1517aba235bd8f86e"
 
 [[package]]
 name = "serde"
-version = "1.0.123"
+version = "1.0.124"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "92d5161132722baa40d802cc70b15262b98258453e85e5d1d365c757c73869ae"
+checksum = "bd761ff957cb2a45fbb9ab3da6512de9de55872866160b23c25f1a841e99d29f"
 
 [[package]]
 name = "serde_derive"
-version = "1.0.123"
+version = "1.0.124"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9391c295d64fc0abb2c556bad848f33cb8296276b1ad2677d1ae1ace4f258f31"
+checksum = "1800f7693e94e186f5e25a28291ae1570da908aff7d97a095dec1e56ff99069b"
 dependencies = [
  "proc-macro2",
  "quote",
