@@ -34,7 +34,7 @@ dependencies = [
 
 [[package]]
 name = "deltoid"
-version = "0.9.3"
+version = "0.9.4"
 dependencies = [
  "chrono",
  "js-sys",
@@ -47,9 +47,9 @@ dependencies = [
 
 [[package]]
 name = "deltoid"
-version = "0.9.3"
+version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1f40de2ed71ba1532a2f1793b0456a20c455e0b8c951348236fc1ad54377fb3c"
+checksum = "bcf9508be2591ef8d1a6298abd25ea4dd38f91d6b5cb71e0e2ae89d690bf8bfe"
 dependencies = [
  "js-sys",
  "serde",
@@ -60,9 +60,9 @@ dependencies = [
 
 [[package]]
 name = "deltoid-derive"
-version = "0.9.3"
+version = "0.9.4"
 dependencies = [
- "deltoid 0.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "deltoid 0.9.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "itertools",
  "proc-macro2",
  "quote",
