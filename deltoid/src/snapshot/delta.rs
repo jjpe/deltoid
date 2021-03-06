@@ -78,6 +78,16 @@ impl<T: Apply + Delta + Default> DeltaSnapshots<T> {
         }
         Ok(FullSnapshots(uncompressed))
     }
+
+    #[inline(always)]
+    pub fn into_iter(self) -> impl Iterator<Item = DeltaSnapshot<T>> {
+        self.snapshots.into_iter()
+    }
+
+    #[inline(always)]
+    pub fn iter(&self) -> impl Iterator<Item = &DeltaSnapshot<T>> {
+        self.snapshots.iter()
+    }
 }
 
 impl<T: Core + Default> Default for DeltaSnapshots<T> {

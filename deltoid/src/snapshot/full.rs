@@ -62,6 +62,16 @@ impl<T: Apply + Delta + Default> FullSnapshots<T> {
             current: self.0.pop().unwrap_or(initial),
         })
     }
+
+    #[inline(always)]
+    pub fn into_iter(self) -> impl Iterator<Item = FullSnapshot<T>> {
+        self.0.into_iter()
+    }
+
+    #[inline(always)]
+    pub fn iter(&self) -> impl Iterator<Item = &FullSnapshot<T>> {
+        self.0.iter()
+    }
 }
 
 impl<T: Apply + Delta + Default> Default for FullSnapshots<T> {
