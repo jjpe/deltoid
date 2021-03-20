@@ -5,6 +5,7 @@ use crate::{Apply, Core, Delta, DeltaResult};
 use crate::snapshot::full::{FullSnapshot, FullSnapshots};
 use serde_derive::{Deserialize, Serialize};
 use std::cmp::Ordering;
+use std::hash::{Hash, Hasher};
 
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize)]
@@ -99,6 +100,15 @@ impl<T: Core + Default> Default for DeltaSnapshots<T> {
     }
 }
 
+impl<T: Core + Hash> Hash for DeltaSnapshots<T>
+where <T as Core>::Delta: Hash
+{
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.snapshots.hash(state);
+        self.current.hash(state);
+    }
+}
+
 
 
 
@@ -117,6 +127,16 @@ impl<T: Core> DeltaSnapshot<T> {
         delta: <T as Core>::Delta
     ) -> Self {
         Self { timestamp: Utc::now(), origin, msg, delta }
+    }
+}
+
+impl<T: Core> Hash for DeltaSnapshot<T>
+where <T as Core>::Delta: Hash {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.timestamp.hash(state);
+        self.origin.hash(state);
+        self.msg.hash(state);
+        self.delta.hash(state);
     }
 }
 

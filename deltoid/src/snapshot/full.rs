@@ -1,11 +1,11 @@
 //!
 
-
 use chrono::prelude::{DateTime, Utc};
 use crate::{Apply, Core, Delta, DeltaResult};
 use crate::snapshot::delta::{DeltaSnapshot, DeltaSnapshots};
 use serde_derive::{Deserialize, Serialize};
 use std::cmp::Ordering;
+use std::hash::{Hash, Hasher};
 
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize)]
@@ -78,6 +78,12 @@ impl<T: Apply + Delta + Default> Default for FullSnapshots<T> {
     fn default() -> Self { Self(vec![]) }
 }
 
+impl<T: Core + Hash> Hash for FullSnapshots<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.hash(state);
+    }
+}
+
 
 
 
@@ -107,6 +113,15 @@ impl<T: Core + Default> Default for FullSnapshot<T> {
             msg: None,
             state: Default::default(),
         }
+    }
+}
+
+impl<T: Core + Hash> Hash for FullSnapshot<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.timestamp.hash(state);
+        self.origin.hash(state);
+        self.msg.hash(state);
+        self.state.hash(state);
     }
 }
 
