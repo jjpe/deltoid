@@ -75,10 +75,7 @@ There are some limitations to this library:
    be lifted in the future for mutable borrows, but is pretty fundamental
    for immutable borrows.
 
-4. There is support for arrays, but support is currently implemented only for
-   a arrays with length <= 5.
-
-5. It's possible that while developing you notice that a set of impls is missing
+4. It's possible that while developing you notice that a set of impls is missing
    for a type in Rust's `stdlib`.  If so, this is because support for types that
    are a part of `stdlib` must be added manually and simply hasn't been done yet.
    You can file an issue for that, or even better, send a PR :)
