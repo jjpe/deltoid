@@ -140,10 +140,8 @@ macro_rules! ExpectedValue {
 
 pub type DeltaResult<T> = Result<T, DeltaError>;
 
-#[derive(
-    Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord,
-    serde_derive::Deserialize, serde_derive::Serialize,
-)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(serde_derive::Deserialize, serde_derive::Serialize)]
 pub enum DeltaError {
     BugDetected {
         msg: String,
