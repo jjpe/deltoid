@@ -35,7 +35,7 @@ where T: Apply + FromDelta
             let elt = unsafe { &mut *new[index].as_mut_ptr() };
             *elt = self[index].clone();
         }
-        Ok(unsafe { mem::transmute_copy(&new) })
+        Ok(unsafe { array_assume_init(new) })
     }
 }
 
@@ -80,7 +80,7 @@ where T: Clone + Debug + PartialEq + FromDelta
             let elt = unsafe { &mut *new[index].as_mut_ptr() };
             *elt = T::default();
         }
-        Ok(unsafe { mem::transmute_copy(&new) })
+        Ok(unsafe { array_assume_init(new) })
     }
 }
 
@@ -112,6 +112,13 @@ pub struct ArrayDelta<T: Core, const LEN: usize> (
 pub struct Edit<T: Core> {
     delta: <T as Core>::Delta,
     index: usize,
+}
+
+#[inline(never)]
+unsafe fn array_assume_init<T, const N: usize>(
+    array: [MaybeUninit<T>; N]
+) -> [T; N] {
+    mem::transmute_copy(&array)
 }
 
 
