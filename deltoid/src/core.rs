@@ -38,8 +38,6 @@ pub trait IntoDelta: Core {
 }
 
 
-
-
 macro_rules! impl_delta_trait_for_primitive_types {
     ( $($type:ty => $delta:ident $(: $($traits:ident),+)?);* $(;)? ) => {
         $(
