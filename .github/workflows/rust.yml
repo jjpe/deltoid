@@ -9,6 +9,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v1
+    - uses: icepuma/rust-action@master
 
     - name: Build deltoid
       working-directory: deltoid
