@@ -1,17 +1,95 @@
 //!
 
 use chrono::prelude::{DateTime, Utc};
-use crate::{Apply, Core, Delta, DeltaResult};
+use crate::{Apply, Core, Delta, DeltaError, DeltaResult};
+use crate::snapshot::SnapshotCtx;
 use crate::snapshot::delta::{DeltaSnapshot, DeltaSnapshots};
 use serde_derive::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
 
+#[macro_export]
+macro_rules! full_snapshot {
+    (
+        use result type $result_type:ty;
+        [$($origin:ident)::*] $($new_state:expr),+ => $ctx:expr
+        $(; $fmt:expr $(, $arg:expr)* )?
+    ) => { loop {
+        #[cfg(feature = "snapshot")]
+        #[allow(redundant_semicolons, unused)] {
+            let mut origin = String::new();
+            $(
+                if !origin.is_empty() { origin.push_str("::"); }
+                origin.push_str(stringify!($origin));
+            )* ;
+            let mut msg: Option<String> = None;
+            $(
+                msg = Some(format!($fmt $(, $arg)*));
+            )? ;
+            $(
+                let result = $crate::snapshot::full::full_snapshot(
+                    $ctx,
+                    origin.clone(),
+                    msg.clone(),
+                    $new_state.clone()
+                );
+                if let Err(err) = result {
+                    break Err(err) as $result_type;
+                }
+            )+ ;
+        }
+        #[cfg(not(feature = "snapshot"))] {
+            $(
+                let _ = $new_state;
+            )+ ;
+            let _ = $ctx;
+            $(
+                let _ = $fmt;
+                $(
+                    let _ = $arg;
+                )*
+            )? ;
+        }
+        break Ok(()) as $result_type;
+    }}
+}
+
+#[cfg(feature = "snapshot")]
+#[inline(always)]
+pub fn full_snapshot<S, E, C>(
+    ctx: &mut C,
+    origin: String,
+    msg: Option<String>,
+    state: S,
+) -> Result<(), E>
+where
+    S: Delta + Apply + Default,
+    E: From<DeltaError>,
+    C: SnapshotCtx<S, History = FullSnapshots<S>>
+{
+    let history: &mut <C as SnapshotCtx<S>>::History = ctx.history();
+    let timestamp = history.current().timestamp.clone();
+    history.add_snapshot(FullSnapshot { timestamp, origin, msg, state });
+    Ok(())
+}
+
+
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize)]
 pub struct FullSnapshots<T: Core>(pub(crate) Vec<FullSnapshot<T>>);
 
+impl<T: Apply + Delta + Default> Default for FullSnapshots<T> {
+    fn default() -> Self {
+        Self(vec![ FullSnapshot::default() ])
+    }
+}
+
 impl<T: Apply + Delta + Default> FullSnapshots<T> {
+    #[inline(always)]
+    pub fn current(&self) -> &FullSnapshot<T> {
+        self.0.last().unwrap(/*safe b/c there's always at least 1 snapshot*/)
+    }
+
     #[inline(always)]
     pub fn clear(&mut self) { self.0.clear(); }
 
@@ -72,10 +150,6 @@ impl<T: Apply + Delta + Default> FullSnapshots<T> {
     pub fn iter(&self) -> impl Iterator<Item = &FullSnapshot<T>> {
         self.0.iter()
     }
-}
-
-impl<T: Apply + Delta + Default> Default for FullSnapshots<T> {
-    fn default() -> Self { Self(vec![]) }
 }
 
 impl<T: Core + Hash> Hash for FullSnapshots<T> {

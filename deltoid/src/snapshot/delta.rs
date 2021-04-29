@@ -1,11 +1,81 @@
 //!
 
 use chrono::prelude::{DateTime, Utc};
-use crate::{Apply, Core, Delta, DeltaResult};
+use crate::{Apply, Core, Delta, DeltaError, DeltaResult};
+use crate::snapshot::SnapshotCtx;
 use crate::snapshot::full::{FullSnapshot, FullSnapshots};
 use serde_derive::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
+
+#[macro_export]
+macro_rules! delta_snapshot {
+    (
+        use result type $result_type:ty;
+        [$($origin:ident)::*] $($new_state:expr),+ => $ctx:expr
+            $(; $fmt:expr $(, $arg:expr)* )?
+    ) => { loop {
+        #[cfg(feature = "snapshot")]
+        #[allow(redundant_semicolons, unused)] {
+            let mut origin = String::new();
+            $(
+                if !origin.is_empty() { origin.push_str("::"); }
+                origin.push_str(stringify!($origin));
+            )* ;
+            let mut msg: Option<String> = None;
+            $(
+                msg = Some(format!($fmt $(, $arg)*));
+            )? ;
+            $(
+                let result = $crate::snapshot::delta::delta_snapshot(
+                    $ctx,
+                    origin.clone(),
+                    msg.clone(),
+                    $new_state
+                );
+                if let Err(err) = result {
+                    break Err(err) as $result_type;
+                }
+            )+ ;
+        }
+        #[cfg(not(feature = "snapshot"))] {
+            $(
+                let _ = $new_state;
+            )+ ;
+            let _ = $ctx;
+            $(
+                let _ = $fmt;
+                $(
+                    let _ = $arg;
+                )*
+            )? ;
+        }
+        break Ok(()) as $result_type
+    }}
+}
+
+#[cfg(feature = "snapshot")]
+#[inline(always)]
+pub fn delta_snapshot<S, E, C>(
+    ctx: &mut C,
+    origin: String,
+    msg: Option<String>,
+    new_state: &S,
+) -> Result<(), E>
+where
+    S: Delta + Apply + Default,
+    E: From<DeltaError>,
+    C: SnapshotCtx<S, History = DeltaSnapshots<S>>,
+{
+    let history: &mut <C as SnapshotCtx<S>>::History = ctx.history();
+    let old_state: &S = &history.current().state;
+    let delta: <S as Core>::Delta = old_state.delta(new_state)?;
+    history.update_current(origin.clone(), new_state);
+    let timestamp = history.current().timestamp.clone();
+    history.add_snapshot(DeltaSnapshot { timestamp, origin, msg, delta });
+    Ok(())
+}
+
 
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize)]
