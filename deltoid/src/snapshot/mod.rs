@@ -14,8 +14,8 @@ where T: Core + Default {
     //       ```
     //           type History<S>: Default = FullSnapshots<S>;
     //       ```
-    //       Note the absence of `S` in the type's generic parameters.
-    //       Defining it this way will have the effect that `Snapshots` merely
+    //       Note the absence of `S` in the type level generic parameter set.
+    //       Defining it as above would have the effect that `History` merely
     //       becomes a way to specify whether to use delta's or not, while `T`
     //       becomes the sole way to specify what the snapshot's state type is.
     type History: Default;
