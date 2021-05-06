@@ -68,7 +68,7 @@ where
     C: SnapshotCtx<S, History = FullSnapshots<S>>
 {
     let history: &mut <C as SnapshotCtx<S>>::History = ctx.history();
-    let timestamp = history.current().timestamp.clone();
+    let timestamp: DateTime<Utc> = Utc::now();
     history.add_snapshot(FullSnapshot { timestamp, origin, msg, state });
     Ok(())
 }
