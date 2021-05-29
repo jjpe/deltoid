@@ -13,7 +13,7 @@ macro_rules! delta_snapshot {
     (
         use result type $result_type:ty;
         [$($origin:ident)::*] $($new_state:expr),+ => $ctx:expr
-            $(; $fmt:expr $(, $arg:expr)* )?
+        $(; $fmt:expr $(, $arg:expr)* )?
     ) => { loop {
         #[cfg(feature = "snapshot")]
         #[allow(redundant_semicolons, unused)] {
