@@ -1,5 +1,7 @@
 //!
 
+use crate::{Core, Apply, Delta, FromDelta, IntoDelta};
+use serde_derive::{Deserialize, Serialize};
 use std::sync::TryLockError;
 
 
@@ -141,7 +143,7 @@ macro_rules! ExpectedValue {
 pub type DeltaResult<T> = Result<T, DeltaError>;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
-#[derive(serde_derive::Deserialize, serde_derive::Serialize)]
+#[derive(Deserialize, Serialize)]
 pub enum DeltaError {
     BugDetected {
         msg: String,
@@ -169,7 +171,6 @@ pub enum DeltaError {
     RwLockPoisoned(String)
 }
 
-
 impl<T> From<TryLockError<T>> for DeltaError {
     fn from(err: TryLockError<T>) -> DeltaError {
         match err {
@@ -178,5 +179,45 @@ impl<T> From<TryLockError<T>> for DeltaError {
             TryLockError::Poisoned(psn_err) =>
                 DeltaError::RwLockPoisoned(format!("{}", psn_err)),
         }
+    }
+}
+
+
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+pub struct DeltaErrorDelta(Option<DeltaError>);
+
+impl Core for DeltaError {
+    type Delta = DeltaErrorDelta;
+}
+
+impl Apply for DeltaError {
+    fn apply(&self, delta: Self::Delta) -> DeltaResult<Self> {
+        match delta {
+            DeltaErrorDelta(Some(derr)) => Ok(derr),
+            DeltaErrorDelta(None) => Ok(self.clone()),
+        }
+    }
+}
+
+impl Delta for DeltaError {
+    fn delta(&self, rhs: &Self) -> DeltaResult<Self::Delta> {
+        Ok(DeltaErrorDelta(Some(rhs.clone())))
+    }
+}
+
+impl FromDelta for DeltaError {
+    fn from_delta(delta: Self::Delta) -> DeltaResult<Self> {
+        match delta {
+            DeltaErrorDelta(Some(derr)) => Ok(derr),
+            DeltaErrorDelta(None) => Err(DeltaError::FailedToConvertFromDelta {
+                reason: format!("Got no delta to convert from"),
+            })
+        }
+    }
+}
+
+impl IntoDelta for DeltaError {
+    fn into_delta(self) -> DeltaResult<Self::Delta> {
+        Ok(DeltaErrorDelta(Some(self)))
     }
 }
