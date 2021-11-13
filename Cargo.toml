@@ -2,4 +2,5 @@
 members = [
     "./deltoid/",
     "./deltoid-derive/",
+    "./deltoid-quickcheck-tests/",
 ]
