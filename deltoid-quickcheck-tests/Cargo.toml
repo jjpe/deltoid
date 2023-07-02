@@ -10,7 +10,7 @@ deltoid = { path = "../deltoid" }
 deltoid-derive = { path = "../deltoid-derive" }
 serde_derive = "1.0"
 serde = "1.0"
-quickcheck = "0.8"
-quickcheck_macros = "0.8"
-quickcheck_derive = "*"
-rand = "0.6"
+quickcheck = "1.0.3"
+quickcheck_macros = "1.0.0"
+quickcheck_derive = "0.3.0"
+rand = "0.8.5"
