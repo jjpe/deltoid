@@ -1,9 +1,9 @@
 //!
 
-use crate::{Apply, Core, Delta, DeltaResult, FromDelta, IntoDelta};
+use crate::{Apply, Core, Delta, DeltaError, DeltaResult, FromDelta, IntoDelta};
 use serde::{Deserialize, Serialize};
+use std::convert::TryInto;
 use std::fmt::Debug;
-use std::mem::{self, MaybeUninit};
 
 impl<T, const LEN: usize> Core for [T; LEN]
 where T: Clone + Debug + PartialEq + Core
@@ -14,28 +14,18 @@ where T: Clone + Debug + PartialEq + Core
 }
 
 impl<T, const LEN: usize> Apply for [T; LEN]
-where T: Apply + FromDelta
+where T: Apply
     + for<'de> Deserialize<'de>
     + Serialize
 {
     fn apply(&self, delta: Self::Delta) -> DeltaResult<Self> {
-        let mut new: [MaybeUninit<T>; LEN] =
-            unsafe { MaybeUninit::uninit().assume_init() };
-        let initialized: Vec<usize> = delta.0.iter()
-            .map(|edit| edit.index)
-            .collect();
-        // NOTE: initialize the delta `new[index]` cells:
-        for Edit { delta: d, index } in delta.0 {
-            new[index] = MaybeUninit::new(self[index].apply(d)?);
+        let mut new: Vec<T> = self.to_vec();
+        for (position, Edit { delta: d, index }) in delta.0.into_iter().enumerate() {
+            if index >= LEN { return Err(DeltaError::IllegalDelta { index: position }); }
+            let updated = new[index].apply(d)?;
+            new[index] = updated;
         }
-        // NOTE: initialize the non-delta `new[index]` cells:
-        for index in 0 .. LEN {
-            if initialized.contains(&index) { continue }
-            // NOTE: offset `new[index]` not yet initialized:
-            let elt = unsafe { &mut *new[index].as_mut_ptr() };
-            *elt = self[index].clone();
-        }
-        Ok(unsafe { array_assume_init(new) })
+        match new.try_into() { Ok(array) => Ok(array), Err(_) => bug_detected!() }
     }
 }
 
@@ -61,26 +51,23 @@ impl<T, const LEN: usize> FromDelta for [T; LEN]
 where T: Clone + Debug + PartialEq + FromDelta
     + for<'de> Deserialize<'de>
     + Serialize
-    + Default
 {
     fn from_delta(delta: <Self as Core>::Delta) -> DeltaResult<Self> {
-        let mut new: [MaybeUninit<T>; LEN] =
-            unsafe { MaybeUninit::uninit().assume_init() };
-        let initialized: Vec<usize> = delta.0.iter()
-            .map(|edit| edit.index)
-            .collect();
-        // NOTE: initialize the delta `new[index]` cells:
-        for Edit { delta: d, index } in delta.0 {
-            new[index] = MaybeUninit::new(<T>::from_delta(d)?);
+        let mut slots: Vec<Option<T>> = vec![None; LEN];
+        for (position, Edit { delta: d, index }) in delta.0.into_iter().enumerate() {
+            if index >= LEN || slots[index].is_some() {
+                return Err(DeltaError::IllegalDelta { index: position });
+            }
+            slots[index] = Some(<T>::from_delta(d)?);
         }
-        // NOTE: initialize the non-delta `new[index]` cells:
-        for index in 0 .. LEN {
-            if initialized.contains(&index) { continue }
-            // NOTE: offset `new[index]` not yet initialized:
-            let elt = unsafe { &mut *new[index].as_mut_ptr() };
-            *elt = T::default();
+        let mut new: Vec<T> = Vec::with_capacity(LEN);
+        for slot in slots {
+            match slot {
+                Some(value) => new.push(value),
+                None => return Err(ExpectedValue!("ArrayDelta<T, LEN>")),
+            }
         }
-        Ok(unsafe { array_assume_init(new) })
+        match new.try_into() { Ok(array) => Ok(array), Err(_) => bug_detected!() }
     }
 }
 
@@ -110,18 +97,9 @@ pub struct ArrayDelta<T: Core, const LEN: usize> (
 #[derive(Clone, Debug, PartialEq)]
 #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
 pub struct Edit<T: Core> {
-    delta: <T as Core>::Delta,
-    index: usize,
+    #[doc(hidden)] pub delta: <T as Core>::Delta,
+    #[doc(hidden)] pub index: usize,
 }
-
-#[inline(never)]
-unsafe fn array_assume_init<T, const N: usize>(
-    array: [MaybeUninit<T>; N]
-) -> [T; N] {
-    mem::transmute_copy(&array)
-}
-
-
 
 #[allow(non_snake_case)]
 #[cfg(test)]
@@ -258,6 +236,24 @@ mod tests {
         let array2 = array0.apply(delta)?;
         assert_eq!(array1, array2);
         Ok(())
+    }
+
+    #[test]
+    fn array__apply__out_of_bounds_index_errors() {
+        let a: [u16; 1] = [10];
+        let d: <[u16; 1] as Core>::Delta =
+            serde_json::from_str("[{\"delta\":42,\"index\":99}]").unwrap();
+        assert!(matches!(a.apply(d), Err(_))); // was: panic
+    }
+
+    #[test]
+    fn array__from_delta__sparse_or_duplicate_errors() {
+        let sparse: <[u16; 2] as Core>::Delta =
+            serde_json::from_str("[{\"delta\":42,\"index\":0}]").unwrap();
+        assert!(matches!(<[u16; 2]>::from_delta(sparse), Err(_))); // was: fabricates Default
+        let dup: <[u16; 1] as Core>::Delta =
+            serde_json::from_str("[{\"delta\":1,\"index\":0},{\"delta\":2,\"index\":0}]").unwrap();
+        assert!(matches!(<[u16; 1]>::from_delta(dup), Err(_)));
     }
 
 }
