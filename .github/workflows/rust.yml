@@ -42,3 +42,7 @@ jobs:
 
       # NOTE: Don't perform "snapshot" builds for the `deltoid-derive` crate,
       #       as that feature is only available for the `deltoid` crate.
+
+    - name: Run quickcheck roundtrip properties
+      working-directory: deltoid-quickcheck-tests
+      run: cargo run --verbose
