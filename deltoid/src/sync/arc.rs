@@ -93,7 +93,7 @@ impl<T: Core> std::fmt::Debug for ArcDelta<T> {
     }
 }
 
-impl<T: Core + Clone> Serialize for ArcDelta<T> {
+impl<T: Core> Serialize for ArcDelta<T> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where S: Serializer {
         let mut num_fields = 0;
@@ -106,14 +106,14 @@ impl<T: Core + Clone> Serialize for ArcDelta<T> {
     }
 }
 
-impl<'de, T: Core + Clone> Deserialize<'de> for ArcDelta<T> {
+impl<'de, T: Core> Deserialize<'de> for ArcDelta<T> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where D: Deserializer<'de> {
 
         struct DeltaVisitor<T2>(PhantomData<T2>);
 
         impl<'de, T2> de::Visitor<'de> for DeltaVisitor<T2>
-        where T2: Core + Clone {
+        where T2: Core {
             type Value = ArcDelta<T2>;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {

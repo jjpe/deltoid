@@ -101,13 +101,13 @@ impl<T: Core> Serialize for RcDelta<T> {
     }
 }
 
-impl<'de, T: Core + Clone> Deserialize<'de> for RcDelta<T> {
+impl<'de, T: Core> Deserialize<'de> for RcDelta<T> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where D: Deserializer<'de> {
         struct DeltaVisitor<T2>(PhantomData<T2>);
 
         impl<'de, T2> de::Visitor<'de> for DeltaVisitor<T2>
-        where T2: Core + Clone {
+        where T2: Core {
             type Value = RcDelta<T2>;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {

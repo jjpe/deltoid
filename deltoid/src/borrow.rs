@@ -14,7 +14,7 @@ where B: Clone + Debug + PartialEq + Core + ToOwned
     + for<'de> Deserialize<'de>
     + Serialize
 {
-    type Delta = CowDelta<'a, B>;
+    type Delta = CowDelta<B>;
 }
 
 impl<'a, B> Apply for Cow<'a, B>
@@ -47,7 +47,6 @@ where B: Delta + ToOwned
             } else {
                 Some(lhs.delta(rhs)?)
             },
-            _phantom: PhantomData,
         })
     }
 }
@@ -72,7 +71,6 @@ where B: Clone + Debug + PartialEq + IntoDelta
     fn into_delta(self) -> DeltaResult<Self::Delta> {
         Ok(CowDelta {
             inner: Some((self.borrow() as &B).clone().into_delta()?),
-            _phantom: PhantomData,
         })
     }
 }
@@ -80,12 +78,11 @@ where B: Clone + Debug + PartialEq + IntoDelta
 
 
 #[derive(Clone, PartialEq)]
-pub struct CowDelta<'a, B: Core> {
-    #[doc(hidden)] pub inner: Option<B::Delta>,
-    #[doc(hidden)] pub _phantom: PhantomData<&'a B>
+pub struct CowDelta<B: Core> {
+    #[doc(hidden)] pub inner: Option<<B as Core>::Delta>
 }
 
-impl<'a, B: Core> std::fmt::Debug for CowDelta<'a, B> {
+impl<B: Core> std::fmt::Debug for CowDelta<B> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
         match &self.inner {
             Some(d) => write!(f, "CowDelta({:#?})", d),
@@ -94,8 +91,7 @@ impl<'a, B: Core> std::fmt::Debug for CowDelta<'a, B> {
     }
 }
 
-impl<'a, B> Serialize for CowDelta<'a, B>
-where B: Core + for<'de> Deserialize<'de> + Serialize {
+impl<B: Core> Serialize for CowDelta<B> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where S: Serializer {
         let mut num_fields = 0;
@@ -108,15 +104,14 @@ where B: Core + for<'de> Deserialize<'de> + Serialize {
     }
 }
 
-impl<'de, 'a, B> Deserialize<'de> for CowDelta<'a, B>
-where B: Core + Deserialize<'de> + Serialize {
+impl<'de, B: Core> Deserialize<'de> for CowDelta<B> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where D: Deserializer<'de> {
-        struct DeltaVisitor<'a2, B2>(PhantomData<&'a2 B2>);
+        struct DeltaVisitor<B2>(PhantomData<B2>);
 
-        impl<'de, 'a2, B2> de::Visitor<'de> for DeltaVisitor<'a2, B2>
-        where B2: Core + Deserialize<'de> + Serialize {
-            type Value = CowDelta<'a2, B2>;
+        impl<'de, B2> de::Visitor<'de> for DeltaVisitor<B2>
+        where B2: Core {
+            type Value = CowDelta<B2>;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
                 formatter.write_str("a CowDelta")
@@ -126,7 +121,6 @@ where B: Core + Deserialize<'de> + Serialize {
             where M: de::MapAccess<'de> {
                 let mut delta: Self::Value = Self::Value {
                     inner: None,
-                    _phantom: PhantomData,
                 };
                 const EXPECTED_FIELDS: &[&str] = &["inner"];
                 while let Some((key, value)) = map.next_entry()? {

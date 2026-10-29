@@ -89,11 +89,7 @@ impl<T: Core> std::fmt::Debug for BoxDelta<T> {
     }
 }
 
-impl<T> Serialize for BoxDelta<T>
-where T: Core
-    + for<'de> Deserialize<'de>
-    + Serialize
-{
+impl<T: Core> Serialize for BoxDelta<T> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where S: Serializer {
         let mut num_fields = 0;
@@ -106,11 +102,7 @@ where T: Core
     }
 }
 
-impl<'de, T> Deserialize<'de> for BoxDelta<T>
-where T: Core
-    + Deserialize<'de>
-    + Serialize
-{
+impl<'de, T: Core> Deserialize<'de> for BoxDelta<T> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where D: Deserializer<'de> {
         struct DeltaVisitor<T2>(PhantomData<T2>);
