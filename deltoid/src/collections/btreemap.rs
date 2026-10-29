@@ -13,7 +13,7 @@ impl<K, V> Core for BTreeMap<K, V>
 where K: Clone + Debug + PartialEq + Ord + Core
     + for<'de> Deserialize<'de>
     + Serialize,
-      V: Clone + Debug + PartialEq + Ord + Core
+      V: Clone + Debug + PartialEq + Core
     + for<'de> Deserialize<'de>
     + Serialize,
 {
@@ -24,7 +24,7 @@ impl<K, V> Apply for BTreeMap<K, V>
 where K: Clone + Debug + PartialEq + Ord + Apply
     + for<'de> Deserialize<'de>
     + Serialize,
-      V: Clone + Debug + PartialEq + Ord + Apply + FromDelta
+      V: Clone + Debug + PartialEq + Apply + FromDelta
     + for<'de> Deserialize<'de>
     + Serialize,
 {
@@ -34,7 +34,8 @@ where K: Clone + Debug + PartialEq + Ord + Apply
             EntryDelta::Edit { key, value } => {
                 let place: &mut V = &mut *new.get_mut(&key)
                     .ok_or_else(|| ExpectedValue!("BTreeMapDelta<K, V>"))?;
-                *place = <V>::from_delta(value)?;
+                let updated = place.apply(value)?;
+                *place = updated;
             },
             EntryDelta::Add { key, value } => {
                 new.insert(key, <V>::from_delta(value)?);
@@ -49,7 +50,7 @@ impl<K, V> Delta for BTreeMap<K, V>
 where K: Clone + Debug + PartialEq + Ord + Delta
     + for<'de> Deserialize<'de>
     + Serialize,
-      V: Clone + Debug + PartialEq + Ord + Delta + IntoDelta
+      V: Clone + Debug + PartialEq + Delta + IntoDelta
     + for<'de> Deserialize<'de>
     + Serialize,
 {
@@ -75,11 +76,7 @@ where K: Clone + Debug + PartialEq + Ord + Delta
         for key in removed_keys {
             changes.push(EntryDelta::Remove { key: (*key).clone() });
         }
-        Ok(BTreeMapDelta(if !changes.is_empty() {
-            Some(changes)
-        } else {
-            None
-        }))
+        Ok(BTreeMapDelta(changes))
     }
 }
 
@@ -87,20 +84,18 @@ impl<K, V> FromDelta for BTreeMap<K, V>
 where K: Clone + Debug + PartialEq + Ord + FromDelta
     + for<'de> Deserialize<'de>
     + Serialize,
-      V: Clone + Debug + PartialEq + Ord + FromDelta
+      V: Clone + Debug + PartialEq + FromDelta
     + for<'de> Deserialize<'de>
     + Serialize,
 {
     fn from_delta(delta: Self::Delta) -> DeltaResult<Self> {
         let mut map: Self = Self::new();
-        if let Some(delta) = delta.0 {
-            for (index, element) in delta.into_iter().enumerate() {
-                match element {
-                    EntryDelta::Add { key, value } =>
-                        map.insert(key, <V>::from_delta(value)?),
-                    _ => return Err(DeltaError::IllegalDelta { index })?,
-                };
-            }
+        for (index, element) in delta.0.into_iter().enumerate() {
+            match element {
+                EntryDelta::Add { key, value } =>
+                    map.insert(key, <V>::from_delta(value)?),
+                _ => return Err(DeltaError::IllegalDelta { index })?,
+            };
         }
         Ok(map)
     }
@@ -110,7 +105,7 @@ impl<K, V> IntoDelta for BTreeMap<K, V>
 where K: Clone + Debug + PartialEq + Ord + IntoDelta
     + for<'de> Deserialize<'de>
     + Serialize,
-      V: Clone + Debug + PartialEq + Ord + IntoDelta
+      V: Clone + Debug + PartialEq + IntoDelta
     + for<'de> Deserialize<'de>
     + Serialize,
 {
@@ -119,11 +114,7 @@ where K: Clone + Debug + PartialEq + Ord + IntoDelta
         for (key, val) in self {
             changes.push(EntryDelta::Add { key, value: val.into_delta()? });
         }
-        Ok(BTreeMapDelta(if !changes.is_empty() {
-            Some(changes)
-        } else {
-            None
-        }))
+        Ok(BTreeMapDelta(changes))
     }
 }
 
@@ -132,38 +123,21 @@ where K: Clone + Debug + PartialEq + Ord + IntoDelta
 
 #[derive(Clone, PartialEq)]
 #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
-pub struct BTreeMapDelta<K: Core, V: Core>(
-    #[doc(hidden)] pub Option<Vec<EntryDelta<K, V>>>,
-);
+pub struct BTreeMapDelta<K: Core, V: Core>(#[doc(hidden)] pub Vec<EntryDelta<K, V>>);
 
-impl<K, V> BTreeMapDelta<K, V>
-where K: Clone + Debug + PartialEq + Ord + Core
-    + for<'de> Deserialize<'de>
-    + Serialize,
-      V: Core
-    + for<'de> Deserialize<'de>
-    + Serialize,
+impl<K: Core, V: Core> BTreeMapDelta<K, V>
 {
     pub fn iter<'d>(&'d self) -> Box<dyn Iterator<Item = &EntryDelta<K, V>> + 'd> {
-        match &self.0 {
-            Some(delta) => Box::new(delta.iter()),
-            None => Box::new(std::iter::empty()),
-        }
+        Box::new(self.0.iter())
     }
 
     pub fn into_iter<'d>(self) -> Box<dyn Iterator<Item = EntryDelta<K, V>> + 'd>
     where Self: 'd {
-        match self.0 {
-            Some(delta) => Box::new(delta.into_iter()),
-            None => Box::new(std::iter::empty()),
-        }
+        Box::new(self.0.into_iter())
     }
 
     pub fn len(&self) -> usize {
-        match &self.0 {
-            Some(delta) => delta.len(),
-            None => 0,
-        }
+        self.0.len()
     }
 }
 
@@ -173,13 +147,7 @@ where K: std::fmt::Debug + Core,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
         write!(f, "BTreeMapDelta ")?;
-        let mut buf = f.debug_list();
-        if let Some(d) = &self.0 {
-            buf.entries(d.iter());
-        } else {
-            buf.entries(std::iter::empty::<Vec<EntryDelta<K, V>>>());
-        }
-        buf.finish()
+        f.debug_list().entries(self.0.iter()).finish()
     }
 }
 
@@ -251,14 +219,14 @@ mod tests {
             "quux".into()    => 16000usize,
         };
         let delta = map0.delta(&map1)?;
-        let expected = BTreeMapDelta(None);
+        let expected = BTreeMapDelta(vec![]);
         assert_eq!(delta, expected);
         let map2 = map0.apply(delta)?;
         assert_eq!(map0, map2);
         assert_eq!(map1, map2);
 
         let delta = map1.delta(&map0)?;
-        assert_eq!(delta, BTreeMapDelta(None));
+        assert_eq!(delta, BTreeMapDelta(vec![]));
         let map3 = map1.apply(delta)?;
         assert_eq!(map0, map3);
         assert_eq!(map1, map3);
@@ -281,21 +249,21 @@ mod tests {
             "quux".into() => 16000usize,
         };
         let delta0 = map0.delta(&map1)?;
-        let expected = BTreeMapDelta(Some(vec![
+        let expected = BTreeMapDelta(vec![
             EntryDelta::Edit { key: "bar".into(),  value:   350usize.into_delta()? },
             EntryDelta::Add  { key: "baz".into(),  value:  9000usize.into_delta()? },
             EntryDelta::Remove { key: "floozie".into() },
-        ]));
+        ]);
         assert_eq!(delta0, expected);
         let map2 = map0.apply(delta0)?;
         assert_eq!(map1, map2);
 
         let delta1 = map1.delta(&map0)?;
-        assert_eq!(delta1, BTreeMapDelta(Some(vec![
+        assert_eq!(delta1, BTreeMapDelta(vec![
             EntryDelta::Edit { key: "bar".into(),     value: 300usize.into_delta()? },
             EntryDelta::Add  { key: "floozie".into(), value:   0usize.into_delta()? },
             EntryDelta::Remove { key: "baz".into() },
-        ])));
+        ]));
         let map3 = map1.apply(delta1)?;
         assert_eq!(map0, map3);
 
@@ -317,7 +285,7 @@ mod tests {
             "quux".into()    => 16000usize,
         };
         let delta = map0.delta(&map1)?;
-        assert_eq!(delta, BTreeMapDelta(None));
+        assert_eq!(delta, BTreeMapDelta(vec![]));
         let map2 = map0.apply(delta)?;
         assert_eq!(map1, map2);
         Ok(())
@@ -338,13 +306,34 @@ mod tests {
             "quux".into() => 16000usize,
         };
         let delta = map0.delta(&map1)?;
-        assert_eq!(delta, BTreeMapDelta(Some(vec![
+        assert_eq!(delta, BTreeMapDelta(vec![
             EntryDelta::Edit { key: "bar".into(),  value:   350usize.into_delta()? },
             EntryDelta::Add  { key: "baz".into(),  value:  9000usize.into_delta()? },
             EntryDelta::Remove { key: "floozie".into() },
-        ])));
+        ]));
         let map2 = map0.apply(delta)?;
         assert_eq!(map1, map2);
+        Ok(())
+    }
+
+    #[test]
+    fn BTreeMap__roundtrip__composite_values() -> DeltaResult<()> {
+        let map0: BTreeMap<String, Vec<usize>> = map! { "a".into() => vec![1] };
+        let map1: BTreeMap<String, Vec<usize>> = map! { "a".into() => vec![1, 2] };
+        let delta = map0.delta(&map1)?;
+        assert_eq!(map0.apply(delta)?, map1); // was: {"a": [2]} — silent data loss
+        let map2: BTreeMap<String, Vec<usize>> = map! { "a".into() => vec![1, 2, 3] };
+        let map3: BTreeMap<String, Vec<usize>> = map! { "a".into() => vec![1, 2, 4] };
+        assert_eq!(map2.apply(map2.delta(&map3)?)?, map3); // was: Err(IllegalDelta)
+        Ok(())
+    }
+
+    #[test]
+    fn BTreeMap__roundtrip__non_ord_values() -> DeltaResult<()> {
+        let map0: BTreeMap<String, f64> = map! { "a".into() => 1.5 };
+        let map1: BTreeMap<String, f64> = map! { "a".into() => 2.5, "b".into() => 0.0 };
+        let delta = map0.delta(&map1)?;
+        assert_eq!(map0.apply(delta)?, map1); // was impossible: f64: !Ord
         Ok(())
     }
 
