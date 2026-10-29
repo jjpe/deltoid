@@ -11,7 +11,7 @@ use std::hash::Hash;
 
 
 impl<T> Core for HashSet<T>
-where T: Clone + Debug + PartialEq + Ord + Core
+where T: Clone + Debug + PartialEq + Eq + Hash + Ord
     + for<'de> Deserialize<'de>
     + Serialize,
 {
@@ -19,140 +19,110 @@ where T: Clone + Debug + PartialEq + Ord + Core
 }
 
 impl<T> Apply for HashSet<T>
-where T: Clone + Debug + PartialEq + Ord + Hash + Apply + FromDelta
+where T: Clone + Debug + PartialEq + Eq + Hash + Ord
     + for<'de> Deserialize<'de>
     + Serialize,
 {
     fn apply(&self, delta: Self::Delta) -> DeltaResult<Self> {
-        match delta.0 {
-            None => Ok(self.clone()),
-            Some(entry_deltas) => {
-                let mut new: Self = self.clone();
-                for entry_delta in entry_deltas { match entry_delta {
-                    EntryDelta::Add { item } => {
-                        new.insert(<T>::from_delta(item)?);
-                    },
-                    EntryDelta::Remove { item } => {
-                        new.remove(&(<T>::from_delta(item)?));
-                    },
-                }}
-                Ok(new)
+        let mut new: Self = self.clone();
+        for entry_delta in delta.0 { match entry_delta {
+            EntryDelta::Add { item } => {
+                new.insert(item);
             },
-        }
+            EntryDelta::Remove { item } => {
+                new.remove(&item);
+            },
+        }}
+        Ok(new)
     }
 }
 
 impl<T> Delta for HashSet<T>
-where T: Clone + Debug + PartialEq + Ord + Hash + Delta + IntoDelta
+where T: Clone + Debug + PartialEq + Eq + Hash + Ord
     + for<'de> Deserialize<'de>
     + Serialize,
 {
     fn delta(&self, rhs: &Self) -> DeltaResult<Self::Delta> {
-        Ok(HashSetDelta(if self == rhs {
-            None
-        } else {
-            let mut entry_deltas: Vec<EntryDelta<T>> = vec![];
-            for addition in rhs.difference(&self) {
-                let addition = addition.clone().into_delta()?;
-                entry_deltas.push(EntryDelta::Add { item: addition });
-            }
-            for removal in self.difference(&rhs) {
-                let removal = removal.clone().into_delta()?;
-                entry_deltas.push(EntryDelta::Remove { item: removal });
-            }
-            Some(entry_deltas)
-        }))
+        // NOTE: set membership is identity; entries carry raw items.
+        //       equal sets naturally yield an empty diff.
+        //       items are sorted so deltas are deterministic.
+        let mut entry_deltas: Vec<EntryDelta<T>> = vec![];
+        let mut additions: Vec<&T> = rhs.difference(&self).collect();
+        additions.sort();
+        for addition in additions {
+            entry_deltas.push(EntryDelta::Add { item: addition.clone() });
+        }
+        let mut removals: Vec<&T> = self.difference(&rhs).collect();
+        removals.sort();
+        for removal in removals {
+            entry_deltas.push(EntryDelta::Remove { item: removal.clone() });
+        }
+        Ok(HashSetDelta(entry_deltas))
     }
 }
 
 impl<T> FromDelta for HashSet<T>
-where T: Clone + Debug + PartialEq + Ord + Hash + FromDelta
+where T: Clone + Debug + PartialEq + Eq + Hash + Ord
     + for<'de> Deserialize<'de>
     + Serialize,
 {
     fn from_delta(delta: Self::Delta) -> DeltaResult<Self> {
-        let mut map = Self::new();
-        if let Some(delta_entries) = delta.0 {
-            for entry in delta_entries { match entry {
-                EntryDelta::Add { item } => {
-                    map.insert(<T>::from_delta(item)?);
-                },
-                EntryDelta::Remove { item } => {
-                    let item = <T>::from_delta(item)?;
-                    map.remove(&item);
-                },
-            }}
-        }
-        Ok(map)
+        let mut set = Self::new();
+        for entry in delta.0 { match entry {
+            EntryDelta::Add { item } => {
+                set.insert(item);
+            },
+            // A base-free conversion cannot remove; no-op.
+            EntryDelta::Remove { .. } => {},
+        }}
+        Ok(set)
     }
 }
 
 impl<T> IntoDelta for HashSet<T>
-where T: Clone + Debug + PartialEq + Ord + IntoDelta
+where T: Clone + Debug + PartialEq + Eq + Hash + Ord
     + for<'de> Deserialize<'de>
     + Serialize,
 {
     fn into_delta(self) -> DeltaResult<Self::Delta> {
-        Ok(HashSetDelta(if self.is_empty() {
-            None
-        } else {
-            let mut changes: Vec<EntryDelta<T>> = vec![];
-            for item in self {
-                changes.push(EntryDelta::Add { item: item.into_delta()? });
-            }
-            Some(changes)
-        }))
+        let mut items: Vec<T> = self.into_iter().collect();
+        items.sort();
+        let mut changes: Vec<EntryDelta<T>> = vec![];
+        for item in items {
+            changes.push(EntryDelta::Add { item });
+        }
+        Ok(HashSetDelta(changes))
     }
 }
 
 
 
-
 #[derive(Clone, PartialEq)]
 #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
-pub struct HashSetDelta<T: Core>(
-    #[doc(hidden)] pub Option<Vec<EntryDelta<T>>>,
+pub struct HashSetDelta<T>(
+    #[doc(hidden)] pub Vec<EntryDelta<T>>,
 );
 
-impl<T> HashSetDelta<T>
-where T: Clone + Debug + PartialEq + Ord + Core
-    + for<'de> Deserialize<'de>
-    + Serialize,
-{
+impl<T> HashSetDelta<T> {
     pub fn iter<'d>(&'d self) -> Box<dyn Iterator<Item = &EntryDelta<T>> + 'd> {
-        match &self.0 {
-            Some(deltas) => Box::new(deltas.iter()),
-            None => Box::new(std::iter::empty()),
-        }
+        Box::new(self.0.iter())
     }
 
     pub fn into_iter<'d>(self) -> Box<dyn Iterator<Item = EntryDelta<T>> + 'd>
     where Self: 'd {
-        match self.0 {
-            Some(delta) => Box::new(delta.into_iter()),
-            None => Box::new(std::iter::empty()),
-        }
+        Box::new(self.0.into_iter())
     }
 
     pub fn len(&self) -> usize {
-        match &self.0 {
-            Some(deltas) => deltas.len(),
-            None => 0,
-        }
+        self.0.len()
     }
 }
 
 impl<T> std::fmt::Debug for HashSetDelta<T>
-where T: std::fmt::Debug + Core {
+where T: std::fmt::Debug {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
         write!(f, "HashSetDelta ")?;
-        let mut buf = f.debug_list();
-        if let Some(d) = &self.0 {
-            buf.entries(d.iter());
-        } else {
-            buf.entries(std::iter::empty::<Vec<EntryDelta<T>>>());
-        }
-        buf.finish()
+        f.debug_list().entries(self.0.iter()).finish()
     }
 }
 
@@ -160,13 +130,13 @@ where T: std::fmt::Debug + Core {
 
 #[derive(Clone, PartialEq)]
 #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
-pub enum EntryDelta<T: Core> {
-    Add { item: <T as Core>::Delta },
-    Remove { item: <T as Core>::Delta },
+pub enum EntryDelta<T> {
+    Add { item: T },
+    Remove { item: T },
 }
 
 impl<T> std::fmt::Debug for EntryDelta<T>
-where T: std::fmt::Debug + Core {
+where T: std::fmt::Debug {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
         match &self {
             Self::Add { item } => f.debug_struct("Add")
@@ -178,7 +148,6 @@ where T: std::fmt::Debug + Core {
         }
     }
 }
-
 
 
 
@@ -211,14 +180,14 @@ mod tests {
             "quux".into(),
         };
         let delta = set0.delta(&set1)?;
-        let expected = HashSetDelta(None);
+        let expected = HashSetDelta(vec![]);
         assert_eq!(delta, expected);
         let set2 = set0.apply(delta)?;
         assert_eq!(set0, set2);
         assert_eq!(set1, set2);
 
         let delta = set1.delta(&set0)?;
-        assert_eq!(delta, HashSetDelta(None));
+        assert_eq!(delta, HashSetDelta(vec![]));
         let set3 = set1.apply(delta)?;
         assert_eq!(set0, set3);
         assert_eq!(set1, set3);
@@ -241,19 +210,19 @@ mod tests {
             "quux".into(),
         };
         let delta0 = set0.delta(&set1)?;
-        let expected = HashSetDelta(Some(vec![
-            EntryDelta::Add { item: "baz".to_string().into_delta()? },
-            EntryDelta::Remove { item: "floozie".to_string().into_delta()? },
-        ]));
+        let expected = HashSetDelta(vec![
+            EntryDelta::Add { item: "baz".to_string() },
+            EntryDelta::Remove { item: "floozie".to_string() },
+        ]);
         assert_eq!(delta0, expected);
         let set2 = set0.apply(delta0)?;
         assert_eq!(set1, set2);
 
         let delta1 = set1.delta(&set0)?;
-        assert_eq!(delta1, HashSetDelta(Some(vec![
-            EntryDelta::Add { item: "floozie".to_string().into_delta()? },
-            EntryDelta::Remove { item: "baz".to_string().into_delta()? },
-        ])));
+        assert_eq!(delta1, HashSetDelta(vec![
+            EntryDelta::Add { item: "floozie".to_string() },
+            EntryDelta::Remove { item: "baz".to_string() },
+        ]));
         let set3 = set1.apply(delta1)?;
         assert_eq!(set0, set3);
 
@@ -275,7 +244,7 @@ mod tests {
             "quux".into(),
         };
         let delta = set0.delta(&set1)?;
-        assert_eq!(delta, HashSetDelta(None));
+        assert_eq!(delta, HashSetDelta(vec![]));
         let set2 = set0.apply(delta)?;
         assert_eq!(set1, set2);
         Ok(())
@@ -296,10 +265,10 @@ mod tests {
             "quux".into(),
         };
         let delta = set0.delta(&set1)?;
-        assert_eq!(delta, HashSetDelta(Some(vec![
-            EntryDelta::Add { item: "baz".to_string().into_delta()? },
-            EntryDelta::Remove { item: "floozie".to_string().into_delta()? },
-        ])));
+        assert_eq!(delta, HashSetDelta(vec![
+            EntryDelta::Add { item: "baz".to_string() },
+            EntryDelta::Remove { item: "floozie".to_string() },
+        ]));
         let set2 = set0.apply(delta)?;
         assert_eq!(set1, set2);
         Ok(())
