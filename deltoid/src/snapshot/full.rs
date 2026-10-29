@@ -5,54 +5,7 @@ use crate::{Apply, Core, Delta, DeltaError, DeltaResult};
 use crate::snapshot::SnapshotCtx;
 use crate::snapshot::delta::{DeltaSnapshot, DeltaSnapshots};
 use serde_derive::{Deserialize, Serialize};
-use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
-
-#[macro_export]
-macro_rules! full_snapshot {
-    (
-        use result type $result_type:ty;
-        [$($origin:ident)::*] $($new_state:expr),+ => $ctx:expr
-        $(; $fmt:expr $(, $arg:expr)* )?
-    ) => { loop {
-        #[cfg(feature = "snapshot")]
-        #[allow(redundant_semicolons, unused)] {
-            let mut origin = String::new();
-            $(
-                if !origin.is_empty() { origin.push_str("::"); }
-                origin.push_str(stringify!($origin));
-            )* ;
-            let mut msg: Option<String> = None;
-            $(
-                msg = Some(format!($fmt $(, $arg)*));
-            )? ;
-            $(
-                let result = $crate::snapshot::full::full_snapshot(
-                    $ctx,
-                    origin.clone(),
-                    msg.clone(),
-                    $new_state.clone()
-                );
-                if let Err(err) = result {
-                    break Err(err) as $result_type;
-                }
-            )+ ;
-        }
-        #[cfg(not(feature = "snapshot"))] {
-            $(
-                let _ = $new_state;
-            )+ ;
-            let _ = $ctx;
-            $(
-                let _ = $fmt;
-                $(
-                    let _ = $arg;
-                )*
-            )? ;
-        }
-        break Ok(()) as $result_type;
-    }}
-}
 
 #[cfg(feature = "snapshot")]
 #[inline(always)]
@@ -75,7 +28,7 @@ where
 
 
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub struct FullSnapshots<T: Core>(pub(crate) Vec<FullSnapshot<T>>);
 
 impl<T: Apply + Delta + Default> Default for FullSnapshots<T> {
@@ -91,7 +44,7 @@ impl<T: Apply + Delta + Default> FullSnapshots<T> {
     }
 
     #[inline(always)]
-    pub fn clear(&mut self) { self.0.clear(); }
+    pub fn clear(&mut self) { self.0 = vec![ FullSnapshot::default() ]; }
 
     #[inline(always)]
     pub fn len(&self) -> usize { self.0.len() }
@@ -135,7 +88,9 @@ impl<T: Apply + Delta + Default> FullSnapshots<T> {
                 delta:     old.delta(new)?,
             });
         }
+        let base = initial.state.clone();
         Ok(DeltaSnapshots {
+            base,
             snapshots: deltas,
             current: self.0.pop().unwrap_or(initial),
         })
@@ -201,30 +156,49 @@ impl<T: Core + Hash> Hash for FullSnapshot<T> {
 
 impl<T: Core + PartialEq> PartialEq for FullSnapshot<T> {
     fn eq(&self, rhs: &Self) -> bool {
-        if self.timestamp != rhs.timestamp { return false; }
-        if self.origin != rhs.origin { return false; }
-        true
+        self.timestamp == rhs.timestamp
+            && self.origin == rhs.origin
+            && self.msg == rhs.msg
+            && self.state == rhs.state
     }
 }
 
 impl<T: Core + Eq> Eq for FullSnapshot<T> {}
 
-impl<T: Core + PartialOrd> PartialOrd for FullSnapshot<T> {
-    fn partial_cmp(&self, rhs: &Self) -> Option<Ordering> {
-        let timestamp_cmp = self.timestamp.partial_cmp(&rhs.timestamp);
-        if timestamp_cmp != Some(Ordering::Equal) { return timestamp_cmp }
-        let origin_cmp = self.origin.partial_cmp(&rhs.origin);
-        if origin_cmp != Some(Ordering::Equal) { return origin_cmp }
-        Some(Ordering::Equal)
-    }
-}
+#[cfg(all(test, feature = "snapshot"))]
+mod tests {
+    use crate::snapshot::full::FullSnapshots;
+    use crate::snapshot::SnapshotCtx;
+    use crate::DeltaResult;
 
-impl<T: Core + Ord> Ord for FullSnapshot<T> {
-    fn cmp(&self, rhs: &Self) -> Ordering {
-        let timestamp_cmp = self.timestamp.cmp(&rhs.timestamp);
-        if timestamp_cmp != Ordering::Equal { return timestamp_cmp }
-        let origin_cmp = self.origin.cmp(&rhs.origin);
-        if origin_cmp != Ordering::Equal { return origin_cmp }
-        Ordering::Equal
+    #[test]
+    fn FullSnapshots__clear__keeps_current_invariant() {
+        let mut snapshots = FullSnapshots::<u64>::default();
+        snapshots.push_snapshot("x".to_string(), None, 42).unwrap();
+        snapshots.clear();
+        // `current()` unwraps `last()`; `clear()` must preserve the
+        // "there's always at least 1 snapshot" invariant (was: panic):
+        assert_eq!(snapshots.current().state, 0);
+        assert_eq!(snapshots.len(), 1);
+    }
+
+    struct Ctx {
+        history: FullSnapshots<u64>,
+    }
+
+    impl SnapshotCtx<u64> for Ctx {
+        type History = FullSnapshots<u64>;
+
+        fn history(&mut self) -> &mut Self::History { &mut self.history }
+    }
+
+    #[test]
+    fn full_snapshot__macro__records_one_snapshot() -> DeltaResult<()> {
+        let mut ctx = Ctx { history: FullSnapshots::<u64>::default() };
+        let _: DeltaResult<()> =
+            full_snapshot!(use result type DeltaResult<()>; [test] 5u64 => &mut ctx);
+        assert_eq!(ctx.history.len(), 2); // default seed + recorded snapshot
+        assert_eq!(ctx.history.current().state, 5);
+        Ok(())
     }
 }

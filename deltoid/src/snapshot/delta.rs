@@ -5,54 +5,7 @@ use crate::{Apply, Core, Delta, DeltaError, DeltaResult};
 use crate::snapshot::SnapshotCtx;
 use crate::snapshot::full::{FullSnapshot, FullSnapshots};
 use serde_derive::{Deserialize, Serialize};
-use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
-
-#[macro_export]
-macro_rules! delta_snapshot {
-    (
-        use result type $result_type:ty;
-        [$($origin:ident)::*] $($new_state:expr),+ => $ctx:expr
-        $(; $fmt:expr $(, $arg:expr)* )?
-    ) => { loop {
-        #[cfg(feature = "snapshot")]
-        #[allow(redundant_semicolons, unused)] {
-            let mut origin = String::new();
-            $(
-                if !origin.is_empty() { origin.push_str("::"); }
-                origin.push_str(stringify!($origin));
-            )* ;
-            let mut msg: Option<String> = None;
-            $(
-                msg = Some(format!($fmt $(, $arg)*));
-            )? ;
-            $(
-                let result = $crate::snapshot::delta::delta_snapshot(
-                    $ctx,
-                    origin.clone(),
-                    msg.clone(),
-                    $new_state
-                );
-                if let Err(err) = result {
-                    break Err(err) as $result_type;
-                }
-            )+ ;
-        }
-        #[cfg(not(feature = "snapshot"))] {
-            $(
-                let _ = $new_state;
-            )+ ;
-            let _ = $ctx;
-            $(
-                let _ = $fmt;
-                $(
-                    let _ = $arg;
-                )*
-            )? ;
-        }
-        break Ok(()) as $result_type
-    }}
-}
 
 #[cfg(feature = "snapshot")]
 #[inline(always)]
@@ -78,8 +31,9 @@ where
 
 
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub struct DeltaSnapshots<T: Core> {
+    pub(crate) base: T,
     pub(crate) snapshots: Vec<DeltaSnapshot<T>>,
     pub(crate) current: FullSnapshot<T>,
 }
@@ -96,6 +50,7 @@ impl<T: Apply + Delta + Default> DeltaSnapshots<T> {
 
     pub fn clear(&mut self) {
         self.snapshots.clear();
+        self.base = Default::default();
         self.current = Default::default();
     }
 
@@ -129,22 +84,21 @@ impl<T: Apply + Delta + Default> DeltaSnapshots<T> {
         self.snapshots.push(snapshot);
     }
 
-    #[inline(always)]
-    pub fn take_snapshots(&mut self) -> Vec<DeltaSnapshot<T>> {
-        self.snapshots.drain(..).collect()
+    pub fn take_snapshots(&mut self) -> (T, Vec<DeltaSnapshot<T>>) {
+        let base = std::mem::replace(&mut self.base, self.current.state.clone());
+        (base, std::mem::take(&mut self.snapshots))
     }
 
     pub fn to_full_snapshots(self) -> DeltaResult<FullSnapshots<T>> {
-        let initial = FullSnapshot::default();
         let mut uncompressed: Vec<FullSnapshot<T>> = vec![];
+        let mut state = self.base;
         for snapshot in self.snapshots {
-            let old: &T = &uncompressed.last().unwrap_or(&initial).state;
-            let new: T = old.apply(snapshot.delta)?;
+            state = state.apply(snapshot.delta)?;
             uncompressed.push(FullSnapshot {
                 timestamp: snapshot.timestamp,
                 origin:    snapshot.origin,
-                msg:       snapshot.msg.clone(),
-                state:     new,
+                msg:       snapshot.msg,
+                state:     state.clone(),
             });
         }
         Ok(FullSnapshots(uncompressed))
@@ -164,6 +118,7 @@ impl<T: Apply + Delta + Default> DeltaSnapshots<T> {
 impl<T: Core + Default> Default for DeltaSnapshots<T> {
     fn default() -> Self {
         Self {
+            base: T::default(),
             snapshots: vec![],
             current: FullSnapshot::default(),
         }
@@ -174,6 +129,7 @@ impl<T: Core + Hash> Hash for DeltaSnapshots<T>
 where <T as Core>::Delta: Hash
 {
     fn hash<H: Hasher>(&self, state: &mut H) {
+        self.base.hash(state);
         self.snapshots.hash(state);
         self.current.hash(state);
     }
@@ -212,30 +168,80 @@ where <T as Core>::Delta: Hash {
 
 impl<T: Core + PartialEq> PartialEq for DeltaSnapshot<T> {
     fn eq(&self, rhs: &Self) -> bool {
-        if self.timestamp != rhs.timestamp { return false; }
-        if self.origin != rhs.origin { return false; }
-        true
+        self.timestamp == rhs.timestamp
+            && self.origin == rhs.origin
+            && self.msg == rhs.msg
+            && self.delta == rhs.delta
     }
 }
 
 impl<T: Core + Eq> Eq for DeltaSnapshot<T> {}
 
-impl<T: Core + PartialOrd> PartialOrd for DeltaSnapshot<T> {
-    fn partial_cmp(&self, rhs: &Self) -> Option<Ordering> {
-        let timestamp_cmp = self.timestamp.partial_cmp(&rhs.timestamp);
-        if timestamp_cmp != Some(Ordering::Equal) { return timestamp_cmp }
-        let origin_cmp = self.origin.partial_cmp(&rhs.origin);
-        if origin_cmp != Some(Ordering::Equal) { return origin_cmp }
-        Some(Ordering::Equal)
-    }
-}
+#[cfg(all(test, feature = "snapshot"))]
+mod tests {
+    use crate::snapshot::delta::{DeltaSnapshot, DeltaSnapshots};
+    use crate::snapshot::SnapshotCtx;
+    use crate::{Apply, DeltaResult, IntoDelta};
+    use std::collections::HashSet;
 
-impl<T: Core + Ord> Ord for DeltaSnapshot<T> {
-    fn cmp(&self, rhs: &Self) -> Ordering {
-        let timestamp_cmp = self.timestamp.cmp(&rhs.timestamp);
-        if timestamp_cmp != Ordering::Equal { return timestamp_cmp }
-        let origin_cmp = self.origin.cmp(&rhs.origin);
-        if origin_cmp != Ordering::Equal { return origin_cmp }
-        Ordering::Equal
+    struct Ctx {
+        history: DeltaSnapshots<u64>,
+    }
+
+    impl SnapshotCtx<u64> for Ctx {
+        type History = DeltaSnapshots<u64>;
+
+        fn history(&mut self) -> &mut Self::History { &mut self.history }
+    }
+
+    #[test]
+    fn DeltaSnapshot__eq__compares_full_content() -> DeltaResult<()> {
+        let a = DeltaSnapshot::<u64>::new("x".to_string(), None, 5u64.into_delta()?);
+        let b = a.clone();
+        assert_eq!(a, b);
+        let c = DeltaSnapshot {
+            timestamp: a.timestamp.clone(),
+            origin:    a.origin.clone(),
+            msg:       a.msg.clone(),
+            delta:     6u64.into_delta()?,
+        };
+        // was: equal (equality ignored `delta`/`msg`) despite differing content
+        assert_ne!(a, c);
+
+        // Eq/Hash contract: `==`-equal snapshots hash to one bucket,
+        // content-differing snapshots hash apart:
+        let mut set = HashSet::new();
+        set.insert(&a);
+        set.insert(&b);
+        assert_eq!(set.len(), 1);
+        set.insert(&c);
+        assert_eq!(set.len(), 2);
+        Ok(())
+    }
+
+    #[test]
+    fn DeltaSnapshots__take_snapshots__reanchors_base() -> DeltaResult<()> {
+        let mut ctx = Ctx { history: DeltaSnapshots::<u64>::default() };
+        ctx.history.push_snapshot("a".to_string(), None, 5)?;
+        ctx.history.push_snapshot("b".to_string(), None, 9)?;
+
+        // The taken chain replays correctly from the returned pre-take base:
+        let (base, chain) = ctx.history.take_snapshots();
+        assert_eq!(base, 0);
+        let mut state = base;
+        let mut states = vec![];
+        for snapshot in chain {
+            state = state.apply(snapshot.delta)?;
+            states.push(state);
+        }
+        assert_eq!(states, vec![5, 9]);
+
+        // Post-take, the chain is re-anchored at the previous head (9), so a
+        // further push replays without silently re-basing on T::default():
+        ctx.history.push_snapshot("c".to_string(), None, 12)?;
+        let fulls = ctx.history.to_full_snapshots()?;
+        let replayed: Vec<u64> = fulls.iter().map(|f| f.state).collect();
+        assert_eq!(replayed, vec![12]);
+        Ok(())
     }
 }
