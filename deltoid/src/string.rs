@@ -9,13 +9,20 @@ impl Core for String {
 
 impl Apply for String {
     fn apply(&self, delta: Self::Delta) -> DeltaResult<Self> {
-        Self::from_delta(delta)
+        match delta.0 {
+            Some(s) => Ok(s),
+            None => Ok(self.clone()),
+        }
     }
 }
 
 impl Delta for String {
     fn delta(&self, rhs: &Self) -> DeltaResult<Self::Delta> {
-        rhs.clone().into_delta()
+        if self == rhs {
+            Ok(StringDelta(None))
+        } else {
+            rhs.clone().into_delta()
+        }
     }
 }
 
@@ -97,7 +104,11 @@ impl<'s> Apply for Str<'s> {
 
 impl<'s> Delta for Str<'s> {
     fn delta(&self, rhs: &Self) -> DeltaResult<Self::Delta> {
-        rhs.clone().into_delta()
+        if self == rhs {
+            Ok(StrDelta(None))
+        } else {
+            rhs.clone().into_delta()
+        }
     }
 }
 
@@ -150,12 +161,12 @@ mod tests {
         let json_string = serde_json::to_string(&delta)
             .expect("Could not serialize to json");
         println!("json_string: {}", json_string);
-        assert_eq!(json_string, "\"foo\"");
+        assert_eq!(json_string, "null");
         let delta1: <String as Core>::Delta = serde_json::from_str(
             &json_string
         ).expect("Could not deserialize from json");
         assert_eq!(delta, delta1);
-        assert_eq!(delta, String::from("foo").into_delta()?);
+        assert_eq!(delta, StringDelta(None));
         Ok(())
     }
 
@@ -183,6 +194,8 @@ mod tests {
         let delta: <String as Core>::Delta = s0.delta(&s1)?;
         let s2 = s0.apply(delta)?;
         assert_eq!(s1, s2);
+        let s3 = s0.apply(StringDelta(None))?;
+        assert_eq!(s3, s0);
         Ok(())
     }
 
@@ -205,12 +218,12 @@ mod tests {
         let json_string = serde_json::to_string(&delta)
             .expect("Could not serialize to json");
         println!("json_string: {}", json_string);
-        assert_eq!(json_string, "\"foo\"");
+        assert_eq!(json_string, "null");
         let delta1: <Str as Core>::Delta = serde_json::from_str(
             &json_string
         ).expect("Could not deserialize from json");
         assert_eq!(delta, delta1);
-        assert_eq!(delta, Str::from("foo").into_delta()?);
+        assert_eq!(delta, StrDelta(None));
         Ok(())
     }
 
@@ -238,6 +251,8 @@ mod tests {
         let delta: <Str as Core>::Delta = s0.delta(&s1)?;
         let s2 = s0.apply(delta)?;
         assert_eq!(s1, s2);
+        let s3 = s0.apply(StrDelta(None))?;
+        assert_eq!(s3, s0);
         Ok(())
     }
 

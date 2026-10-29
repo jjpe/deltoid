@@ -20,11 +20,11 @@ where T: Apply + FromDelta
     fn apply(&self, delta: Self::Delta) -> DeltaResult<Self> {
         Ok(match (&self, delta) {
             (None,    Self::Delta::None)    => None,
-            (Some(_), Self::Delta::None)    => self.clone(),
-            (None,    Self::Delta::Some(ref d)) => Some(
+            (Some(_), Self::Delta::None)    => None,
+            (None,    Self::Delta::Some(d)) => Some(
                 <T>::from_delta(d.clone(/*TODO: rm clone for more efficiency*/))?
             ),
-            (Some(t), Self::Delta::Some(ref d)) =>
+            (Some(t), Self::Delta::Some(d)) =>
                 Some(t.apply(d.clone(/*TODO: rm clone for more efficiency*/))?),
         })
     }
@@ -76,7 +76,9 @@ where T: Clone + Debug + PartialEq + IntoDelta
 #[derive(Clone, PartialEq)]
 #[derive(serde_derive::Deserialize, serde_derive::Serialize)]
 pub enum OptionDelta<T: Core> {
+    /// The resulting value is `None`.
     None,
+    /// Set or modify the inner value via the wrapped delta `d`.
     Some(<T as Core>::Delta),
 }
 
@@ -106,7 +108,7 @@ mod tests {
         let json_string = serde_json::to_string(&delta)
             .expect("Could not serialize to json");
         println!("json_string: \"{}\"", json_string);
-        assert_eq!(json_string, "{\"Some\":\"foo\"}");
+        assert_eq!(json_string, "{\"Some\":null}");
         let delta1: <Option<String> as Core>::Delta = serde_json::from_str(
             &json_string
         ).expect("Could not deserialize from json");
@@ -153,6 +155,35 @@ mod tests {
         let delta: <Option<String> as Core>::Delta = option0.delta(&option1)?;
         let option2 = option0.apply(delta)?;
         assert_eq!(option1, option2);
+        Ok(())
+    }
+
+    #[test]
+    fn Option__roundtrip__some_to_none() -> DeltaResult<()> {
+        let option0: Option<String> = Some(String::from("foo"));
+        let option1: Option<String> = None;
+        let delta: <Option<String> as Core>::Delta = option0.delta(&option1)?;
+        assert_eq!(delta, OptionDelta::None);
+        assert_eq!(option0.apply(delta)?, option1);
+        Ok(())
+    }
+
+    #[test]
+    fn Option__roundtrip__none_to_none() -> DeltaResult<()> {
+        let option0: Option<String> = None;
+        let option1: Option<String> = None;
+        let delta: <Option<String> as Core>::Delta = option0.delta(&option1)?;
+        assert_eq!(delta, OptionDelta::None);
+        assert_eq!(option0.apply(delta)?, option1);
+        Ok(())
+    }
+
+    #[test]
+    fn Option__roundtrip__none_to_some() -> DeltaResult<()> {
+        let option0: Option<String> = None;
+        let option1: Option<String> = Some(String::from("x"));
+        let delta: <Option<String> as Core>::Delta = option0.delta(&option1)?;
+        assert_eq!(option0.apply(delta)?, option1);
         Ok(())
     }
 }

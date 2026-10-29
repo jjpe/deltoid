@@ -73,8 +73,9 @@ impl<T: Ord> Ord for RwLock<T> {
 
 impl<T: Serialize> Serialize for RwLock<T> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let value: &T = &self.0.try_read().unwrap(/*TODO*/);
-        serializer.serialize_newtype_struct("RwLock", value)
+        let value = self.0.try_read()
+            .map_err(|e| <S::Error as serde::ser::Error>::custom(e.to_string()))?;
+        serializer.serialize_newtype_struct("RwLock", &*value)
     }
 }
 
@@ -121,7 +122,8 @@ where T: Clone + Debug + PartialEq + Apply
     + Serialize
 {
     fn apply(&self, delta: Self::Delta) -> DeltaResult<Self> {
-        let lhs: &T = &*self.0.try_read().unwrap(/*TODO*/);
+        let lhs_guard = self.try_read()?;
+        let lhs: &T = &*lhs_guard;
         match delta.0 {
             Some(delta) => lhs.apply(delta).map(Self::new),
             None => Ok(Self::new(lhs.clone())),
@@ -135,9 +137,10 @@ where T: Clone + Debug + PartialEq + Delta
     + Serialize
 {
     fn delta(&self, rhs: &Self) -> DeltaResult<Self::Delta> {
-        let lhs: &T = &*self.0.try_read().unwrap(/*TODO*/);
-        let rhs: &T = &*rhs.0.try_read().unwrap(/*TODO*/);
-        lhs.delta(rhs).map(Some).map(RwLockDelta)
+        let lhs_guard = self.try_read()?;
+        let rhs_guard = rhs.try_read()?;
+        let (lhs, rhs): (&T, &T) = (&*lhs_guard, &*rhs_guard);
+        Ok(RwLockDelta(if lhs == rhs { None } else { Some(lhs.delta(rhs)?) }))
     }
 }
 
@@ -158,7 +161,8 @@ where T: Clone + Debug + PartialEq + IntoDelta
     + Serialize
 {
     fn into_delta(self) -> DeltaResult<Self::Delta> {
-        let value: &T = &*self.0.try_read().unwrap(/*TODO*/);
+        let value_guard = self.try_read()?;
+        let value: &T = &*value_guard;
         value.clone().into_delta().map(Some).map(RwLockDelta)
     }
 }
@@ -198,12 +202,12 @@ mod tests {
         let json_string = serde_json::to_string(&delta)
             .expect("Could not serialize to json");
         println!("json_string: {}", json_string);
-        assert_eq!(json_string, "\"foo\"");
+        assert_eq!(json_string, "null");
         let delta1: <RwLock<String> as Core>::Delta = serde_json::from_str(
             &json_string
         ).expect("Could not deserialize from json");
         assert_eq!(delta, delta1);
-        assert_eq!(delta, RwLock::new(String::from("foo")).into_delta()?);
+        assert_eq!(delta, RwLockDelta(None));
         Ok(())
     }
 

@@ -201,7 +201,11 @@ impl Apply for DeltaError {
 
 impl Delta for DeltaError {
     fn delta(&self, rhs: &Self) -> DeltaResult<Self::Delta> {
-        Ok(DeltaErrorDelta(Some(rhs.clone())))
+        if self == rhs {
+            Ok(DeltaErrorDelta(None))
+        } else {
+            Ok(DeltaErrorDelta(Some(rhs.clone())))
+        }
     }
 }
 
