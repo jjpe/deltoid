@@ -11,7 +11,7 @@ use std::fmt::Debug;
 
 
 impl<T> Core for VecDeque<T>
-where T: Clone + Debug + PartialEq + Ord + Core
+where T: Clone + Debug + PartialEq + Core
     + for<'de> Deserialize<'de>
     + Serialize,
 {
@@ -19,7 +19,7 @@ where T: Clone + Debug + PartialEq + Ord + Core
 }
 
 impl<T> Apply for VecDeque<T>
-where T: Clone + Debug + PartialEq + Ord + Apply + FromDelta
+where T: Clone + Debug + PartialEq + Apply + FromDelta
     + for<'de> Deserialize<'de>
     + Serialize,
 {
@@ -27,15 +27,15 @@ where T: Clone + Debug + PartialEq + Ord + Apply + FromDelta
         let mut new: Self = self.clone();
         for change in delta.into_iter() { match change {
             EltDelta::Edit { index, item } => {
-                // NOTE: If self.len() == 0, the Edit should have been an Add:
-                ensure_gt![self.len(), 0]?;
-                // NOTE: Ensure index is within bounds:
-                ensure_lt![index, self.len()]?;
-                new[index] = self[index].apply(item)?;
+                // NOTE: validated against `new` so malformed/out-of-order deltas
+                //       yield DeltaError instead of panicking:
+                ensure_lt![index, new.len()]?;
+                let updated = new[index].apply(item)?;
+                new[index] = updated;
             },
             EltDelta::Add(delta) =>  new.push_back(<T>::from_delta(delta)?),
             EltDelta::Remove { count } =>  for _ in 0 .. count {
-                new.pop_back().ok_or_else(|| ExpectedValue!("VecDelta<T>"))?;
+                new.pop_back().ok_or_else(|| ExpectedValue!("VecDequeDelta<T>"))?;
             },
         }}
         Ok(new)
@@ -43,7 +43,7 @@ where T: Clone + Debug + PartialEq + Ord + Apply + FromDelta
 }
 
 impl<T> Delta for VecDeque<T>
-where T: Clone + Debug + PartialEq + Ord + Delta + IntoDelta
+where T: Clone + Debug + PartialEq + Delta + IntoDelta
     + for<'de> Deserialize<'de>
     + Serialize,
 {
@@ -58,12 +58,9 @@ where T: Clone + Debug + PartialEq + Ord + Delta + IntoDelta
                 changes.push_back(EltDelta::Edit { index, item: l.delta(r)? }),
             (None, Some(r)) =>
                 changes.push_back(EltDelta::Add(r.clone().into_delta()?)),
-            (Some(_),   None) => {
-                let last_change_idx = changes.len() - 1;
-                match changes.get_mut(last_change_idx) {
-                    Some(EltDelta::Remove { ref mut count }) => *count += 1,
-                    _ => changes.push_back(EltDelta::Remove { count: 1 }),
-                }
+            (Some(_),   None) => match changes.back_mut() {
+                Some(EltDelta::Remove { ref mut count }) => *count += 1,
+                _ => changes.push_back(EltDelta::Remove { count: 1 }),
             },
         }}
         Ok(VecDequeDelta(changes))
@@ -71,7 +68,7 @@ where T: Clone + Debug + PartialEq + Ord + Delta + IntoDelta
 }
 
 impl<T> FromDelta for VecDeque<T>
-where T: Clone + Debug + PartialEq + Ord + FromDelta
+where T: Clone + Debug + PartialEq + FromDelta
     + for<'de> Deserialize<'de>
     + Serialize
 {
@@ -88,7 +85,7 @@ where T: Clone + Debug + PartialEq + Ord + FromDelta
 }
 
 impl<T> IntoDelta for VecDeque<T>
-where T: Clone + Debug + PartialEq + Ord + IntoDelta
+where T: Clone + Debug + PartialEq + IntoDelta
     + for<'de> Deserialize<'de>
     + Serialize
 {
@@ -303,6 +300,31 @@ mod tests {
         ]));
         let vecdeque2 = vecdeque0.apply(delta)?;
         assert_eq!(vecdeque1, vecdeque2);
+        Ok(())
+    }
+
+    #[allow(non_snake_case)]
+    #[test]
+    fn VecDeque__delta__removal_before_any_change() -> DeltaResult<()> {
+        let d0: VecDeque<String> = vecdeque!["a".into(), "b".into()];
+        let d1: VecDeque<String> = vecdeque![];
+        let delta = d0.delta(&d1)?; // was: `changes.len() - 1` underflow panic in debug
+        assert_eq!(delta, VecDequeDelta(vecdeque![EltDelta::Remove { count: 2 }]));
+        assert_eq!(d0.apply(delta)?, d1);
+        Ok(())
+    }
+
+    #[allow(non_snake_case)]
+    #[test]
+    fn VecDeque__roundtrip__no_ord_elements() -> DeltaResult<()> {
+        // f64: !Ord; compiles only because the VecDeque impls no longer
+        // require Ord (Step 6c).
+        let d0: VecDeque<f64> = vecdeque![1.0, 2.0, 3.0];
+        let d1: VecDeque<f64> = vecdeque![1.0, 5.0];
+        let delta = d0.delta(&d1)?;
+        assert_eq!(d0.apply(delta)?, d1);
+        let back = d1.delta(&d0)?;
+        assert_eq!(d1.apply(back)?, d0);
         Ok(())
     }
 

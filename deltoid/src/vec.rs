@@ -27,11 +27,11 @@ where T: Clone + Debug + PartialEq + Apply + FromDelta
         let mut new: Self = self.clone();
         for change in delta.into_iter() { match change {
             EltDelta::Edit { index, item } => {
-                // NOTE: If self.len() == 0, the Edit should have been an Add:
-                ensure_gt![self.len(), 0]?;
-                // NOTE: Ensure index is not out of bounds:
-                ensure_lt![index, self.len()]?;
-                new[index] = self[index].apply(item)?;
+                // NOTE: validated against `new` so malformed/out-of-order deltas
+                //       yield DeltaError instead of panicking:
+                ensure_lt![index, new.len()]?;
+                let updated = new[index].apply(item)?;
+                new[index] = updated;
             },
             EltDelta::Add(delta) =>  new.push(<T>::from_delta(delta)?),
             EltDelta::Remove { count } =>  for _ in 0 .. count {
@@ -260,6 +260,17 @@ mod tests {
         let vec2 = vec0.apply(delta)?;
         assert_eq!(vec1, vec2);
         Ok(())
+    }
+
+    #[allow(non_snake_case)]
+    #[test]
+    fn Vec__apply__malformed_delta_errors() {
+        let v: Vec<i32> = vec![1, 2, 3, 4, 5];
+        let d = VecDelta(vec![
+            EltDelta::Remove { count: 2 },
+            EltDelta::Edit { index: 4, item: 9i32.into_delta().unwrap() },
+        ]);
+        assert!(matches!(v.apply(d), Err(_))); // was: index-out-of-bounds panic
     }
 
 }
