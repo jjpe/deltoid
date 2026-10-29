@@ -27,9 +27,8 @@ impl<T0> Delta for (T0,)
 where T0: Delta,
 {
     fn delta(&self, rhs: &Self) -> DeltaResult<Self::Delta> {
-        let delta0: <T0 as Core>::Delta = Delta::delta(&self.0, &rhs.0)?;
         Ok((
-            if self.0 == rhs.0 { None } else { Some(delta0) },
+            if self.0 == rhs.0 { None } else { Some(Delta::delta(&self.0, &rhs.0)?) },
         ))
     }
 }
@@ -90,11 +89,9 @@ where T0: Delta,
       T1: Delta,
 {
     fn delta(&self, rhs: &Self) -> DeltaResult<Self::Delta> {
-        let delta0: <T0 as Core>::Delta = Delta::delta(&self.0, &rhs.0)?;
-        let delta1: <T1 as Core>::Delta = Delta::delta(&self.1, &rhs.1)?;
         Ok((
-            if self.0 == rhs.0 { None } else { Some(delta0) },
-            if self.1 == rhs.1 { None } else { Some(delta1) },
+            if self.0 == rhs.0 { None } else { Some(Delta::delta(&self.0, &rhs.0)?) },
+            if self.1 == rhs.1 { None } else { Some(Delta::delta(&self.1, &rhs.1)?) },
         ))
     }
 }
@@ -168,13 +165,10 @@ where T0: Delta,
       T2: Delta,
 {
     fn delta(&self, rhs: &Self) -> DeltaResult<Self::Delta> {
-        let delta0: <T0 as Core>::Delta = Delta::delta(&self.0, &rhs.0)?;
-        let delta1: <T1 as Core>::Delta = Delta::delta(&self.1, &rhs.1)?;
-        let delta2: <T2 as Core>::Delta = Delta::delta(&self.2, &rhs.2)?;
         Ok((
-            if self.0 == rhs.0 { None } else { Some(delta0) },
-            if self.1 == rhs.1 { None } else { Some(delta1) },
-            if self.2 == rhs.2 { None } else { Some(delta2) },
+            if self.0 == rhs.0 { None } else { Some(Delta::delta(&self.0, &rhs.0)?) },
+            if self.1 == rhs.1 { None } else { Some(Delta::delta(&self.1, &rhs.1)?) },
+            if self.2 == rhs.2 { None } else { Some(Delta::delta(&self.2, &rhs.2)?) },
         ))
     }
 }
@@ -261,15 +255,11 @@ where T0: Delta,
       T3: Delta,
 {
     fn delta(&self, rhs: &Self) -> DeltaResult<Self::Delta> {
-        let delta0: <T0 as Core>::Delta = Delta::delta(&self.0, &rhs.0)?;
-        let delta1: <T1 as Core>::Delta = Delta::delta(&self.1, &rhs.1)?;
-        let delta2: <T2 as Core>::Delta = Delta::delta(&self.2, &rhs.2)?;
-        let delta3: <T3 as Core>::Delta = Delta::delta(&self.3, &rhs.3)?;
         Ok((
-            if self.0 == rhs.0 { None } else { Some(delta0) },
-            if self.1 == rhs.1 { None } else { Some(delta1) },
-            if self.2 == rhs.2 { None } else { Some(delta2) },
-            if self.3 == rhs.3 { None } else { Some(delta3) },
+            if self.0 == rhs.0 { None } else { Some(Delta::delta(&self.0, &rhs.0)?) },
+            if self.1 == rhs.1 { None } else { Some(Delta::delta(&self.1, &rhs.1)?) },
+            if self.2 == rhs.2 { None } else { Some(Delta::delta(&self.2, &rhs.2)?) },
+            if self.3 == rhs.3 { None } else { Some(Delta::delta(&self.3, &rhs.3)?) },
         ))
     }
 }
@@ -370,17 +360,12 @@ where T0: Delta,
       T4: Delta,
 {
     fn delta(&self, rhs: &Self) -> DeltaResult<Self::Delta> {
-        let delta0: <T0 as Core>::Delta = Delta::delta(&self.0, &rhs.0)?;
-        let delta1: <T1 as Core>::Delta = Delta::delta(&self.1, &rhs.1)?;
-        let delta2: <T2 as Core>::Delta = Delta::delta(&self.2, &rhs.2)?;
-        let delta3: <T3 as Core>::Delta = Delta::delta(&self.3, &rhs.3)?;
-        let delta4: <T4 as Core>::Delta = Delta::delta(&self.4, &rhs.4)?;
         Ok((
-            if self.0 == rhs.0 { None } else { Some(delta0) },
-            if self.1 == rhs.1 { None } else { Some(delta1) },
-            if self.2 == rhs.2 { None } else { Some(delta2) },
-            if self.3 == rhs.3 { None } else { Some(delta3) },
-            if self.4 == rhs.4 { None } else { Some(delta4) },
+            if self.0 == rhs.0 { None } else { Some(Delta::delta(&self.0, &rhs.0)?) },
+            if self.1 == rhs.1 { None } else { Some(Delta::delta(&self.1, &rhs.1)?) },
+            if self.2 == rhs.2 { None } else { Some(Delta::delta(&self.2, &rhs.2)?) },
+            if self.3 == rhs.3 { None } else { Some(Delta::delta(&self.3, &rhs.3)?) },
+            if self.4 == rhs.4 { None } else { Some(Delta::delta(&self.4, &rhs.4)?) },
         ))
     }
 }
