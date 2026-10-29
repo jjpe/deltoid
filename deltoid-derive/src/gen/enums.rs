@@ -47,10 +47,26 @@ pub(crate) fn define_delta_enum(input: &InputType) -> DeriveResult<TokenStream2>
                     let field_names: Vec<&Ident2> = enum_variant.fields()
                         .map(|field: &FieldDesc| field.name_ref())
                         .collect::<DeriveResult<_>>()?;
+                    // NOTE: named variant delta fields are optional
+                    //       payloads: unchanged fields are omitted from
+                    //       the wire; ignored fields never cross it.
+                    let field_attrs: Vec<TokenStream2> = enum_variant.fields()
+                        .map(|field: &FieldDesc| if field.ignore_field() {
+                            quote! {
+                                #[doc(hidden)]
+                                    #[serde(default)] #[serde(skip)]
+                            }
+                        } else {
+                            quote! {
+                                #[doc(hidden)]
+                                    #[serde(skip_serializing_if = "Option::is_none")]
+                            }
+                        })
+                        .collect();
                     quote! {
                         #variant_name {
                             #(
-                                #[doc(hidden)] #field_names: #field_types,
+                                #field_attrs #field_names: #field_types,
                             )*
                         },
                     }
@@ -81,7 +97,7 @@ pub(crate) fn define_Debug_impl(input: &InputType) -> DeriveResult<TokenStream2>
     let enum_variants: &[EnumVariant] = input.enum_variants()?;
     let in_type_param_decls: &Punctuated<GenericParam, Comma> =
         input.type_param_decls()?;
-    let type_params: &Punctuated<Ident2, Comma> = input.type_params()?;
+    let type_params: &TokenStream2 = input.type_params()?;
     let in_where_clause: &WhereClause = input.where_clause()?;
     let type_param_decls: Vec<TokenStream2> = in_type_param_decls.iter()
         .map(|type_param_decl| match type_param_decl {
@@ -186,20 +202,33 @@ pub(crate) fn define_Debug_impl(input: &InputType) -> DeriveResult<TokenStream2>
                 Self::#variant_name( #(#field_names),* )
             });
             match_bodies.push(match field_count {
-                1 => quote! {{
-                    // NOTE: the input type is a newtype
-                    let type_name = String::new()
-                        + stringify!(#delta_type_name)
-                        + "::"
-                        + stringify!(#variant_name);
-                    if let Some(field) = &field_0 {
-                        // NOTE: don't format the `Some()` wrapper
-                        write!(f, "{}({:?})", type_name, field)
-                    } else {
-                        let field = &None as &Option<(/*HACK*/)>;
-                        write!(f, "{}({:?})", type_name, field)
-                    }
-                }},
+                1 => if variant_fields[0].ignore_field() {
+                    // NOTE: the newtype variant's single field is
+                    //       ignored: `field_0` is the `PhantomData`
+                    //       marker itself
+                    quote! {{
+                        let type_name = String::new()
+                            + stringify!(#delta_type_name)
+                            + "::"
+                            + stringify!(#variant_name);
+                        write!(f, "{}({:?})", type_name, field_0)
+                    }}
+                } else {
+                    quote! {{
+                        // NOTE: the input type is a newtype
+                        let type_name = String::new()
+                            + stringify!(#delta_type_name)
+                            + "::"
+                            + stringify!(#variant_name);
+                        if let Some(field) = &field_0 {
+                            // NOTE: don't format the `Some()` wrapper
+                            write!(f, "{}({:?})", type_name, field)
+                        } else {
+                            let field = &None as &Option<(/*HACK*/)>;
+                            write!(f, "{}({:?})", type_name, field)
+                        }
+                    }}
+                },
                 _ => quote! {{
                     let type_name = String::new()
                         + stringify!(#delta_type_name)
@@ -233,7 +262,7 @@ pub(crate) fn define_Debug_impl(input: &InputType) -> DeriveResult<TokenStream2>
     };
     Ok(quote! {
         impl<#(#type_param_decls),*> std::fmt::Debug
-            for #delta_type_name<#type_params>
+            for #delta_type_name #type_params
             #where_clause
         {
             fn fmt(&self, f: &mut std::fmt::Formatter)
@@ -251,7 +280,7 @@ pub(crate) fn define_Core_impl(input: &InputType) -> DeriveResult<TokenStream2> 
     let delta_type_name: &Ident2 = input.delta_type_name()?;
     let in_type_param_decls: &Punctuated<GenericParam, Comma> =
         input.type_param_decls()?;
-    let type_params: &Punctuated<Ident2, Comma> = input.type_params()?;
+    let type_params: &TokenStream2 = input.type_params()?;
     let in_where_clause: &WhereClause = input.where_clause()?;
     let type_param_decls: Vec<TokenStream2> = in_type_param_decls.iter()
         .map(|type_param_decl| match type_param_decl {
@@ -282,10 +311,10 @@ pub(crate) fn define_Core_impl(input: &InputType) -> DeriveResult<TokenStream2> 
     let where_clause = quote! { where #(#predicates),* };
     Ok(quote! {
         impl<#(#type_param_decls),*> deltoid::Core
-            for #type_name<#type_params>
+            for #type_name #type_params
             #where_clause
         {
-            type Delta = #delta_type_name<#type_params>;
+            type Delta = #delta_type_name #type_params;
         }
     })
 }
@@ -296,7 +325,7 @@ pub(crate) fn define_Apply_impl(input: &InputType) -> DeriveResult<TokenStream2>
     let enum_variants: &[EnumVariant] = input.enum_variants()?;
     let in_type_param_decls: &Punctuated<GenericParam, Comma> =
         input.type_param_decls()?;
-    let type_params: &Punctuated<Ident2, Comma> = input.type_params()?;
+    let type_params: &TokenStream2 = input.type_params()?;
     let in_where_clause: &WhereClause = input.where_clause()?;
     let type_param_decls: Vec<TokenStream2> = in_type_param_decls.iter()
         .map(|type_param_decl| match type_param_decl {
@@ -445,11 +474,12 @@ pub(crate) fn define_Apply_impl(input: &InputType) -> DeriveResult<TokenStream2>
     }}
     Ok(quote! {
         impl<#(#type_param_decls),*> deltoid::Apply
-            for #type_name<#type_params>
+            for #type_name #type_params
             #where_clause
         {
             #[allow(unused)]
             fn apply(&self, delta: Self::Delta) -> deltoid::DeltaResult<Self> {
+                #[allow(unused)] use deltoid::Apply;
                 match (self, &delta/*TODO*/) {
                     #(
                         (#lhs_patterns, #delta_patterns) => {
@@ -468,7 +498,7 @@ pub(crate) fn define_Delta_impl(input: &InputType) -> DeriveResult<TokenStream2>
     let enum_variants: &[EnumVariant] = input.enum_variants()?;
     let in_type_param_decls: &Punctuated<GenericParam, Comma> =
         input.type_param_decls()?;
-    let type_params: &Punctuated<Ident2, Comma> = input.type_params()?;
+    let type_params: &TokenStream2 = input.type_params()?;
     let in_where_clause: &WhereClause = input.where_clause()?;
     let type_param_decls: Vec<TokenStream2> = in_type_param_decls.iter()
         .map(|type_param_decl| match type_param_decl {
@@ -608,12 +638,12 @@ pub(crate) fn define_Delta_impl(input: &InputType) -> DeriveResult<TokenStream2>
     }}
     Ok(quote! {
         impl<#(#type_param_decls),*> deltoid::Delta
-            for #type_name<#type_params>
+            for #type_name #type_params
             #where_clause
         {
             #[allow(unused)]
             fn delta(&self, rhs: &Self) -> deltoid::DeltaResult<Self::Delta> {
-                use deltoid::IntoDelta;
+                use deltoid::{Delta, IntoDelta};
                 match (self, rhs) {
                     #(
                         (#lhs_patterns, #rhs_patterns) => { #match_bodies },
@@ -631,7 +661,7 @@ pub(crate) fn define_FromDelta_impl(input: &InputType) -> DeriveResult<TokenStre
     let enum_variants: &[EnumVariant] = input.enum_variants()?;
     let in_type_param_decls: &Punctuated<GenericParam, Comma> =
         input.type_param_decls()?;
-    let type_params: &Punctuated<Ident2, Comma> = input.type_params()?;
+    let type_params: &TokenStream2 = input.type_params()?;
     let in_where_clause: &WhereClause = input.where_clause()?;
     let type_param_decls: Vec<TokenStream2> = in_type_param_decls.iter()
         .map(|type_param_decl| match type_param_decl {
@@ -657,9 +687,19 @@ pub(crate) fn define_FromDelta_impl(input: &InputType) -> DeriveResult<TokenStre
             },
         })
         .collect();
-    let predicates: Vec<TokenStream2> = in_where_clause.predicates.iter()
+    let mut predicates: Vec<TokenStream2> = in_where_clause.predicates.iter()
         .map(|where_predicate| quote! { #where_predicate })
         .collect();
+    // NOTE: ignored fields are materialized via `Default::default()`
+    //       by the generated `from_delta`; emit the bound it relies on:
+    for variant in enum_variants.iter() {
+        for field in variant.fields() {
+            if field.ignore_field() {
+                let ftype: &Type = field.type_ref();
+                predicates.push(quote! { #ftype: std::default::Default });
+            }
+        }
+    }
     let where_clause = quote! { where #(#predicates),* };
     let mut match_body = TokenStream2::new();
     for variant in enum_variants.iter() {
@@ -739,7 +779,7 @@ pub(crate) fn define_FromDelta_impl(input: &InputType) -> DeriveResult<TokenStre
     }
     Ok(quote! {
         impl<#(#type_param_decls),*> deltoid::FromDelta
-            for #type_name<#type_params>
+            for #type_name #type_params
             #where_clause
         {
             #[allow(unused)]
@@ -760,7 +800,7 @@ pub(crate) fn define_IntoDelta_impl(input: &InputType) -> DeriveResult<TokenStre
     let enum_variants: &[EnumVariant] = input.enum_variants()?;
     let in_type_param_decls: &Punctuated<GenericParam, Comma> =
         input.type_param_decls()?;
-    let type_params: &Punctuated<Ident2, Comma> = input.type_params()?;
+    let type_params: &TokenStream2 = input.type_params()?;
     let in_where_clause: &WhereClause = input.where_clause()?;
     let type_param_decls: Vec<TokenStream2> = in_type_param_decls.iter()
         .map(|type_param_decl| match type_param_decl {
@@ -850,7 +890,7 @@ pub(crate) fn define_IntoDelta_impl(input: &InputType) -> DeriveResult<TokenStre
     }
     Ok(quote! {
         impl<#(#type_param_decls),*> deltoid::IntoDelta
-            for #type_name<#type_params>
+            for #type_name #type_params
             #where_clause
         {
             #[allow(unused)]

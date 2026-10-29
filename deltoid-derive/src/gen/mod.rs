@@ -32,9 +32,10 @@ pub enum InputType {
         /// The input enum's type parameter declarations,
         /// including any trait bounds e.g. <T: Copy, U, V>
         type_param_decls: Punctuated<GenericParam, Comma>,
-        /// The input enum's type parameters without trait bounds e.g. <T, U, V>
-        type_params: Punctuated<Ident, Comma>,
-        // TODO: defined lifetimes
+        /// The input enum's type parameters in type position,
+        /// including any lifetimes and const parameters
+        /// e.g. <'a, T, N>
+        type_params: TokenStream2,
         /// The input enum's where clause
         where_clause: WhereClause,
     },
@@ -52,17 +53,13 @@ pub enum InputType {
         /// The input struct's type parameter declarations including
         /// any trait bounds e.g. <T: Copy, U, V>
         type_param_decls: Punctuated<GenericParam, Comma>,
-        /// The input struct's type parameters without
-        /// trait bounds e.g. <T, U, V>
-        type_params: Punctuated<Ident, Comma>,
-        // TODO: defined lifetimes
+        /// The input struct's type parameters in type position,
+        /// including any lifetimes and const parameters
+        /// e.g. <'a, T, N>
+        type_params: TokenStream2,
         /// The input struct's where clause
         where_clause: WhereClause,
     },
-    /// The input type is a union.  This is unsupported.
-    #[allow(unused)]
-    #[doc(hidden)]
-    Union,
 }
 
 impl InputType {
@@ -74,7 +71,7 @@ impl InputType {
                 Self::parse_unit_struct(input),
             Data::Enum(DataEnum { variants, .. }) =>
                 Self::parse_enum(input, variants),
-            Data::Union(_) => Ok(Self::Union),
+            Data::Union(_) => Err(DeriveError::UnsupportedUnion),
         }
     }
 
@@ -90,14 +87,14 @@ impl InputType {
                     fields.push(FieldDesc::Named {
                         name: field_ident.clone(),
                         ty: field.ty.clone(),
-                        ignore_field: ignore_field(field),
+                        ignore_field: ignore_field(field)?,
                     });
                 } else {
                     *struct_variant = StructVariant::TupleStruct;
                     fields.push(FieldDesc::Positional {
                         position: Literal2::usize_unsuffixed(fidx),
                         ty: field.ty.clone(),
-                        ignore_field: ignore_field(field),
+                        ignore_field: ignore_field(field)?,
                     });
                 }
             }
@@ -131,14 +128,14 @@ impl InputType {
                         variant.add_field(FieldDesc::Named {
                             name: field_ident.clone(),
                             ty: field.ty.clone(),
-                            ignore_field: ignore_field(field),
+                            ignore_field: ignore_field(field)?,
                         });
                     } else {
                         variant.struct_variant = StructVariant::TupleStruct;
                         variant.add_field(FieldDesc::Positional {
                             position: Literal2::usize_unsuffixed(fidx),
                             ty: field.ty.clone(),
-                            ignore_field: ignore_field(field),
+                            ignore_field: ignore_field(field)?,
                         });
                     }
                 }
@@ -153,14 +150,16 @@ impl InputType {
     }
 
     fn new_enum(input: &DeriveInput) -> Self {
+        // NOTE: `ty_generics` renders the input's generic parameters in
+        //       type position, e.g. `<'a, T, N>` (and renders nothing
+        //       when the input has no generic parameters):
+        let (_, ty_generics, _) = input.generics.split_for_impl();
         Self::Enum {
             type_name: input.ident.clone(),
             delta_type_name: format_ident!("{}Delta", &input.ident),
             enum_variants: vec![],
             type_param_decls: input.generics.params.clone(),
-            type_params: input.generics.type_params()
-                .map(|type_param| type_param.ident.clone())
-                .collect(),
+            type_params: quote! { #ty_generics },
             where_clause: input.generics.where_clause.clone()
                 .unwrap_or_else(|| WhereClause {
                     where_token: Token![where](Span2::call_site()),
@@ -170,15 +169,17 @@ impl InputType {
     }
 
     fn new_struct(input: &DeriveInput) -> Self {
+        // NOTE: `ty_generics` renders the input's generic parameters in
+        //       type position, e.g. `<'a, T, N>` (and renders nothing
+        //       when the input has no generic parameters):
+        let (_, ty_generics, _) = input.generics.split_for_impl();
         Self::Struct {
             struct_variant: StructVariant::UnitStruct,
             type_name: input.ident.clone(),
             delta_type_name: format_ident!("{}Delta", &input.ident),
             fields: vec![],
             type_param_decls: input.generics.params.clone(),
-            type_params: input.generics.type_params()
-                .map(|type_param| type_param.ident.clone())
-                .collect(),
+            type_params: quote! { #ty_generics },
             where_clause: input.generics.where_clause.clone()
                 .unwrap_or_else(|| WhereClause {
                     where_token: Token![where](Span2::call_site()),
@@ -196,7 +197,6 @@ impl InputType {
             Self::Enum { type_name, .. } =>
                 panic!("Enum {} doesn't have a struct variant", type_name),
             Self::Struct { struct_variant, .. } => struct_variant,
-            Self::Union => panic!("Unions are not supported."),
         })
     }
 
@@ -205,7 +205,6 @@ impl InputType {
             Self::Enum { enum_variants, .. } => enum_variants,
             Self::Struct { type_name, .. } =>
                 panic!("Struct {} doesn't have enum variants", type_name),
-            Self::Union => panic!("Unions are not supported."),
         })
     }
 
@@ -213,7 +212,6 @@ impl InputType {
         Ok(match self {
             Self::Enum   { type_name, .. } => type_name,
             Self::Struct { type_name, .. } => type_name,
-            Self::Union => panic!("Unions are not supported."),
         })
     }
 
@@ -221,15 +219,13 @@ impl InputType {
         Ok(match self {
             Self::Enum   { delta_type_name, .. } => delta_type_name,
             Self::Struct { delta_type_name, .. } => delta_type_name,
-            Self::Union => panic!("Unions are not supported."),
         })
     }
 
-    pub fn type_params(&self) -> DeriveResult<&Punctuated<Ident2, Comma>> {
+    pub fn type_params(&self) -> DeriveResult<&TokenStream2> {
         Ok(match self {
             Self::Enum   { type_params, .. } => type_params,
             Self::Struct { type_params, .. } => type_params,
-            Self::Union => panic!("Unions are not supported."),
         })
     }
 
@@ -237,7 +233,6 @@ impl InputType {
         Ok(match self {
             Self::Enum   { type_param_decls, .. } => type_param_decls,
             Self::Struct { type_param_decls, .. } => type_param_decls,
-            Self::Union => panic!("Unions are not supported."),
         })
     }
 
@@ -246,7 +241,6 @@ impl InputType {
             Self::Enum   { type_name, .. } =>
                 panic!("Enum {} doesn't have fields", type_name),
             Self::Struct { fields, .. } => fields,
-            Self::Union => panic!("Unions are not supported."),
         })
     }
 
@@ -255,7 +249,6 @@ impl InputType {
         Ok(match self {
             Self::Enum   { where_clause, .. } => where_clause,
             Self::Struct { where_clause, .. } => where_clause,
-            Self::Union => panic!("Unions are not supported."),
         })
     }
 
@@ -263,7 +256,6 @@ impl InputType {
         Ok(match self {
             Self::Struct { .. } => structs::define_delta_struct(self)?,
             Self::Enum   { .. } => enums::define_delta_enum(self)?,
-            Self::Union => panic!("Unions are not supported."),
         })
     }
 
@@ -272,7 +264,6 @@ impl InputType {
         Ok(match self {
             Self::Struct { .. } => structs::define_Debug_impl(self)?,
             Self::Enum   { .. } => enums::define_Debug_impl(self)?,
-            Self::Union => panic!("Unions are not supported."),
         })
     }
 
@@ -281,7 +272,6 @@ impl InputType {
         Ok(match self {
             Self::Struct { .. } => structs::define_Core_impl(self)?,
             Self::Enum   { .. } => enums::define_Core_impl(self)?,
-            Self::Union => panic!("Unions are not supported."),
         })
     }
 
@@ -290,7 +280,6 @@ impl InputType {
         Ok(match self {
             Self::Struct { .. } => structs::define_Apply_impl(self)?,
             Self::Enum   { .. } => enums::define_Apply_impl(self)?,
-            Self::Union => panic!("Unions are not supported."),
         })
     }
 
@@ -299,7 +288,6 @@ impl InputType {
         Ok(match self {
             Self::Struct { .. } => structs::define_Delta_impl(self)?,
             Self::Enum   { .. } => enums::define_Delta_impl(self)?,
-            Self::Union => panic!("Unions are not supported."),
         })
     }
 
@@ -308,7 +296,6 @@ impl InputType {
         Ok(match self {
             Self::Struct { .. } => structs::define_FromDelta_impl(self)?,
             Self::Enum   { .. } => enums::define_FromDelta_impl(self)?,
-            Self::Union => panic!("Unions are not supported."),
         })
     }
 
@@ -317,7 +304,6 @@ impl InputType {
         Ok(match self {
             Self::Struct { .. } => structs::define_IntoDelta_impl(self)?,
             Self::Enum   { .. } => enums::define_IntoDelta_impl(self)?,
-            Self::Union => panic!("Unions are not supported."),
         })
     }
 }

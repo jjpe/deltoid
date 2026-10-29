@@ -392,3 +392,56 @@ pub fn nested_data__apply() -> DeltaResult<()>  {
     assert_eq!(val1, expected, "{:#?} != {:#?}", val1, expected);
     Ok(())
 }
+
+
+
+// NOTE: `serde` (1.0.x) implements {Serialize, Deserialize} for `[T; N]`
+//       only for concrete lengths, so the generic-`N` field type needs
+//       an explicit bound for the `#[derive(Deserialize, Serialize)]`:
+#[derive(Clone, Debug, PartialEq, Delta, Deserialize, Serialize)]
+pub struct LtFoo<'a, const N: usize>
+where
+    [u8; N]: serde::Serialize + serde::de::DeserializeOwned,
+{
+    #[delta(ignore_field)] _marker: std::marker::PhantomData<&'a ()>,
+    values: [u8; N],
+}
+
+#[test]
+pub fn lifetime_and_const_generic__roundtrip() -> DeltaResult<()> {
+    let v0: LtFoo<'static, 2> = LtFoo { _marker: std::marker::PhantomData, values: [1, 2] };
+    let v1: LtFoo<'static, 2> = LtFoo { _marker: std::marker::PhantomData, values: [1, 3] };
+    let delta = v0.delta(&v1)?;
+    assert_eq!(v0.apply(delta)?, v1);
+    // NOTE: exercises `from_delta`, which materializes the ignored
+    //       `_marker` field via `Default::default()`:
+    assert_eq!(
+        LtFoo::<'static, 2>::from_delta(v1.into_delta()?)?,
+        LtFoo { _marker: std::marker::PhantomData, values: [1, 3] }
+    );
+    Ok(())
+}
+
+#[derive(Clone, Debug, PartialEq, Delta, Deserialize, Serialize)]
+pub struct IgnoredNewtype(#[delta(ignore_field)] pub u8);
+
+#[test]
+pub fn ignored_newtype__debug_and_roundtrip() -> DeltaResult<()> {
+    let (v0, v1) = (IgnoredNewtype(1), IgnoredNewtype(2));
+    let delta = v0.delta(&v1)?;
+    let _ = format!("{:?}", delta);          // was: generated Debug impl failed to compile
+    assert_eq!(v0.apply(delta)?, IgnoredNewtype(1)); // ignored field preserved from base
+    Ok(())
+}
+
+#[test]
+pub fn struct_delta__serde__omits_unchanged_fields() -> DeltaResult<()> {
+    let val0: Foo0<u16> = Foo0 { f0: (), f1: 42, f2: "hello".into() };
+    let val1: Foo0<u16> = Foo0 { f0: (), f1: 42, f2: "hello!".into() };
+    let delta: Foo0Delta<u16> = val0.delta(&val1)?;
+    let json = serde_json::to_string(&delta).expect("delta serializes");
+    assert!(!json.contains("\"f1\""), "{}", json);  // unchanged field absent from wire
+    let delta1: Foo0Delta<u16> = serde_json::from_str(&json).expect("delta deserializes");
+    assert_eq!(delta, delta1);                      // absent Option field deserializes as None
+    Ok(())
+}

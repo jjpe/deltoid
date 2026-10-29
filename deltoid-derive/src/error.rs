@@ -49,6 +49,39 @@ pub enum DeriveError {
         line: u32,
         column: u32
     },
+    UnsupportedUnion,
+    UnknownDeltaAttribute {
+        found: String
+    },
 
     // Add more error variants here
+}
+
+impl std::fmt::Display for DeriveError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::BugDetected { file, line, column } => write!(
+                f,
+                "deltoid-derive: bug detected at {}:{}:{}",
+                file, line, column
+            ),
+            Self::ExpectedNamedField =>
+                write!(f, "deltoid-derive: expected a named field"),
+            Self::ExpectedPositionalField =>
+                write!(f, "deltoid-derive: expected a positional field"),
+            Self::FailedToEnsure { predicate, file, line, column } => write!(
+                f,
+                "deltoid-derive: failed to ensure `{}` at {}:{}:{}",
+                predicate, file, line, column
+            ),
+            Self::UnsupportedUnion =>
+                write!(f, "deltoid-derive: unions are not supported"),
+            Self::UnknownDeltaAttribute { found } => write!(
+                f,
+                "deltoid-derive: unknown #[delta(..)] argument \
+                 `{}`; expected `ignore_field`",
+                found
+            ),
+        }
+    }
 }

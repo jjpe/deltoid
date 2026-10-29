@@ -22,11 +22,15 @@ use syn::{parse_macro_input, DeriveInput};
 #[proc_macro_derive(Delta, attributes(delta))]
 pub fn derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    let output: TokenStream2 = derive_internal(input).unwrap(
-        // This is a HACK that allows more ergonomic code for the meat of
-        // the macro while still conforming to the required macro signature.
-    );
-    TokenStream::from(output)
+    match derive_internal(input) {
+        Ok(output) => TokenStream::from(output),
+        // NOTE: surface derive errors as `compile_error!` diagnostics
+        //       instead of panicking the proc-macro thread.
+        Err(err) => {
+            let msg = err.to_string();
+            TokenStream::from(quote! { compile_error!(#msg); })
+        }
+    }
 }
 
 #[allow(non_snake_case)]
