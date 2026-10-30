@@ -1,5 +1,5 @@
 [package]
-name = "deltoid-quickcheck"
+name = "deltoid-quickcheck-tests"
 version.workspace = true
 edition.workspace = true
 

@@ -93,7 +93,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "deltoid-quickcheck"
+name = "deltoid-quickcheck-tests"
 version = "0.13.2"
 dependencies = [
  "deltoid",
