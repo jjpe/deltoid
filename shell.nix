@@ -18,6 +18,7 @@ pkgs.mkShell {
     # cargo-watch  # Execute commands when Rust project files change
     # cargo-workspaces  # Optimizes the workflow around cargo workspaces
     # clang
+    difftastic
     # jetbrains.rust-rover  # Quite large, but useful for its debugger GUI
     # openssl
     # pkg-config
