@@ -7,7 +7,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.13.1"
+version = "0.13.2"
 authors = ["Joey Ezechiels"]
 description = "A library to calculate and apply deltas to structs and enums"
 repository = "https://github.com/jjpe/deltoid"
