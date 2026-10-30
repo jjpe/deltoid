@@ -11,5 +11,5 @@ serde = { workspace = true }
 quickcheck = { workspace = true }
 serde_json = { workspace = true }
 
-deltoid        = { path = "../deltoid",        version = "0.13.2" }
-deltoid-derive = { path = "../deltoid-derive", version = "0.13.2" }
+deltoid        = { path = "../deltoid",        version = "0.13.3" }
+deltoid-derive = { path = "../deltoid-derive", version = "0.13.3" }
