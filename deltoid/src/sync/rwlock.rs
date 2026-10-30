@@ -22,11 +22,11 @@ impl<T> RwLock<T> {
 
     pub fn into_inner(self) -> LockResult<T> { self.0.into_inner() }
 
-    pub fn try_read(&self) -> DeltaResult<RwLockReadGuard<T>> {
+    pub fn try_read(&self) -> DeltaResult<RwLockReadGuard<'_, T>> {
         self.0.try_read().map_err(DeltaError::from)
     }
 
-    pub fn try_write(&self) -> DeltaResult<RwLockWriteGuard<T>> {
+    pub fn try_write(&self) -> DeltaResult<RwLockWriteGuard<'_, T>> {
         self.0.try_write().map_err(DeltaError::from)
     }
 }

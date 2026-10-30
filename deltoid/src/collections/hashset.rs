@@ -104,12 +104,14 @@ pub struct HashSetDelta<T>(
 );
 
 impl<T> HashSetDelta<T> {
-    pub fn iter<'d>(&'d self) -> Box<dyn Iterator<Item = &EntryDelta<T>> + 'd> {
-        Box::new(self.0.iter())
+    pub fn iter<'d>(&'d self) -> impl Iterator<Item = &'d EntryDelta<T>> + 'd {
+        self.0.iter()
     }
 
-    pub fn into_iter<'d>(self) -> Box<dyn Iterator<Item = EntryDelta<T>> + 'd>
-    where Self: 'd {
+    pub fn into_iter<'d>(self) -> impl Iterator<Item = EntryDelta<T>> + 'd
+    where
+        Self: 'd
+    {
         Box::new(self.0.into_iter())
     }
 

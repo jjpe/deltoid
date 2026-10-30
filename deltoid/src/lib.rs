@@ -32,5 +32,5 @@ pub use crate::range::RangeDelta;
 pub use crate::rc::*;
 pub use crate::string::{Str, StringDelta};
 pub use crate::sync::*;
-pub use crate::tuple::*;
+#[allow(unused)] pub use crate::tuple::*;
 pub use crate::vec::{EltDelta, VecDelta};

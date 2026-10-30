@@ -106,23 +106,16 @@ where T: Clone + Debug + PartialEq + IntoDelta
 pub struct VecDequeDelta<T: Core>(#[doc(hidden)] pub VecDeque<EltDelta<T>>);
 
 impl<T: Core> VecDequeDelta<T> {
-    pub fn iter<'d>(&'d self) -> impl Iterator<Item = &EltDelta<T>> + 'd {
+    pub fn iter<'d>(&'d self) -> impl Iterator<Item = &'d EltDelta<T>> + 'd {
         self.0.iter()
     }
 
-    // pub fn iter<'d>(&'d self) -> Box<dyn Iterator<Item = &EltDelta<T>> + 'd> {
-    //     Box::new(self.0.iter())
-    // }
-
     pub fn into_iter<'d>(self) -> impl Iterator<Item = EltDelta<T>> + 'd
-    where Self: 'd {
+    where
+        Self: 'd
+    {
         self.0.into_iter()
     }
-
-    // pub fn into_iter<'d>(self) -> Box<dyn Iterator<Item = EltDelta<T>> + 'd>
-    // where Self: 'd {
-    //     Box::new(self.0.into_iter())
-    // }
 
     pub fn len(&self) -> usize { self.0.len() }
 }

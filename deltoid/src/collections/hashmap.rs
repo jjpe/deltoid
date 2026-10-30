@@ -132,13 +132,15 @@ pub struct HashMapDelta<K: Core, V: Core>(#[doc(hidden)] pub Vec<EntryDelta<K, V
 
 impl<K: Core, V: Core> HashMapDelta<K, V>
 {
-    pub fn iter<'d>(&'d self) -> Box<dyn Iterator<Item = &EntryDelta<K, V>> + 'd> {
-        Box::new(self.0.iter())
+    pub fn iter<'d>(&'d self) -> impl Iterator<Item = &'d EntryDelta<K, V>> + 'd {
+        self.0.iter()
     }
 
-    pub fn into_iter<'d>(self) -> Box<dyn Iterator<Item = EntryDelta<K, V>> + 'd>
-    where Self: 'd {
-        Box::new(self.0.into_iter())
+    pub fn into_iter<'d>(self) -> impl Iterator<Item = EntryDelta<K, V>> + 'd
+    where
+        Self: 'd
+    {
+        self.0.into_iter()
     }
 
     pub fn len(&self) -> usize {

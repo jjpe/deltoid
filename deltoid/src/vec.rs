@@ -138,7 +138,7 @@ pub struct VecDelta<T: Core>(#[doc(hidden)] pub Vec<EltDelta<T>>);
 
 impl<T: Core> VecDelta<T> {
     #[inline(always)]
-    pub fn iter<'d>(&'d self) -> impl Iterator<Item = &EltDelta<T>> + 'd {
+    pub fn iter<'d>(&'d self) -> impl Iterator<Item = &'d EltDelta<T>> + 'd {
         self.0.iter()
     }
 

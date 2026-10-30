@@ -96,13 +96,15 @@ pub struct BTreeSetDelta<T>(
 );
 
 impl<T> BTreeSetDelta<T> {
-    pub fn iter<'d>(&'d self) -> Box<dyn Iterator<Item = &EntryDelta<T>> + 'd> {
-        Box::new(self.0.iter())
+    pub fn iter<'d>(&'d self) -> impl Iterator<Item = &'d EntryDelta<T>> + 'd {
+        self.0.iter()
     }
 
-    pub fn into_iter<'d>(self) -> Box<dyn Iterator<Item = EntryDelta<T>> + 'd>
-    where Self: 'd {
-        Box::new(self.0.into_iter())
+    pub fn into_iter<'d>(self) -> impl Iterator<Item = EntryDelta<T>> + 'd
+    where
+        Self: 'd
+    {
+        self.0.into_iter()
     }
 
     pub fn len(&self) -> usize {
