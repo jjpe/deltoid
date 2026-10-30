@@ -2,7 +2,7 @@
 
 use proc_macro2::{
     Delimiter as Delimiter2,
-    TokenTree as TokenTree2
+    Group as Group2
 };
 use crate::{DeriveError, DeriveResult};
 use syn::*;
@@ -18,7 +18,7 @@ use syn::*;
 pub(crate) fn ignore_field(field: &Field) -> DeriveResult<bool> {
     let mut ignore = false;
     for attr in field.attrs.iter() {
-        let attr_segments: Vec<String> = attr.path.segments.iter()
+        let attr_segments: Vec<String> = attr.path().segments.iter()
             .map(|path_segment| format!("{}", path_segment.ident))
             .collect();
         let is_delta_attr = attr_segments == &["delta"];
@@ -26,15 +26,29 @@ pub(crate) fn ignore_field(field: &Field) -> DeriveResult<bool> {
             continue;
         }
         const DELIM: Delimiter2 = Delimiter2::Parenthesis;
-        let arg_tokens_iter = attr.tokens.clone().into_iter().next();
-        let found: String = match arg_tokens_iter {
-            Some(TokenTree2::Group(g)) if g.delimiter() == DELIM =>
-                g.stream().clone().into_iter()
-                    .map(|tt| format!("{}", tt))
-                    .collect::<Vec<String>>()
-                    .join(" "),
-            Some(tt) => format!("{}", tt),
-            None => String::new(),
+        // NOTE: syn >= 2 stores the parsed attribute in `attr.meta`; recover
+        //       the same `found` strings the syn 1 `attr.tokens` inspection
+        //       produced: the space-joined inner tokens of a paren-delimited
+        //       list, the display form of a non-paren group, "" for a bare
+        //       path attribute and "=" for a name-value attribute.
+        let found: String = match &attr.meta {
+            Meta::List(list) => {
+                let delim: Delimiter2 = match &list.delimiter {
+                    MacroDelimiter::Paren(_)   => Delimiter2::Parenthesis,
+                    MacroDelimiter::Brace(_)   => Delimiter2::Brace,
+                    MacroDelimiter::Bracket(_) => Delimiter2::Bracket,
+                };
+                if delim == DELIM {
+                    list.tokens.clone().into_iter()
+                        .map(|tt| format!("{}", tt))
+                        .collect::<Vec<String>>()
+                        .join(" ")
+                } else {
+                    format!("{}", Group2::new(delim, list.tokens.clone()))
+                }
+            },
+            Meta::Path(_) => String::new(),
+            Meta::NameValue(_) => String::from("="),
         };
         if found == "ignore_field" {
             ignore = true;
