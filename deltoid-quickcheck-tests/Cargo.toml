@@ -9,6 +9,7 @@ edition.workspace = true
 serde_derive = { workspace = true }
 serde = { workspace = true }
 quickcheck = { workspace = true }
+serde_json = { workspace = true }
 
 deltoid        = { path = "../deltoid"        }
 deltoid-derive = { path = "../deltoid-derive" }
