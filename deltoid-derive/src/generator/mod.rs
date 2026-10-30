@@ -7,7 +7,7 @@ pub(crate) mod markers;
 pub(crate) mod structs;
 
 use crate::{DeriveError, DeriveResult};
-use crate::gen::markers::*;
+use crate::generator::markers::*;
 use proc_macro2::{
     Ident as Ident2, Literal as Literal2, Span as Span2,
     TokenStream as TokenStream2

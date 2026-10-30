@@ -2,7 +2,7 @@
 #![allow(non_snake_case)]
 
 use crate::DeriveResult;
-use crate::gen::{FieldDesc, InputType, StructVariant};
+use crate::generator::{FieldDesc, InputType, StructVariant};
 use proc_macro2::{Ident as Ident2, TokenStream as TokenStream2};
 use quote::{format_ident, quote};
 use syn::*;

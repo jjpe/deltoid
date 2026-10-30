@@ -1,10 +1,10 @@
 extern crate proc_macro;
 
 #[macro_use] mod error;
-mod gen;
+mod generator;
 
 use crate::error::{DeriveError, DeriveResult};
-use crate::gen::InputType;
+use crate::generator::InputType;
 use proc_macro::TokenStream;
 use proc_macro2::{TokenStream as TokenStream2};
 #[cfg(feature = "dump-expansions--unstable")]

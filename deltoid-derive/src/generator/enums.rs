@@ -3,7 +3,7 @@
 
 
 use crate::DeriveResult;
-use crate::gen::{EnumVariant, FieldDesc, InputType, StructVariant};
+use crate::generator::{EnumVariant, FieldDesc, InputType, StructVariant};
 use proc_macro2::{Ident as Ident2, TokenStream as TokenStream2};
 use syn::*;
 use syn::punctuated::Punctuated;

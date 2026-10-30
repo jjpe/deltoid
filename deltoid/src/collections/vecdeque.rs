@@ -59,7 +59,7 @@ where T: Clone + Debug + PartialEq + Delta + IntoDelta
             (None, Some(r)) =>
                 changes.push_back(EltDelta::Add(r.clone().into_delta()?)),
             (Some(_),   None) => match changes.back_mut() {
-                Some(EltDelta::Remove { ref mut count }) => *count += 1,
+                Some(EltDelta::Remove { count }) => *count += 1,
                 _ => changes.push_back(EltDelta::Remove { count: 1 }),
             },
         }}

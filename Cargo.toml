@@ -12,8 +12,7 @@ authors = ["Joey Ezechiels <joey.ezechiels@gmail.com>"]
 description = "A library to calculate and apply deltas to structs and enums"
 repository = "https://github.com/jjpe/deltoid"
 license = "MIT OR Apache-2.0"
-edition = "2021"
-# edition = "2024" # TODO
+edition = "2024"
 rust-version = "1.97.0"
 readme = "README.md"
 
