@@ -1,7 +1,12 @@
 [package]
 name = "deltoid-quickcheck-tests"
 version.workspace = true
+authors.workspace = true
 edition.workspace = true
+description = "Quickcheck property tests for deltoid"
+repository.workspace = true
+license.workspace = true
+readme.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
