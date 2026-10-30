@@ -8,11 +8,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v7
+
     - name: Stable with rustfmt and clippy
-      uses: actions-rs/toolchain@v1
+      uses: dtolnay/rust-toolchain@master
       with:
-        profile: minimal
         toolchain: stable
         components: rustfmt, clippy
 
@@ -22,7 +22,7 @@ jobs:
 
     - name: Run tests for deltoid
       working-directory: deltoid
-      run: cargo test  --verbose
+      run: cargo test --verbose
 
     - name: Build deltoid (--features="snapshot")
       working-directory: deltoid
