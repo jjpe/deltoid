@@ -68,7 +68,7 @@ checksum = "773648b94d0e5d620f64f280777445740e61fe701025087ec8b57f45c791888b"
 
 [[package]]
 name = "deltoid"
-version = "0.13.0"
+version = "0.13.1"
 dependencies = [
  "chrono",
  "js-sys",
@@ -81,7 +81,7 @@ dependencies = [
 
 [[package]]
 name = "deltoid-derive"
-version = "0.13.0"
+version = "0.13.1"
 dependencies = [
  "deltoid",
  "proc-macro2",
@@ -94,7 +94,7 @@ dependencies = [
 
 [[package]]
 name = "deltoid-quickcheck"
-version = "0.13.0"
+version = "0.13.1"
 dependencies = [
  "deltoid",
  "deltoid-derive",

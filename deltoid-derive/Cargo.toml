@@ -18,7 +18,7 @@ syn = { version = "3.0.9", features = ["extra-traits", "parsing"] }
 serde = { workspace = true }
 serde_derive = { workspace = true }
 
-deltoid = { path = "../deltoid" }
+deltoid = { path = "../deltoid", version = "0.13.1" }
 
 [dev-dependencies]
 serde_json = { workspace = true }
