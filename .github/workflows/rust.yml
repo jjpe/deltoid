@@ -4,17 +4,16 @@ on: [push]
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v7
+    - name: Checkout code
+      uses: actions/checkout@v7
 
-    - name: Stable with rustfmt and clippy
-      uses: dtolnay/rust-toolchain@master
-      with:
-        toolchain: stable
-        components: rustfmt, clippy
+    - name: Install Rust toolchain
+      run: |
+        rustup default stable
+        rustup component add rustfmt clippy
 
     - name: Build deltoid
       working-directory: deltoid
