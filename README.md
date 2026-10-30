@@ -30,8 +30,8 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-deltoid = "0.11.1"
-deltoid-derive = "0.11.1"
+deltoid = "0.13.0"
+deltoid-derive = "0.13.0"
 ```
 
 Computing a delta, then applying it:
