@@ -14,7 +14,7 @@ pkgs.mkShell {
     cargo-msrv  # Find the Minimum Supported Rust Version for a crate
     # cargo-ndk  # Android build support for Rust
     # cargo-nextest  # A new, faster test runner for Rust.
-    # cargo-outdated  # Check for outdated dependencies
+    cargo-outdated  # Check for outdated dependencies
     # cargo-watch  # Execute commands when Rust project files change
     # cargo-workspaces  # Optimizes the workflow around cargo workspaces
     # clang
